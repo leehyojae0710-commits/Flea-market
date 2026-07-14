@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>부스 신청 - Flea-market</title>
+  <link rel="stylesheet" href="../../common/css/style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>부스 신청</h1>
+    <form id="booth-apply-form">
+      <input type="hidden" id="market-id" />
+      <input type="hidden" id="booth-number" />
+      <input type="file" id="product-image" accept="image/*" />
+      <textarea id="product-desc" placeholder="판매 물품 소개"></textarea>
+      <button type="submit" class="btn btn-primary">신청하기</button>
+    </form>
+  </div>
+
+  <script src="../../common/js/api.js"></script>
+  <script src="js/market.js"></script>
+</body>
+</html>

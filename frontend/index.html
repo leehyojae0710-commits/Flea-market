@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>플리마켓 - 지금 열리고 있는 마켓</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="common/css/style.css" />
+  <link rel="stylesheet" href="pages/A_auth-main/css/main.css" />
+</head>
+<body>
+  <div class="board">
+    <header class="nav">
+      <div class="brand"><span class="pin-dot" aria-hidden="true"></span>플리마켓</div>
+      <nav class="nav-links">
+        <a href="pages/A_auth-main/login.html" class="link-ghost">로그인</a>
+        <button id="host-cta" class="btn btn-mustard">마켓 등록하기</button>
+      </nav>
+    </header>
+
+    <section class="board-head">
+      <h1>지금 열리고 있는<br />플리마켓</h1>
+      <p class="sub">로그인 없이도 동네 곳곳의 벼룩시장을 먼저 둘러볼 수 있어요.</p>
+
+      <div class="filter-strip">
+        <label class="filter-field">
+          지역
+          <select id="region-filter">
+            <option value="">전체</option>
+          </select>
+        </label>
+        <label class="filter-field">
+          정렬
+          <select id="sort-filter">
+            <option value="deadline">마감임박순</option>
+            <option value="latest">최신등록순</option>
+          </select>
+        </label>
+        <span id="result-count" class="result-count"></span>
+      </div>
+    </section>
+
+    <section id="market-grid" class="market-grid" aria-live="polite"></section>
+    <p id="empty-state" class="empty-state" hidden>조건에 맞는 열려 있는 마켓이 없어요. 다른 지역을 선택해 보세요.</p>
+
+    <footer class="cta-banner">
+      <p>관심 있는 마켓을 놓치지 마세요. 로그인하면 개최 알림을 받아볼 수 있어요.</p>
+      <a href="pages/A_auth-main/login.html" class="btn btn-outline-board">로그인하고 알림 받기</a>
+    </footer>
+  </div>
+
+  <script src="common/js/api.js"></script>
+  <script src="pages/A_auth-main/js/main.js"></script>
+</body>
+</html>

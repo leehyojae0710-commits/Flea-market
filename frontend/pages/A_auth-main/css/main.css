@@ -1,0 +1,307 @@
+/* 첫 화면(마켓 목록) 전용 스타일 - "코르크보드에 붙은 전단지" 컨셉 */
+
+:root {
+  --board: #33261e;
+  --board-line: #402f24;
+  --paper: #fbf6ec;
+  --paper-shadow: rgba(20, 12, 6, 0.35);
+  --ink: #2a2118;
+  --ink-soft: #6b5c4c;
+  --mustard: #e8a33d;
+  --mustard-text: #4a2f09;
+  --coral: #d65f45;
+  --coral-bg: #f6e2dc;
+  --coral-text: #5b2013;
+  --sage: #7c9473;
+  --sage-bg: #e6ede2;
+  --sage-text: #2f3b29;
+}
+
+body {
+  background: var(--board);
+}
+
+.board {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px 32px 64px;
+  background-image:
+    radial-gradient(var(--board-line) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* ---------- nav ---------- */
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 20px;
+}
+
+.brand {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 22px;
+  color: var(--paper);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pin-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f3c98a, var(--mustard) 60%, #a86a1c 100%);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.4);
+  display: inline-block;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.link-ghost {
+  color: #e9dcc9;
+  text-decoration: none;
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  border-bottom: 1px solid transparent;
+}
+.link-ghost:hover {
+  border-bottom-color: #e9dcc9;
+}
+
+.btn {
+  font-family: "Inter", sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  cursor: pointer;
+}
+
+.btn-mustard {
+  background: var(--mustard);
+  color: var(--mustard-text);
+  box-shadow: 0 3px 0 #a86a1c;
+}
+.btn-mustard:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #a86a1c;
+}
+
+.btn-outline-board {
+  background: transparent;
+  color: var(--paper);
+  border: 1.5px solid #6b5c4c;
+  text-decoration: none;
+  display: inline-block;
+}
+.btn-outline-board:hover {
+  border-color: var(--mustard);
+  color: var(--mustard);
+}
+
+/* ---------- head ---------- */
+.board-head {
+  padding: 28px 0 22px;
+}
+
+.board-head h1 {
+  font-family: "Archivo Black", sans-serif;
+  font-size: 44px;
+  line-height: 1.15;
+  color: var(--paper);
+  margin: 0 0 10px;
+}
+
+.board-head .sub {
+  font-family: "Inter", sans-serif;
+  color: #cabba7;
+  font-size: 15px;
+  margin: 0 0 22px;
+}
+
+.filter-strip {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.filter-field {
+  font-family: "Inter", sans-serif;
+  font-size: 12px;
+  color: #cabba7;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filter-field select {
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--paper);
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  min-width: 140px;
+  cursor: pointer;
+}
+
+.result-count {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  color: #cabba7;
+  margin-left: auto;
+  align-self: center;
+}
+
+/* ---------- market grid ---------- */
+.market-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 34px 26px;
+  padding-top: 12px;
+}
+
+.market-card {
+  position: relative;
+  background: var(--paper);
+  border-radius: 3px;
+  padding: 18px 18px 16px;
+  box-shadow: 0 10px 18px -6px var(--paper-shadow);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  text-decoration: none;
+  display: block;
+  cursor: pointer;
+}
+.market-card:hover {
+  transform: rotate(0deg) translateY(-3px) !important;
+  box-shadow: 0 16px 24px -8px var(--paper-shadow);
+}
+.market-card:nth-child(3n+1) { transform: rotate(-1.1deg); }
+.market-card:nth-child(3n+2) { transform: rotate(0.7deg); }
+.market-card:nth-child(3n+3) { transform: rotate(-0.4deg); }
+
+.market-card .pin {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ff9c8a, var(--coral) 65%, #7c2d1a 100%);
+  box-shadow: 0 3px 4px rgba(0, 0, 0, 0.35);
+}
+
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.category-tag {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px;
+  font-weight: 500;
+  background: var(--sage-bg);
+  color: var(--sage-text);
+  padding: 3px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.dday-tag {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px;
+  font-weight: 500;
+  background: var(--coral-bg);
+  color: var(--coral-text);
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.market-card h3 {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 8px;
+  line-height: 1.3;
+}
+
+.market-meta {
+  font-family: "Inter", sans-serif;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin: 0 0 14px;
+}
+
+.card-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px dashed #d8cbb5;
+  padding-top: 12px;
+}
+
+.price-tag {
+  font-family: "IBM Plex Mono", monospace;
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.price-tag.free {
+  color: var(--sage-text);
+}
+
+.card-arrow {
+  font-family: "Inter", sans-serif;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+/* ---------- empty / footer ---------- */
+.empty-state {
+  font-family: "Inter", sans-serif;
+  color: #cabba7;
+  text-align: center;
+  padding: 60px 0;
+}
+
+.cta-banner {
+  margin-top: 48px;
+  padding: 22px 26px;
+  background: rgba(251, 246, 236, 0.06);
+  border: 1px dashed #6b5c4c;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.cta-banner p {
+  font-family: "Inter", sans-serif;
+  color: #e9dcc9;
+  font-size: 14px;
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .board { padding: 20px 16px 48px; }
+  .board-head h1 { font-size: 32px; }
+  .nav-links { gap: 10px; }
+}

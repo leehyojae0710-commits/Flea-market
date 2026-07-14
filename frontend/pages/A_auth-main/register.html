@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>회원가입 - Flea-market</title>
+  <link rel="stylesheet" href="../../common/css/style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>회원가입</h1>
+
+    <div id="role-select">
+      <button class="btn" data-role="host">주최측으로 가입</button>
+      <button class="btn" data-role="seller">판매자로 가입</button>
+    </div>
+
+    <form id="register-form" style="display:none;">
+      <input type="hidden" id="selected-role" />
+      <input type="email" id="email" placeholder="이메일" required />
+      <input type="password" id="password" placeholder="비밀번호" required />
+      <input type="text" id="phone" placeholder="전화번호" required />
+      <input type="text" id="region" placeholder="거주 지역 (시/군/구)" required />
+      <button type="submit" class="btn btn-primary">가입하기</button>
+    </form>
+  </div>
+
+  <script src="../../common/js/api.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>마켓 상세 - Flea-market</title>
+  <link rel="stylesheet" href="../../common/css/style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1 id="market-title">마켓 상세</h1>
+    <p id="market-info"></p>
+
+    <!-- 드래그앤드롭 대신 텍스트 버튼으로 부스 선택 (3주 완성 하향안) -->
+    <div id="booth-select">
+      <button class="btn" data-booth="1">1번 부스</button>
+      <button class="btn" data-booth="2">2번 부스</button>
+      <button class="btn" data-booth="3">3번 부스</button>
+    </div>
+
+    <h2>신청자 목록 (주최측 전용)</h2>
+    <div id="application-list"></div>
+
+    <h2>댓글</h2>
+    <div id="comment-list"></div>
+    <form id="comment-form">
+      <input type="text" id="comment-content" placeholder="문의할 내용을 입력하세요" />
+      <button type="submit" class="btn">등록</button>
+    </form>
+  </div>
+
+  <script src="../../common/js/api.js"></script>
+  <script src="js/market.js"></script>
+</body>
+</html>

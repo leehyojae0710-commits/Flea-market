@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>마켓 등록 - Flea-market</title>
+  <link rel="stylesheet" href="../../common/css/style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>플리마켓 공고 등록</h1>
+    <form id="market-create-form">
+      <input type="text" id="title" placeholder="마켓 이름" required />
+      <input type="date" id="event-date" required />
+      <input type="number" id="booth-price" placeholder="부스료" required />
+      <textarea id="description" placeholder="상세 설명"></textarea>
+
+      <div id="map-search">
+        <input type="text" id="address-input" placeholder="주소 검색" />
+        <button type="button" id="address-search-btn" class="btn">검색</button>
+        <div id="map-container" style="width:100%;height:240px;background:#eee;"></div>
+      </div>
+
+      <button type="submit" class="btn btn-primary">등록하기</button>
+    </form>
+  </div>
+
+  <script src="../../common/js/api.js"></script>
+  <script type="module" src="../../../integration/map.js"></script>
+  <script src="js/market.js"></script>
+</body>
+</html>
