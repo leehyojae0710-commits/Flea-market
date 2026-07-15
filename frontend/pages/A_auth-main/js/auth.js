@@ -38,11 +38,9 @@ if (loginForm) {
           localStorage.setItem('token', result.data.token);
           localStorage.setItem('loggedInUser', JSON.stringify(result.data.user));
 
-          if (result.data.user.userType === 0) {
-            window.location.href = '../B_host-seller/market-create.html';
-          } else {
-            window.location.href = '../B_host-seller/market-detail.html';
-          }
+          // 로그인 직후엔 특정 마켓이 정해져 있지 않으므로
+          // 역할과 무관하게 마켓 목록(메인 화면)으로 이동합니다.
+          window.location.href = '../../index.html';
         }
       } else {
         showAlert(result.message || '로그인 실패: 아이디 혹은 비밀번호를 확인하세요.');
