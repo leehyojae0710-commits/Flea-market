@@ -1,4 +1,4 @@
-// backend/routes/authRoutes.js
+﻿// backend/routes/authRoutes.js
 import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
@@ -151,7 +151,22 @@ router.post('/login', async (req, res) => {
   }
 });
 
-<<<<<<< HEAD
+/**
+ * @swagger
+ * /auth/logout:
+ *   post:
+ *     summary: 로그아웃
+ *     tags: [Auth]
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: 로그아웃 처리됨 (클라이언트에서 토큰 삭제)
+ */
+// 3. 로그아웃 (JWT는 서버가 따로 세션을 안 갖고 있으니, 클라이언트가 토큰 삭제하면 됨. 서버는 형식만 응답)
+router.post('/logout', (req, res) => {
+  return res.status(200).json({ success: true, data: null, message: '로그아웃되었습니다.' });
+});
+
 /**
  * @swagger
  * /auth/toggle-role:
@@ -191,11 +206,3 @@ router.patch('/toggle-role', authenticateToken, async (req, res) => {
 });
 
 export default router;
-=======
-// 3. 로그아웃 (JWT는 서버가 따로 저장 안 하니, 클라이언트가 토큰 삭제하면 끝. 서버는 형식상 응답만)
-router.post('/logout', (req, res) => {
-  return res.status(200).json({ success: true, data: null, message: '로그아웃 되었습니다.' });
-});
-
-export default router;
->>>>>>> origin/feat/이효재
