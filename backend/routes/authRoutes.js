@@ -18,7 +18,6 @@ function publicUser(row) {
   };
 }
 
-<<<<<<< HEAD
 /**
  * @swagger
  * tags:
@@ -55,9 +54,6 @@ function publicUser(row) {
  *         description: 이미 가입된 이메일
  */
 // 1. 회원가입 API
-=======
-// 1. 회원가입
->>>>>>> 46b479ceaa6ada870686b3b44dc9f329eadd19a2
 router.post('/register', async (req, res) => {
   const { userType, email, password, phone, region } = req.body;
 
@@ -94,7 +90,6 @@ router.post('/register', async (req, res) => {
   }
 });
 
-<<<<<<< HEAD
 /**
  * @swagger
  * /auth/login:
@@ -121,9 +116,6 @@ router.post('/register', async (req, res) => {
  *         description: 이메일 또는 비밀번호 불일치
  */
 // 2. 로그인 API (이메일 + 비밀번호)
-=======
-// 2. 로그인
->>>>>>> 46b479ceaa6ada870686b3b44dc9f329eadd19a2
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
