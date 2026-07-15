@@ -1,0 +1,377 @@
+/* 주최측/판매자 화면 전용 스타일 - 첫 화면/인증 화면과 동일한 "코르크보드 전단지" 컨셉 */
+
+:root {
+  --board: #33261e;
+  --board-line: #402f24;
+  --paper: #fbf6ec;
+  --paper-shadow: rgba(20, 12, 6, 0.35);
+  --ink: #2a2118;
+  --ink-soft: #6b5c4c;
+  --mustard: #e8a33d;
+  --mustard-text: #4a2f09;
+  --coral: #d65f45;
+  --coral-bg: #f6e2dc;
+  --coral-text: #5b2013;
+  --sage: #7c9473;
+  --sage-bg: #e6ede2;
+  --sage-text: #2f3b29;
+}
+
+body {
+  background: var(--board);
+  background-image: radial-gradient(var(--board-line) 1px, transparent 1px);
+  background-size: 22px 22px;
+  min-height: 100vh;
+}
+
+.page-wrap {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 28px 24px 64px;
+}
+
+/* ---------- nav ---------- */
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 22px;
+}
+
+.brand {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--paper);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pin-dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f3c98a, var(--mustard) 60%, #a86a1c 100%);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.4);
+  display: inline-block;
+}
+
+.link-ghost {
+  color: #e9dcc9;
+  text-decoration: none;
+  font-family: "Inter", sans-serif;
+  font-size: 13.5px;
+  font-weight: 500;
+  border-bottom: 1px solid transparent;
+}
+.link-ghost:hover {
+  border-bottom-color: #e9dcc9;
+}
+
+/* ---------- panel (전단지 카드) ---------- */
+.panel {
+  position: relative;
+  background: var(--paper);
+  border-radius: 4px;
+  padding: 30px 28px 28px;
+  box-shadow: 0 14px 26px -8px var(--paper-shadow);
+  margin-bottom: 26px;
+}
+
+.panel .pin {
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ff9c8a, var(--coral) 65%, #7c2d1a 100%);
+  box-shadow: 0 3px 4px rgba(0, 0, 0, 0.35);
+}
+
+.panel h1 {
+  font-family: "Archivo Black", sans-serif;
+  font-size: 24px;
+  color: var(--ink);
+  margin: 0 0 6px;
+}
+
+.panel h2 {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 14px;
+}
+
+.panel-sub {
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin: 0 0 22px;
+}
+
+/* ---------- form fields (인증 화면과 동일 톤) ---------- */
+.form-field {
+  margin-bottom: 14px;
+}
+
+.form-field label {
+  display: block;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 6px;
+}
+
+.form-input,
+.form-textarea {
+  width: 100%;
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  color: var(--ink);
+  background: #fff;
+  border: 1.5px solid #e2d7c3;
+  border-radius: 7px;
+  padding: 11px 13px;
+  transition: border-color 0.15s ease;
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 90px;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: var(--mustard);
+}
+
+.form-input::placeholder,
+.form-textarea::placeholder {
+  color: #b6a894;
+}
+
+.form-hint {
+  font-family: "Inter", sans-serif;
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  margin-top: 5px;
+}
+
+/* ---------- buttons ---------- */
+.btn {
+  font-family: "Inter", sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  border: none;
+  border-radius: 8px;
+  padding: 11px 18px;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, opacity 0.15s ease;
+}
+
+.btn-primary {
+  background: var(--mustard);
+  color: var(--mustard-text);
+  box-shadow: 0 3px 0 #a86a1c;
+}
+.btn-primary:active { transform: translateY(2px); box-shadow: 0 1px 0 #a86a1c; }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+.btn-block { width: 100%; margin-top: 6px; }
+
+.btn-outline {
+  background: transparent;
+  color: var(--ink);
+  border: 1.5px solid #d8cbb5;
+}
+.btn-outline:hover { border-color: var(--mustard); color: var(--mustard-text); }
+
+.btn-sage {
+  background: var(--sage-bg);
+  color: var(--sage-text);
+}
+.btn-sage:hover { background: var(--sage); color: #fff; }
+
+.btn-danger {
+  background: var(--coral-bg);
+  color: var(--coral-text);
+}
+.btn-danger:hover { background: var(--coral); color: #fff; }
+
+.btn-sm {
+  padding: 7px 12px;
+  font-size: 12.5px;
+}
+
+/* ---------- address search / map ---------- */
+.address-row {
+  display: flex;
+  gap: 8px;
+}
+.address-row .form-input { flex: 1; }
+
+#map-container {
+  width: 100%;
+  height: 220px;
+  background: #efe6d5;
+  border: 1.5px dashed #d8cbb5;
+  border-radius: 8px;
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  color: var(--ink-soft);
+  text-align: center;
+  padding: 10px;
+}
+
+/* ---------- booth grid (부스 선택) ---------- */
+.booth-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 10px;
+}
+
+.booth-btn {
+  background: #fff;
+  border: 1.5px solid #e2d7c3;
+  border-radius: 8px;
+  padding: 16px 8px;
+  text-align: center;
+  cursor: pointer;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
+}
+.booth-btn:hover { border-color: var(--mustard); color: var(--mustard-text); }
+
+/* ---------- list items (applications / comments) ---------- */
+.list-empty {
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  color: var(--ink-soft);
+  padding: 14px 0;
+}
+
+.item-card {
+  background: #fff;
+  border: 1.5px solid #ece1cd;
+  border-radius: 9px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+
+.item-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.item-card-title {
+  font-family: "Inter", sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.item-card-meta {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+.status-tag {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.status-tag.pending { background: var(--coral-bg); color: var(--coral-text); }
+.status-tag.approved { background: var(--sage-bg); color: var(--sage-text); }
+.status-tag.rejected { background: #ece1cd; color: var(--ink-soft); }
+
+.item-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.comment-item {
+  padding: 10px 0;
+  border-bottom: 1px dashed #ece1cd;
+  font-family: "Inter", sans-serif;
+  font-size: 13.5px;
+  color: var(--ink);
+}
+.comment-item:last-child { border-bottom: none; }
+
+.section-divider {
+  border: none;
+  border-top: 1px dashed #d8cbb5;
+  margin: 22px 0 18px;
+}
+
+/* ---------- alerts ---------- */
+.alert {
+  display: none;
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  border-radius: 7px;
+  padding: 11px 13px;
+  margin-bottom: 16px;
+}
+.alert.show { display: block; }
+.alert-error { background: var(--coral-bg); color: var(--coral-text); }
+.alert-success { background: var(--sage-bg); color: var(--sage-text); }
+
+/* ---------- payment card ---------- */
+.payment-card {
+  background: #fff;
+  border: 1.5px dashed #d8cbb5;
+  border-radius: 10px;
+  padding: 20px;
+  text-align: center;
+  margin-bottom: 18px;
+}
+.payment-card .amount {
+  font-family: "Archivo Black", sans-serif;
+  font-size: 32px;
+  color: var(--ink);
+  margin: 10px 0;
+}
+.payment-card .account {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.back-link {
+  display: block;
+  text-align: center;
+  margin-top: 6px;
+  font-family: "Inter", sans-serif;
+  font-size: 12.5px;
+  color: #cabba7;
+  text-decoration: none;
+}
+.back-link:hover { color: var(--paper); }
+
+@media (max-width: 480px) {
+  .panel { padding: 24px 18px 22px; }
+}
