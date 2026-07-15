@@ -2,9 +2,9 @@
 import mysql from 'mysql2/promise';
 
 const dbConfig = {
-  host: 'localhost',
-  user: 'root',
-  password: '1234', // 📌 본인 MySQL 비밀번호로 유지하세요!
+  host: '192.168.0.228',   // MySQL 서버가 설치된 PC의 IP
+  user: 'team',
+  password: '2222',
   database: 'flea_market_db',
   port: 3306
 };
