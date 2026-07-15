@@ -42,6 +42,11 @@ if (profileForm) {
     const phone = phoneInput?.value.trim();
     const region = regionInput?.value.trim();
 
+    if (phone && !isValidPhone(phone)) {
+      showAlert('전화번호는 010-0000-0000 형식으로 입력해주세요.');
+      return;
+    }
+
     // 값이 비어있지 않은 항목만 전송 (부분 수정 PATCH)
     const body = {};
     if (phone) body.phone = phone;

@@ -114,6 +114,14 @@ if (registerForm) {
       showAlert('모든 항목을 입력해주세요.');
       return;
     }
+    if (!isValidEmail(email)) {
+      showAlert('이메일 형식이 올바르지 않아요. 예) you@example.com');
+      return;
+    }
+    if (!isValidPhone(phone)) {
+      showAlert('전화번호는 010-0000-0000 형식으로 입력해주세요.');
+      return;
+    }
     if (password.length < 8) {
       showAlert('비밀번호는 8자 이상이어야 합니다.');
       return;
