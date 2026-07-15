@@ -1,15 +1,26 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>마켓 등록 - 플리마켓</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap"
+    rel="stylesheet" />
   <link rel="stylesheet" href="../../common/css/style.css" />
   <link rel="stylesheet" href="css/host-seller.css" />
+
+  <script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=19f0092b5cdea100b70fdb607cc3ddd0&libraries=services"></script>
+  <script src="js/marketmap.js"></script>
+  <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+  <script src="js/market.js"></script>
+  <script src="../../common/js/api.js"></script>
+  <script type="module" src="js/map-integration.js"></script>
 </head>
+
 <body>
   <div class="page-wrap">
     <header class="nav">
@@ -48,15 +59,31 @@
 
         <div class="form-field" id="map-search">
           <label for="address-input">개최 장소 주소</label>
-          <div class="address-row">
-            <input type="text" id="address-input" class="form-input" placeholder="주소를 입력하고 검색해주세요" />
-            <button type="button" id="address-search-btn" class="btn btn-outline">검색</button>
+          <div class="form-field">
+            <!-- <input type="text" id="address-input" class="form-input" placeholder="주소를 입력하고 검색해주세요" /> -->
+            <form>
+              <!-- 우편번호 -->
+              <input type="text" class="form-input" id="postcode" placeholder="우편번호" readonly>
+
+              <!-- 기본주소 -->
+              <input type="text" class="form-input" id="address" placeholder="주소" readonly>
+
+              <!-- 상세주소 -->
+              <input type="text" class="form-input" id="detailAddress" placeholder="상세주소">
+              <br><br>
+              <button type="button" class="form-input" onclick="execDaumPostcode()">우편번호 찾기</button>
+            </form>
+            <!-- <button type="button" id="address-search-btn" class="btn btn-outline">검색</button> -->
           </div>
           <input type="hidden" id="latitude" />
           <input type="hidden" id="longitude" />
-          <div id="map-container">주소를 검색하면 지도에 위치가 표시됩니다.</div>
+          <input type="hidden" id="fullAddress" name="fullAddress" />
+          <!-- <div id="map-container">주소를 검색하면 지도에 위치가 표시됩니다.</div> -->
+          <div id="map-container"
+            style="width:100%; max-width:800px; height:300px; border:1px solid #ccc; display:flex; align-items:center; justify-content:center; color:#666; font-size:14px;">
+            주소를 검색하면 지도에 위치가 표시됩니다.
+          </div>
         </div>
-
         <button type="submit" id="market-create-submit-btn" class="btn btn-primary btn-block">등록하기</button>
       </form>
     </div>
@@ -64,8 +91,6 @@
     <a href="../../index.html" class="back-link">← 마켓 목록으로</a>
   </div>
 
-  <script src="../../common/js/api.js"></script>
-  <script type="module" src="js/map-integration.js"></script>
-  <script src="js/market.js"></script>
 </body>
+
 </html>
