@@ -4,9 +4,13 @@
 const API_BASE_URL = 'http://localhost:5000/api';
 
 async function callApi(path, { method = 'GET', body = null } = {}) {
+  const token = localStorage.getItem('token');
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: body ? JSON.stringify(body) : undefined,
   });
   const json = await res.json();

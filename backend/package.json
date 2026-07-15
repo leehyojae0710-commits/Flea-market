@@ -15,8 +15,12 @@
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
     "mysql2": "^3.23.0",
+<<<<<<< HEAD
     "qrcode": "^1.5.4",
     "swagger-jsdoc": "^6.2.8",
+=======
+    "swagger-jsdoc": "^6.3.0",
+>>>>>>> origin/feat/이효재
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {

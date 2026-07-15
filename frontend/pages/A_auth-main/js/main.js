@@ -117,6 +117,28 @@ async function handleFilterChange() {
   renderMarketList(markets);
 }
 
+function syncAuthNavVisibility() {
+  const loginLink = document.getElementById("nav-login-link");
+  const mypageLink = document.getElementById("nav-mypage-link");
+  const logoutBtn = document.getElementById("nav-logout-btn");
+  if (!loginLink || !mypageLink || !logoutBtn) return;
+
+  const isLoggedIn = !!localStorage.getItem("loggedInUser");
+  loginLink.hidden = isLoggedIn;
+  mypageLink.hidden = !isLoggedIn;
+  logoutBtn.hidden = !isLoggedIn;
+}
+
+function initAuthNav() {
+  syncAuthNavVisibility();
+  const logoutBtn = document.getElementById("nav-logout-btn");
+  logoutBtn?.addEventListener("click", () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("loggedInUser");
+    syncAuthNavVisibility();
+  });
+}
+
 function handleHostCtaClick() {
   const btn = document.getElementById("host-cta");
   if (!btn) return;
@@ -131,6 +153,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   populateRegionOptions(MOCK_MARKETS);
   document.getElementById("region-filter")?.addEventListener("change", handleFilterChange);
   document.getElementById("sort-filter")?.addEventListener("change", handleFilterChange);
+  initAuthNav();
   handleHostCtaClick();
   await handleFilterChange();
 });

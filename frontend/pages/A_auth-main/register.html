@@ -53,7 +53,7 @@
         </div>
         <div class="form-field">
           <label for="phone">전화번호</label>
-          <input type="text" id="phone" class="form-input" placeholder="010-1234-5678" autocomplete="tel" required />
+          <input type="text" id="phone" class="form-input" placeholder="010-1234-5678" autocomplete="tel" pattern="01[0-9]-[0-9]{3,4}-[0-9]{4}" title="010-0000-0000 형식으로 입력해주세요" required />
         </div>
         <div class="form-field">
           <label for="region">거주 지역</label>
@@ -69,6 +69,7 @@
   </div>
 
   <script src="../../common/js/api.js"></script>
+  <script src="../../common/js/validators.js"></script>
   <script src="js/auth.js"></script>
 </body>
 </html>
