@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import pool from '../config/db.js';
+import { authenticateToken } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'flea-market-dev-secret-change-me';
@@ -150,6 +151,44 @@ router.post('/login', async (req, res) => {
   } catch (error) {
     console.error('로그인 오류:', error.message);
     return res.status(500).json({ success: false, message: '서버 오류로 로그인에 실패했습니다.' });
+  }
+});
+
+/**
+ * @swagger
+ * /auth/toggle-role:
+ *   patch:
+ *     summary: 판매자 <-> 주최자 역할 전환
+ *     tags: [Auth]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: 역할 전환 성공
+ *       401:
+ *         description: 인증 필요
+ *       404:
+ *         description: 사용자를 찾을 수 없음
+ */
+router.patch('/toggle-role', authenticateToken, async (req, res) => {
+  const { userId } = req.user;
+
+  try {
+    const [rows] = await pool.query('SELECT activeRole FROM users WHERE userId = ?', [userId]);
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, data: null, message: '사용자를 찾을 수 없습니다.' });
+    }
+
+    const nextRole = rows[0].activeRole === 'host' ? 'seller' : 'host';
+    await pool.query('UPDATE users SET activeRole = ? WHERE userId = ?', [nextRole, userId]);
+
+    return res.status(200).json({
+      success: true,
+      data: { activeRole: nextRole },
+      message: `${nextRole === 'host' ? '주최자' : '판매자'} 모드로 전환했습니다.`,
+    });
+  } catch (error) {
+    console.error('역할 전환 오류:', error.message);
+    return res.status(500).json({ success: false, data: null, message: '서버 오류로 역할 전환에 실패했습니다.' });
   }
 });
 
