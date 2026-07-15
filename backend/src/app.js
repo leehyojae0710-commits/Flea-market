@@ -1,35 +1,34 @@
-// 백엔드 진입점 - 라우터를 여기서 하나로 모읍니다.
-// 담당자별 라우트 파일을 만들면 여기서 app.use(...)로 등록만 해주면 됩니다.
-
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
+require('dotenv').config(); // .env 파일 설정 활성화
 
-const authRoutes = require('./routes/auth.routes');
-const marketRoutes = require('./routes/market.routes');
-const applicationRoutes = require('./routes/application.routes');
-const paymentRoutes = require('./routes/payment.routes');
-const commentRoutes = require('./routes/comment.routes');
-const scheduleRoutes = require('./routes/schedule.routes');
+const authRoutes = require('./routes/authRoutes');
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+const PORT = process.env.PORT || 5000;
 
-// 응답 형식 통일: { success, data, message }
-app.use('/api/auth', authRoutes);        // 담당 C
-app.use('/api/users', authRoutes);       // 담당 C (회원정보 수정/탈퇴)
-app.use('/api/markets', marketRoutes);   // 담당 C(조회) / D(등록, 신청목록)
-app.use('/api/applications', applicationRoutes); // 담당 D
-app.use('/api/payments', paymentRoutes); // 담당 D
-app.use('/api/comments', commentRoutes); // 담당 D
-app.use('/api/schedules', scheduleRoutes); // 담당 D
+// 1. 미들웨어 설정
+app.use(cors()); // 프론트엔드 포트가 달라도 통신이 가능하도록 CORS 허용
+app.use(express.json()); // JSON 형식의 request body 해석 활성화
+app.use(express.urlencoded({ extended: true }));
 
-app.get('/', (req, res) => {
-  res.json({ success: true, message: 'Flea-market API 서버 동작 중' });
+// 2. API 라우터 등록
+// 모든 회원/인증 관련 API 주소는 /api/auth로 시작하게 설정됩니다.
+app.use('/api/auth', authRoutes);
+
+// 3. 기본 상태 점검용 라우터 (서버 정상 작동 확인)
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'OK', message: '플리마켓 백엔드 서버가 살아있습니다.' });
 });
 
-const PORT = process.env.PORT || 4000;
+// 4. 에러 핸들러 미들웨어 (존재하지 않는 페이지 처리)
+app.use((req, res, next) => {
+  res.status(404).json({ success: false, message: '존재하지 않는 API 경로입니다.' });
+});
+
+// 5. 서버 포트 리스닝 시작
 app.listen(PORT, () => {
-  console.log(`서버 실행 중: http://localhost:${PORT}`);
+  console.log(`🚀 서버 구동 완료: http://localhost:${PORT}`);
 });
+
+module.exports = app;
