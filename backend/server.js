@@ -2,8 +2,10 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import swaggerUi from 'swagger-ui-express';
 import authRoutes from './routes/authRoutes.js';
 import pool from './config/db.js'; // DB 데이터를 가져오기 위해 연결 풀을 불러옵니다.
+import swaggerSpec from './config/swagger.js';
 
 dotenv.config();
 
@@ -13,6 +15,7 @@ const PORT = process.env.PORT || 5000;
 app.use(cors()); // 프론트(5500 등 다른 포트)에서 오는 요청 허용
 app.use(express.json());
 app.use('/api/auth', authRoutes);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec)); // http://localhost:5000/api-docs
 
 // 🌐 http://localhost:5000 접속 시 DB 데이터를 HTML 표로 보여주는 라우터
 app.get('/', async (req, res) => {

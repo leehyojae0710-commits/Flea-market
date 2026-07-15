@@ -21,6 +21,41 @@ function publicUser(row) {
   };
 }
 
+/**
+ * @swagger
+ * tags:
+ *   name: Auth
+ *   description: 회원가입 / 로그인
+ */
+
+/**
+ * @swagger
+ * /auth/register:
+ *   post:
+ *     summary: 회원가입
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [userType, email, password, phone, region]
+ *             properties:
+ *               userType: { type: integer, description: "0: 판매자, 1: 주최자", example: 0 }
+ *               email: { type: string, example: "seller01@example.com" }
+ *               password: { type: string, example: "password123!" }
+ *               phone: { type: string, example: "010-1234-5678" }
+ *               region: { type: string, example: "서울시 강남구" }
+ *     responses:
+ *       201:
+ *         description: 회원가입 성공 (토큰 발급)
+ *       400:
+ *         description: 필수 항목 누락
+ *       409:
+ *         description: 이미 가입된 이메일
+ */
 // 1. 회원가입 API
 router.post('/register', async (req, res) => {
   const { userType, email, password, phone, region } = req.body;
@@ -58,6 +93,31 @@ router.post('/register', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /auth/login:
+ *   post:
+ *     summary: 로그인
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email: { type: string, example: "seller01@example.com" }
+ *               password: { type: string, example: "password123!" }
+ *     responses:
+ *       200:
+ *         description: 로그인 성공 (토큰 발급)
+ *       400:
+ *         description: 이메일/비밀번호 누락
+ *       401:
+ *         description: 이메일 또는 비밀번호 불일치
+ */
 // 2. 로그인 API (이메일 + 비밀번호)
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
