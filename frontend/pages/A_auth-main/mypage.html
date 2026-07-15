@@ -2,26 +2,65 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>마이페이지 - Flea-market</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>마이페이지 - 플리마켓</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../../common/css/style.css" />
+  <link rel="stylesheet" href="css/auth.css" />
 </head>
 <body>
-  <div class="container">
-    <h1>마이페이지</h1>
+  <div class="auth-wrap">
+    <a href="../../index.html" class="auth-brand">
+      <span class="pin-dot" aria-hidden="true"></span>플리마켓
+    </a>
 
-    <label class="switch">
-      <input type="checkbox" id="role-toggle" />
-      주최자 모드 / 셀러 모드 전환
-    </label>
+    <div class="auth-card">
+      <span class="pin" aria-hidden="true"></span>
+      <h1>마이페이지</h1>
+      <p class="auth-sub">내 정보를 관리하고 역할을 전환할 수 있어요.</p>
 
-    <form id="profile-form">
-      <input type="text" id="phone" placeholder="전화번호" />
-      <input type="text" id="region" placeholder="거주 지역" />
-      <input type="password" id="password" placeholder="새 비밀번호" />
-      <button type="submit" class="btn btn-primary">정보 수정</button>
-    </form>
+      <div id="alert-box" class="alert alert-error" role="alert"></div>
 
-    <button id="delete-account-btn" class="btn">회원 탈퇴</button>
+      <div class="role-switch-row">
+        <div>
+          <div class="rs-label">역할 전환</div>
+          <div class="rs-caption" id="role-mode-caption">주최자 모드 / 셀러 모드</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="role-toggle" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="section-title">내 정보 수정</div>
+      <form id="profile-form" novalidate>
+        <div class="form-field">
+          <label for="phone">전화번호</label>
+          <input type="text" id="phone" class="form-input" placeholder="010-1234-5678" autocomplete="tel" />
+        </div>
+        <div class="form-field">
+          <label for="region">거주 지역</label>
+          <input type="text" id="region" class="form-input" placeholder="예: 서울 마포구" />
+        </div>
+        <div class="form-field">
+          <label for="password">새 비밀번호</label>
+          <input type="password" id="password" class="form-input" placeholder="변경할 경우에만 입력하세요" autocomplete="new-password" minlength="8" />
+        </div>
+        <button type="submit" id="profile-submit-btn" class="btn btn-primary btn-block">정보 수정</button>
+      </form>
+
+      <hr class="section-divider" />
+
+      <div class="section-title">계정 관리</div>
+      <div class="mypage-actions">
+        <button type="button" id="logout-btn" class="btn btn-outline">로그아웃</button>
+        <button type="button" id="delete-account-btn" class="btn btn-danger">회원 탈퇴</button>
+      </div>
+    </div>
+
+    <a href="../../index.html" class="back-home">← 마켓 목록으로</a>
   </div>
 
   <script src="../../common/js/api.js"></script>
