@@ -2,30 +2,70 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>마켓 등록 - Flea-market</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>마켓 등록 - 플리마켓</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../../common/css/style.css" />
+  <link rel="stylesheet" href="css/host-seller.css" />
 </head>
 <body>
-  <div class="container">
-    <h1>플리마켓 공고 등록</h1>
-    <form id="market-create-form">
-      <input type="text" id="title" placeholder="마켓 이름" required />
-      <input type="date" id="event-date" required />
-      <input type="number" id="booth-price" placeholder="부스료" required />
-      <textarea id="description" placeholder="상세 설명"></textarea>
+  <div class="page-wrap">
+    <header class="nav">
+      <a href="../../index.html" class="brand"><span class="pin-dot" aria-hidden="true"></span>플리마켓</a>
+      <a href="../A_auth-main/mypage.html" class="link-ghost">마이페이지</a>
+    </header>
 
-      <div id="map-search">
-        <input type="text" id="address-input" placeholder="주소 검색" />
-        <button type="button" id="address-search-btn" class="btn">검색</button>
-        <div id="map-container" style="width:100%;height:240px;background:#eee;"></div>
-      </div>
+    <div class="panel">
+      <span class="pin" aria-hidden="true"></span>
+      <h1>플리마켓 공고 등록</h1>
+      <p class="panel-sub">동네 사람들에게 마켓을 알려보세요.</p>
 
-      <button type="submit" class="btn btn-primary">등록하기</button>
-    </form>
+      <div id="alert-box" class="alert alert-error" role="alert"></div>
+
+      <form id="market-create-form" novalidate>
+        <div class="form-field">
+          <label for="title">마켓 이름</label>
+          <input type="text" id="title" class="form-input" placeholder="예: 연남동 주말 플리마켓" required />
+        </div>
+
+        <div class="form-field">
+          <label for="event-date">개최 일자</label>
+          <input type="date" id="event-date" class="form-input" required />
+        </div>
+
+        <div class="form-field">
+          <label for="booth-price">부스료 (원)</label>
+          <input type="number" id="booth-price" class="form-input" placeholder="0" min="0" required />
+          <p class="form-hint">참가비가 없다면 0을 입력해주세요.</p>
+        </div>
+
+        <div class="form-field">
+          <label for="description">상세 설명</label>
+          <textarea id="description" class="form-textarea" placeholder="마켓 소개, 운영 시간, 유의사항 등을 적어주세요."></textarea>
+        </div>
+
+        <div class="form-field" id="map-search">
+          <label for="address-input">개최 장소 주소</label>
+          <div class="address-row">
+            <input type="text" id="address-input" class="form-input" placeholder="주소를 입력하고 검색해주세요" />
+            <button type="button" id="address-search-btn" class="btn btn-outline">검색</button>
+          </div>
+          <input type="hidden" id="latitude" />
+          <input type="hidden" id="longitude" />
+          <div id="map-container">주소를 검색하면 지도에 위치가 표시됩니다.</div>
+        </div>
+
+        <button type="submit" id="market-create-submit-btn" class="btn btn-primary btn-block">등록하기</button>
+      </form>
+    </div>
+
+    <a href="../../index.html" class="back-link">← 마켓 목록으로</a>
   </div>
 
   <script src="../../common/js/api.js"></script>
-  <script type="module" src="../../../integration/map.js"></script>
+  <script type="module" src="js/map-integration.js"></script>
   <script src="js/market.js"></script>
 </body>
 </html>
