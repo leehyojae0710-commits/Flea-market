@@ -7,7 +7,6 @@ async function callApi(path, { method = 'GET', body = null } = {}) {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method,
     headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
     body: body ? JSON.stringify(body) : undefined,
   });
   const json = await res.json();
