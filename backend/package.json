@@ -2,10 +2,11 @@
   "name": "flea-market-backend",
   "version": "0.1.0",
   "description": "Flea-market 백엔드 (Express + MySQL 가정)",
-  "main": "src/app.js",
+  "main": "server.js",
+  "type": "module",
   "scripts": {
-    "dev": "nodemon src/app.js",
-    "start": "node src/app.js"
+    "dev": "nodemon server.js",
+    "start": "node server.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
