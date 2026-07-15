@@ -19,8 +19,7 @@ if (loginForm) {
     const passwordInput = document.getElementById('password');
     if (!emailInput || !passwordInput) return;
 
-    // 로그인 창의 '이메일 값'을 백엔드의 userId로 전송
-    const userId = emailInput.value.trim();
+    const email = emailInput.value.trim();
     const password = passwordInput.value;
 
     const submitBtn = document.getElementById('login-submit-btn');
@@ -29,7 +28,7 @@ if (loginForm) {
     try {
       const result = await callApi('/auth/login', {
         method: 'POST',
-        body: { userId, password },
+        body: { email, password },
       });
 
       if (result.success) {
