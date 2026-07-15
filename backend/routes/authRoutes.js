@@ -1,6 +1,5 @@
 // backend/routes/authRoutes.js
 import express from 'express';
-import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import pool from '../config/db.js';
@@ -10,8 +9,6 @@ const JWT_SECRET = process.env.JWT_SECRET || 'flea-market-dev-secret-change-me';
 const SALT_ROUNDS = 10;
 
 function publicUser(row) {
-  // 비밀번호 해시는 프론트로 내려주지 않음.
-  // userId는 화면에 노출하지 않는 내부 식별자지만, 마켓 등록 등 다른 API 호출에 필요해서 데이터에는 포함함.
   return {
     userId: row.userId,
     userType: row.userType,
@@ -21,7 +18,7 @@ function publicUser(row) {
   };
 }
 
-// 1. 회원가입 API
+// 1. 회원가입
 router.post('/register', async (req, res) => {
   const { userType, email, password, phone, region } = req.body;
 
@@ -37,6 +34,7 @@ router.post('/register', async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
+    // userId는 더 이상 직접 안 만들고, DB auto_increment가 자동 발급
     const [result] = await pool.query(
       `INSERT INTO users (userType, password, phone, email, region)
        VALUES (?, ?, ?, ?, ?)`,
@@ -44,7 +42,6 @@ router.post('/register', async (req, res) => {
     );
 
     const userId = result.insertId;
-
     const token = jwt.sign({ userId, userType }, JWT_SECRET, { expiresIn: '7d' });
 
     return res.status(201).json({
@@ -58,7 +55,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// 2. 로그인 API (이메일 + 비밀번호)
+// 2. 로그인
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
@@ -91,6 +88,11 @@ router.post('/login', async (req, res) => {
     console.error('로그인 오류:', error.message);
     return res.status(500).json({ success: false, message: '서버 오류로 로그인에 실패했습니다.' });
   }
+});
+
+// 3. 로그아웃 (JWT는 서버가 따로 저장 안 하니, 클라이언트가 토큰 삭제하면 끝. 서버는 형식상 응답만)
+router.post('/logout', (req, res) => {
+  return res.status(200).json({ success: true, data: null, message: '로그아웃 되었습니다.' });
 });
 
 export default router;
