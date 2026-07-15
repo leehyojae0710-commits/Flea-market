@@ -1,292 +1,155 @@
-// 담당 A: 회원/로그인/마이페이지 프론트 로직
-// 함수명은 docs/naming-convention.md 규칙(동사 시작 + camelCase)을 따릅니다.
+// A_auth-main/js/auth.js — 로그인 / 회원가입 공통 스크립트
 
-const AUTH_SESSION_KEY = 'flea_logged_in';
-
-// ---------- API 호출 (docs/api-routes.md 계약 그대로 사용) ----------
-
-async function registerUser(payload) {
-  // payload: { role, email, password, phone, region }
-  return callApi('/auth/register', { method: 'POST', body: payload });
+function showAlert(message, type = 'error') {
+  const alertBox = document.getElementById('alert-box');
+  if (!alertBox) return;
+  alertBox.textContent = message;
+  alertBox.classList.remove('alert-error', 'alert-success');
+  alertBox.classList.add(type === 'success' ? 'alert-success' : 'alert-error', 'show');
 }
 
-async function loginUser(payload) {
-  // payload: { email, password }
-  return callApi('/auth/login', { method: 'POST', body: payload });
-}
+/* ---------------------- 로그인 ---------------------- */
+const loginForm = document.getElementById('login-form');
 
-async function logoutUser() {
-  return callApi('/auth/logout', { method: 'POST' });
-}
+if (loginForm) {
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
 
-async function updateUserProfile(payload) {
-  return callApi('/users/me', { method: 'PATCH', body: payload });
-}
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    if (!emailInput || !passwordInput) return;
 
-async function deleteUserAccount() {
-  return callApi('/users/me', { method: 'DELETE' });
-}
+    const email = emailInput.value.trim();
+    const password = passwordInput.value;
 
-async function toggleUserRole() {
-  return callApi('/auth/toggle-role', { method: 'PATCH' });
-}
+    const submitBtn = document.getElementById('login-submit-btn');
+    if (submitBtn) submitBtn.disabled = true;
 
-// ---------- 화면 피드백 유틸 ----------
+    try {
+      const result = await callApi('/auth/login', {
+        method: 'POST',
+        body: { email, password },
+      });
 
-function renderAlert(message, type = 'error') {
-  const box = document.getElementById('alert-box');
-  if (!box) return;
-  box.textContent = message;
-  box.classList.remove('alert-error', 'alert-success');
-  box.classList.add(type === 'success' ? 'alert-success' : 'alert-error', 'show');
-}
+      if (result.success) {
+        showAlert(result.message || '로그인 성공!', 'success');
 
-function hideAlert() {
-  const box = document.getElementById('alert-box');
-  if (!box) return;
-  box.classList.remove('show');
-}
+        if (result.data) {
+          localStorage.setItem('token', result.data.token);
+          localStorage.setItem('loggedInUser', JSON.stringify(result.data.user));
 
-function setButtonLoading(btn, isLoading, loadingText, defaultText) {
-  if (!btn) return;
-  btn.disabled = isLoading;
-  btn.textContent = isLoading ? loadingText : defaultText;
-}
-
-// ---------- 회원가입 ----------
-
-function handleRoleSelectClick() {
-  const roleButtons = document.querySelectorAll('#role-select .role-card');
-  if (!roleButtons.length) return;
-
-  roleButtons.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const role = btn.dataset.role;
-      document.getElementById('selected-role').value = role;
-      document.getElementById('role-select').style.display = 'none';
-
-      const banner = document.getElementById('selected-role-banner');
-      const bannerText = document.getElementById('selected-role-text');
-      if (banner && bannerText) {
-        bannerText.textContent =
-          role === 'host' ? '📋 주최측으로 가입합니다' : '🧺 판매자로 가입합니다';
-        banner.style.display = 'flex';
+          if (result.data.user.activeRole === 'host') {
+            window.location.href = '../B_host-seller/market-create.html';
+          } else {
+            window.location.href = '../B_host-seller/market-detail.html';
+          }
+        }
+      } else {
+        showAlert(result.message || '로그인 실패: 아이디 혹은 비밀번호를 확인하세요.');
       }
+    } catch (err) {
+      console.error('로그인 에러:', err);
+      showAlert('서버에 연결할 수 없습니다. 백엔드가 켜져 있는지 확인해 주세요.');
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  });
+}
 
-      document.getElementById('register-form').style.display = 'block';
-    });
+/* ---------------------- 회원가입: 역할 선택 ---------------------- */
+const roleSelect = document.getElementById('role-select');
+const registerForm = document.getElementById('register-form');
+const selectedRoleInput = document.getElementById('selected-role');
+const selectedRoleBanner = document.getElementById('selected-role-banner');
+const selectedRoleText = document.getElementById('selected-role-text');
+const changeRoleBtn = document.getElementById('change-role-btn');
+
+const ROLE_LABEL = { host: '주최측', seller: '판매자' };
+
+function selectRole(role) {
+  if (selectedRoleInput) selectedRoleInput.value = role;
+
+  document.querySelectorAll('.role-card').forEach((card) => {
+    card.classList.toggle('selected', card.dataset.role === role);
   });
 
-  const changeRoleBtn = document.getElementById('change-role-btn');
-  if (changeRoleBtn) {
-    changeRoleBtn.addEventListener('click', () => {
-      document.getElementById('selected-role').value = '';
-      document.getElementById('role-select').style.display = 'grid';
-      document.getElementById('selected-role-banner').style.display = 'none';
-      document.getElementById('register-form').style.display = 'none';
-    });
-  }
+  if (roleSelect) roleSelect.style.display = 'none';
+  if (selectedRoleBanner) selectedRoleBanner.style.display = 'flex';
+  if (selectedRoleText) selectedRoleText.textContent = `${ROLE_LABEL[role] || role}(으)로 가입합니다`;
+  if (registerForm) registerForm.style.display = 'block';
 }
 
-function handleRegisterSubmit() {
-  const form = document.getElementById('register-form');
-  if (!form) return;
-  const submitBtn = document.getElementById('register-submit-btn');
+function resetRoleSelection() {
+  if (selectedRoleInput) selectedRoleInput.value = '';
+  document.querySelectorAll('.role-card').forEach((card) => card.classList.remove('selected'));
+  if (roleSelect) roleSelect.style.display = 'grid';
+  if (selectedRoleBanner) selectedRoleBanner.style.display = 'none';
+  if (registerForm) registerForm.style.display = 'none';
+}
 
-  form.addEventListener('submit', async (e) => {
+if (roleSelect) {
+  roleSelect.querySelectorAll('.role-card').forEach((card) => {
+    card.addEventListener('click', () => selectRole(card.dataset.role));
+  });
+}
+
+if (changeRoleBtn) {
+  changeRoleBtn.addEventListener('click', resetRoleSelection);
+}
+
+/* ---------------------- 회원가입: 제출 ---------------------- */
+if (registerForm) {
+  registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    hideAlert();
 
-    const payload = {
-      role: document.getElementById('selected-role').value,
-      email: document.getElementById('email').value.trim(),
-      password: document.getElementById('password').value,
-      phone: document.getElementById('phone').value.trim(),
-      region: document.getElementById('region').value.trim(),
-    };
+    const role = selectedRoleInput ? selectedRoleInput.value : '';
+    const email = document.getElementById('email')?.value.trim();
+    const password = document.getElementById('password')?.value;
+    const phone = document.getElementById('phone')?.value.trim();
+    const region = document.getElementById('region')?.value.trim();
 
-    if (!payload.role) {
-      renderAlert('가입 역할을 먼저 선택해주세요.');
+    if (!role) {
+      showAlert('가입 역할을 선택해주세요.');
       return;
     }
-    if (payload.password.length < 8) {
-      renderAlert('비밀번호는 8자 이상이어야 해요.');
+    if (!email || !password || !phone || !region) {
+      showAlert('모든 항목을 입력해주세요.');
+      return;
+    }
+    if (password.length < 8) {
+      showAlert('비밀번호는 8자 이상이어야 합니다.');
       return;
     }
 
-    setButtonLoading(submitBtn, true, '가입 처리 중...', '가입하기');
+    const userType = role === 'host' ? 1 : 0;
+    const submitBtn = document.getElementById('register-submit-btn');
+    if (submitBtn) submitBtn.disabled = true;
+
     try {
-      const res = await registerUser(payload);
-      if (res && res.success) {
-        renderAlert('가입이 완료됐어요! 로그인 페이지로 이동합니다.', 'success');
+      const result = await callApi('/auth/register', {
+        method: 'POST',
+        body: { userType, email, password, phone, region },
+      });
+
+      if (result.success) {
+        showAlert(result.message || '회원가입이 완료되었습니다!', 'success');
+
+        if (result.data) {
+          localStorage.setItem('token', result.data.token);
+          localStorage.setItem('loggedInUser', JSON.stringify(result.data.user));
+        }
+
         setTimeout(() => {
           window.location.href = 'login.html';
-        }, 1200);
+        }, 800);
       } else {
-        renderAlert(res?.message || '가입에 실패했어요. 입력값을 확인해주세요.');
-        setButtonLoading(submitBtn, false, '가입 처리 중...', '가입하기');
+        showAlert(result.message || '회원가입에 실패했습니다.');
       }
     } catch (err) {
-      renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
-      setButtonLoading(submitBtn, false, '가입 처리 중...', '가입하기');
-    }
-  });
-}
-
-// ---------- 로그인 ----------
-
-function handleLoginSubmit() {
-  const form = document.getElementById('login-form');
-  if (!form) return;
-  const submitBtn = document.getElementById('login-submit-btn');
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    hideAlert();
-
-    const payload = {
-      email: document.getElementById('email').value.trim(),
-      password: document.getElementById('password').value,
-    };
-
-    setButtonLoading(submitBtn, true, '로그인 중...', '로그인');
-    try {
-      const res = await loginUser(payload);
-      if (res && res.success) {
-        localStorage.setItem(AUTH_SESSION_KEY, '1');
-        renderAlert('로그인 성공! 이동 중입니다.', 'success');
-        const redirectTo = new URLSearchParams(window.location.search).get('redirect');
-        setTimeout(() => {
-          window.location.href = redirectTo || '../../index.html';
-        }, 600);
-      } else {
-        renderAlert(res?.message || '이메일 또는 비밀번호를 확인해주세요.');
-        setButtonLoading(submitBtn, false, '로그인 중...', '로그인');
-      }
-    } catch (err) {
-      renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
-      setButtonLoading(submitBtn, false, '로그인 중...', '로그인');
-    }
-  });
-}
-
-// ---------- 마이페이지 ----------
-
-function requireLoginOnMypage() {
-  const isMypage = !!document.getElementById('profile-form');
-  if (!isMypage) return;
-  if (!localStorage.getItem(AUTH_SESSION_KEY)) {
-    window.location.href = `login.html?redirect=mypage.html`;
-  }
-}
-
-function handleProfileFormSubmit() {
-  const form = document.getElementById('profile-form');
-  if (!form) return;
-  const submitBtn = document.getElementById('profile-submit-btn');
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    hideAlert();
-
-    const password = document.getElementById('password').value;
-    if (password && password.length < 8) {
-      renderAlert('비밀번호는 8자 이상이어야 해요.');
-      return;
-    }
-
-    const payload = {
-      phone: document.getElementById('phone').value.trim(),
-      region: document.getElementById('region').value.trim(),
-      password: password || undefined,
-    };
-
-    setButtonLoading(submitBtn, true, '저장 중...', '정보 수정');
-    try {
-      const res = await updateUserProfile(payload);
-      if (res && res.success) {
-        renderAlert('정보가 수정됐어요.', 'success');
-        document.getElementById('password').value = '';
-      } else {
-        renderAlert(res?.message || '수정에 실패했어요.');
-      }
-    } catch (err) {
-      renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
+      console.error('회원가입 에러:', err);
+      showAlert('서버에 연결할 수 없습니다. 백엔드가 켜져 있는지 확인해 주세요.');
     } finally {
-      setButtonLoading(submitBtn, false, '저장 중...', '정보 수정');
+      if (submitBtn) submitBtn.disabled = false;
     }
   });
 }
-
-function handleRoleToggleChange() {
-  const toggle = document.getElementById('role-toggle');
-  if (!toggle) return;
-  const caption = document.getElementById('role-mode-caption');
-
-  toggle.addEventListener('change', async () => {
-    hideAlert();
-    try {
-      const res = await toggleUserRole();
-      if (res && res.success) {
-        if (caption) {
-          caption.textContent = toggle.checked
-            ? '현재: 주최자 모드'
-            : '현재: 셀러 모드';
-        }
-        renderAlert('역할이 전환됐어요.', 'success');
-      } else {
-        toggle.checked = !toggle.checked;
-        renderAlert(res?.message || '역할 전환에 실패했어요.');
-      }
-    } catch (err) {
-      toggle.checked = !toggle.checked;
-      renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
-    }
-  });
-}
-
-function handleDeleteAccountClick() {
-  const btn = document.getElementById('delete-account-btn');
-  if (!btn) return;
-  btn.addEventListener('click', async () => {
-    if (!confirm('정말 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없어요.')) return;
-    hideAlert();
-    try {
-      const res = await deleteUserAccount();
-      if (res && res.success) {
-        localStorage.removeItem(AUTH_SESSION_KEY);
-        alert('탈퇴가 완료됐어요. 이용해주셔서 감사합니다.');
-        window.location.href = '../../index.html';
-      } else {
-        renderAlert(res?.message || '탈퇴 처리에 실패했어요.');
-      }
-    } catch (err) {
-      renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
-    }
-  });
-}
-
-function handleLogoutClick() {
-  const btn = document.getElementById('logout-btn');
-  if (!btn) return;
-  btn.addEventListener('click', async () => {
-    try {
-      await logoutUser();
-    } finally {
-      localStorage.removeItem(AUTH_SESSION_KEY);
-      window.location.href = '../../index.html';
-    }
-  });
-}
-
-// 페이지별로 필요한 핸들러만 자동 바인딩됩니다 (없는 엘리먼트는 조용히 스킵)
-document.addEventListener('DOMContentLoaded', () => {
-  requireLoginOnMypage();
-  handleRoleSelectClick();
-  handleRegisterSubmit();
-  handleLoginSubmit();
-  handleProfileFormSubmit();
-  handleRoleToggleChange();
-  handleDeleteAccountClick();
-  handleLogoutClick();
-});

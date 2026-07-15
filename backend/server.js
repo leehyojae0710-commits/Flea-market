@@ -1,11 +1,16 @@
 // backend/server.js
 import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes.js';
 import pool from './config/db.js'; // DB 데이터를 가져오기 위해 연결 풀을 불러옵니다.
 
-const app = express();
-const PORT = 5000;
+dotenv.config();
 
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+app.use(cors()); // 프론트(5500 등 다른 포트)에서 오는 요청 허용
 app.use(express.json());
 app.use('/api/auth', authRoutes);
 
