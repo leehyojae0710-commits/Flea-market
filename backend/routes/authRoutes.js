@@ -18,7 +18,6 @@ function publicUser(row) {
     email: row.email,
     phone: row.phone,
     region: row.region,
-    activeRole: row.activeRole,
   };
 }
 
@@ -30,10 +29,6 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ success: false, message: '필수 항목이 누락되었습니다.' });
   }
 
-  const activeRole = Number(userType) === 1 ? 'host' : 'seller';
-  // userId는 사용자가 입력하지 않고 서버가 내부적으로 자동 발급 (화면에 노출 안 함)
-  const userId = crypto.randomUUID();
-
   try {
     const [existing] = await pool.query('SELECT email FROM users WHERE email = ?', [email]);
     if (existing.length > 0) {
@@ -42,17 +37,19 @@ router.post('/register', async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
-    await pool.query(
-      `INSERT INTO users (userType, userId, password, phone, email, region, activeRole)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [userType, userId, hashedPassword, phone, email, region, activeRole]
+    const [result] = await pool.query(
+      `INSERT INTO users (userType, password, phone, email, region)
+       VALUES (?, ?, ?, ?, ?)`,
+      [userType, hashedPassword, phone, email, region]
     );
+
+    const userId = result.insertId;
 
     const token = jwt.sign({ userId, userType }, JWT_SECRET, { expiresIn: '7d' });
 
     return res.status(201).json({
       success: true,
-      data: { token, user: { userId, userType: Number(userType), email, phone, region, activeRole } },
+      data: { token, user: { userId, userType: Number(userType), email, phone, region } },
       message: '회원가입이 완료되었습니다.',
     });
   } catch (error) {
