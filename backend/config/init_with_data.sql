@@ -25,7 +25,7 @@ DROP TABLE IF EXISTS `applications`;
 CREATE TABLE `applications` (
   `applicationId` int NOT NULL AUTO_INCREMENT,
   `marketId` int NOT NULL,
-  `sellerId` varchar(50) NOT NULL,
+  `sellerId` BIGINT UNSIGNED NOT NULL,
   `boothNumber` varchar(10) NOT NULL,
   `itemName` varchar(100) NOT NULL,
   `itemImage` varchar(255) DEFAULT NULL,
@@ -56,7 +56,7 @@ DROP TABLE IF EXISTS `markets`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `markets` (
   `marketId` int NOT NULL AUTO_INCREMENT,
-  `hostId` varchar(50) NOT NULL,
+  `hostId` BIGINT UNSIGNED NOT NULL,
   `title` varchar(100) NOT NULL,
   `description` text NOT NULL,
   `marketImage` varchar(255) DEFAULT NULL,
@@ -66,8 +66,7 @@ CREATE TABLE `markets` (
   `eventDate` date NOT NULL,
   `isExpired` tinyint(1) DEFAULT '0',
   PRIMARY KEY (`marketId`),
-  KEY `hostId` (`hostId`),
-  CONSTRAINT `markets_ibfk_1` FOREIGN KEY (`hostId`) REFERENCES `users` (`userId`) ON DELETE CASCADE
+  FOREIGN KEY (`hostId`) REFERENCES `users` (`userId`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -89,13 +88,11 @@ DROP TABLE IF EXISTS `users`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `users` (
   `userType` tinyint NOT NULL COMMENT '0: 판매자, 1: 주최자',
-  `userId` varchar(50) NOT NULL,
+  `userId` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   `password` varchar(255) NOT NULL,
   `phone` varchar(20) NOT NULL,
   `email` varchar(100) NOT NULL,
   `region` varchar(50) NOT NULL,
-  `activeRole` varchar(10) DEFAULT 'seller',
-  PRIMARY KEY (`userId`,`userType`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

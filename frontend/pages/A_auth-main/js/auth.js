@@ -38,7 +38,7 @@ if (loginForm) {
           localStorage.setItem('token', result.data.token);
           localStorage.setItem('loggedInUser', JSON.stringify(result.data.user));
 
-          if (result.data.user.activeRole === 'host') {
+          if (result.data.user.userType === 0) {
             window.location.href = '../B_host-seller/market-create.html';
           } else {
             window.location.href = '../B_host-seller/market-detail.html';

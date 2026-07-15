@@ -47,19 +47,17 @@ app.get('/', async (req, res) => {
             <table class="table table-striped table-hover align-middle">
               <thead class="table-dark">
                 <tr>
-                  <th>userType</th><th>userId</th><th>password</th><th>phone</th><th>email</th><th>region</th><th>activeRole</th>
+                  <th>userType</th><th>password</th><th>phone</th><th>email</th><th>region</th>
                 </tr>
               </thead>
               <tbody>
                 ${users.map(u => `
                   <tr>
                     <td><span class="badge ${u.userType === 1 ? 'bg-danger' : 'bg-success'}">${u.userType === 1 ? '1 (주최자)' : '0 (판매자)'}</span></td>
-                    <td><strong>${u.userId}</strong></td>
                     <td>${u.password}</td>
                     <td>${u.phone}</td>
                     <td>${u.email}</td>
                     <td>${u.region}</td>
-                    <td>${u.activeRole}</td>
                   </tr>
                 `).join('')}
               </tbody>
