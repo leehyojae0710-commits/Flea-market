@@ -1,6 +1,5 @@
 // 담당 B: 마켓 등록 화면의 주소 검색 UI ↔ 담당 E의 integration/map.js 연결 글루 코드
 // integration/map.js 자체는 담당 E가 관리하므로 이 파일에서는 가져다 쓰기만 합니다.
-
 import { searchAddressToCoordinates, renderMapPin } from '../../../integration/map.js';
 
 function handleAddressSearchClick() {

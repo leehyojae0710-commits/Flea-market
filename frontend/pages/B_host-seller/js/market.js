@@ -78,13 +78,14 @@ const STATUS_CLASS = { Pending: 'pending', Approved: 'approved', Rejected: 'reje
 
 // ---------- 마켓 등록 ----------
 
-function handleMarketCreateSubmit() {
+export function handleMarketCreateSubmit() {
+  console.log('등록 시작');
   const form = document.getElementById('market-create-form');
   if (!form) return;
   const submitBtn = document.getElementById('market-create-submit-btn');
 
   form.addEventListener('submit', async (e) => {
-    conslole.log('마켓 등록 폼 제출 이벤트 발생');
+    console.log('마켓 등록 폼 제출 이벤트 발생');
     e.preventDefault();
     hideAlert();
 
@@ -93,10 +94,11 @@ function handleMarketCreateSubmit() {
       eventDate: document.getElementById('event-date').value,
       boothPrice: Number(document.getElementById('booth-price').value) || 0,
       description: document.getElementById('description').value.trim(),
-      locationName: `${document.getElementById('address').value.trim()} ${document.getElementById('detailAddress').value.trim()}`.trim(),
+      locationName: document.getElementById('fullAddress').value.trim(),
       latitude: document.getElementById('latitude').value || null,
       longitude: document.getElementById('longitude').value || null,
     };
+    console.log('마켓 등록 payload:', payload);
 
     if (!payload.title || !payload.eventDate) {
       renderAlert('마켓 이름과 개최 일자는 꼭 입력해주세요.');
@@ -401,7 +403,7 @@ function handleCommentSubmit() {
 // ---------- 초기화 ----------
 
 document.addEventListener('DOMContentLoaded', () => {
-  handleMarketCreateSubmit();
+  //handleMarketCreateSubmit();
   loadMarketDetail();
   handleBoothSelectClick();
   loadApplicationList();

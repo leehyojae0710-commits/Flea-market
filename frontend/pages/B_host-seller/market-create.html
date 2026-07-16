@@ -14,11 +14,11 @@
   <link rel="stylesheet" href="css/host-seller.css" />
 
   <script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=19f0092b5cdea100b70fdb607cc3ddd0&libraries=services"></script>
-  <script src="js/marketmap.js"></script>
+  <script type="module" src="js/marketmap.js"></script>
   <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
-  <script src="js/market.js"></script>
+  <script type="module" src="js/market.js"></script>
   <script src="../../common/js/api.js"></script>
-  <script type="module" src="js/map-integration.js"></script>
+  <!-- <script type="module" src="js/map-integration.js"></script> -->
 </head>
 
 <body>
@@ -58,10 +58,11 @@
         </div>
 
         <div class="form-field" id="map-search">
-          <label for="address-input">개최 장소 주소</label>
+          <label for="postcode">개최 장소 주소</label>
           <div class="form-field">
             <!-- <input type="text" id="address-input" class="form-input" placeholder="주소를 입력하고 검색해주세요" /> -->
-            <form>
+            <!-- <form> -->
+            <div class="form-field">
               <!-- 우편번호 -->
               <input type="text" class="form-input" id="postcode" placeholder="우편번호" readonly>
 
@@ -72,7 +73,8 @@
               <input type="text" class="form-input" id="detailAddress" placeholder="상세주소">
               <br><br>
               <button type="button" class="form-input" onclick="execDaumPostcode()">우편번호 찾기</button>
-            </form>
+              <!-- </form> -->
+            </div>
             <!-- <button type="button" id="address-search-btn" class="btn btn-outline">검색</button> -->
           </div>
           <input type="hidden" id="latitude" />

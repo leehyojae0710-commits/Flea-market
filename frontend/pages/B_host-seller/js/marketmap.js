@@ -1,3 +1,4 @@
+import { handleMarketCreateSubmit } from './market.js';
 document.addEventListener('DOMContentLoaded', function() {
   kakao.maps.load(function() {
     var mapContainer = document.getElementById('map-container'),
@@ -11,6 +12,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var marker = new kakao.maps.Marker({ position: map.getCenter(), map: map });
 
     function updateFullAddress() {
+      console.log("눌림");
       var address = document.getElementById('address').value;
       var detail = document.getElementById('detailAddress').value;
       var combined = detail ? `${address} ${detail}` : address;
@@ -46,5 +48,6 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     document.getElementById('detailAddress').addEventListener('input', updateFullAddress);
+    handleMarketCreateSubmit();
   });
 });
