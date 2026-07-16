@@ -53,6 +53,29 @@
         </div>
 
         <div class="form-field">
+          <label for="max-participants">허용 가능한 최대 부스 수</label>
+          <input type="number" id="max-participants" class="form-input" placeholder="0" min="0" required />
+          <p class="form-hint">부스 수량에 제한이 없다면 0을 입력해주세요.</p>
+        </div>
+        <div class="form-field">
+          <label for="market-image">마켓 이미지</label>
+          <input type="file" id="market-image" name="marketimage" class="form-input" accept="image/*" />
+          <p class="form-hint">마켓을 대표하는 이미지를 업로드해주세요.</p>
+        </div>
+        <button type="button" class="form-input" style="margin-bottom: 15px;">사진 등록하기</button>
+        <div></div>
+
+        <!-- 카테고리 필요하면 지워서 수정 -->
+        <!-- <div class="form-field">
+          <label for="category">카테고리</label>
+          <select name="category" id="category" class="form-input">
+            <option value="morning">Morning</option>
+            <option value="afternoon">Afternoon</option>
+            <option value="night">Night</option>
+          </select>
+        </div> -->
+
+        <div class="form-field">
           <label for="description">상세 설명</label>
           <textarea id="description" class="form-textarea" placeholder="마켓 소개, 운영 시간, 유의사항 등을 적어주세요."></textarea>
         </div>

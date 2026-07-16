@@ -95,13 +95,20 @@ export function handleMarketCreateSubmit() {
       boothPrice: Number(document.getElementById('booth-price').value) || 0,
       description: document.getElementById('description').value.trim(),
       locationName: document.getElementById('fullAddress').value.trim(),
+      region: document.getElementById('region').value || null,
       latitude: document.getElementById('latitude').value || null,
       longitude: document.getElementById('longitude').value || null,
-      region: document.getElementById('region').value || null
+      marketImage: document.getElementById('market-image').files?.[0]?.name || null,
     };
-    console.log('마켓 등록 payload:', payload);
 
-    if (!payload.title || !payload.eventDate) {
+
+    // // 📌 파일 첨부 (input의 name과 무관하게, 여기 문자열이 백엔드 marketUpload.single()과 일치해야 함)
+    // const imageFile = document.getElementById('market-image').files[0];
+    // if (imageFile) {
+    //   formData.append('marketImage', imageFile);
+    // }
+
+    if (!document.getElementById('title').value.trim() || !document.getElementById('event-date').value) {
       renderAlert('마켓 이름과 개최 일자는 꼭 입력해주세요.');
       return;
     }
@@ -124,6 +131,19 @@ export function handleMarketCreateSubmit() {
     }
   });
 }
+// async function createMarketWithImage(formData) {
+//   const token = localStorage.getItem('token');
+
+//   const res = await fetch(`http://localhost:5000/api/markets`, {
+//     method: 'POST',
+//     headers: {
+//       'Authorization': `Bearer ${token}`
+//     },
+//     body: formData, // JSON.stringify 하지 않고 그대로 전달
+//   });
+
+//   return res.json();
+// }
 
 // ---------- 마켓 상세 ----------
 
