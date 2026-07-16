@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
               document.getElementById('latitude').value = result.y;
               document.getElementById('longitude').value = result.x;
+              document.getElementById('region').value = result.address.region_1depth_name;
             }
           });
         }

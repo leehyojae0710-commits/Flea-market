@@ -97,6 +97,7 @@ export function handleMarketCreateSubmit() {
       locationName: document.getElementById('fullAddress').value.trim(),
       latitude: document.getElementById('latitude').value || null,
       longitude: document.getElementById('longitude').value || null,
+      region: document.getElementById('region').value || null
     };
     console.log('마켓 등록 payload:', payload);
 
