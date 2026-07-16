@@ -19,10 +19,14 @@ if (!currentUser) {
 
 const phoneInput = document.getElementById('phone');
 const regionInput = document.getElementById('region');
-const passwordInput = document.getElementById('password');
 const profileForm = document.getElementById('profile-form');
 const logoutBtn = document.getElementById('logout-btn');
 const deleteAccountBtn = document.getElementById('delete-account-btn');
+
+const currentPasswordInput = document.getElementById('current-password');
+const newPasswordInput = document.getElementById('new-password');
+const newPasswordConfirmInput = document.getElementById('new-password-confirm');
+const passwordForm = document.getElementById('password-form');
 
 function fillCurrentInfo() {
   if (!currentUser) return;
@@ -32,8 +36,8 @@ function fillCurrentInfo() {
 
 fillCurrentInfo();
 
-/* ---------------------- 개인정보 수정 (전화번호/지역/비밀번호) ---------------------- */
-/* 백엔드 /api/users/me PATCH는 phone, region, password를 모두 지원합니다.
+/* ---------------------- 개인정보 수정 (전화번호/지역) ---------------------- */
+/* 백엔드 /api/users/me PATCH는 phone, region을 지원합니다.
    실제로 값이 바뀐 필드만 검증/전송합니다.
    (그렇지 않으면 예: 미리 채워진 전화번호가 형식과 안 맞을 때, 지역만 바꾸려 해도
    전화번호 검증에 걸려서 저장 자체가 막히는 문제가 생깁니다.) */
@@ -43,18 +47,12 @@ if (profileForm) {
 
     const phone = phoneInput?.value.trim();
     const region = regionInput?.value.trim();
-    const password = passwordInput?.value;
 
     const phoneChanged = !!phone && phone !== (currentUser?.phone || '');
     const regionChanged = !!region && region !== (currentUser?.region || '');
-    const passwordChanged = !!password;
 
     if (phoneChanged && !isValidPhone(phone)) {
       showAlert('전화번호는 010-0000-0000 형식으로 입력해주세요.');
-      return;
-    }
-    if (passwordChanged && password.length < 8) {
-      showAlert('비밀번호는 8자 이상이어야 합니다.');
       return;
     }
 
@@ -62,7 +60,6 @@ if (profileForm) {
     const body = {};
     if (phoneChanged) body.phone = phone;
     if (regionChanged) body.region = region;
-    if (passwordChanged) body.password = password;
 
     if (Object.keys(body).length === 0) {
       showAlert('수정할 내용을 입력해주세요.');
@@ -80,12 +77,62 @@ if (profileForm) {
         // 백엔드가 최신 사용자 정보를 그대로 돌려주므로 그걸 기준으로 저장합니다.
         currentUser = result.data ? { ...currentUser, ...result.data } : { ...currentUser, ...body };
         localStorage.setItem('loggedInUser', JSON.stringify(currentUser));
-        if (passwordInput) passwordInput.value = '';
       } else {
         showAlert(result.message || '정보 수정에 실패했습니다.');
       }
     } catch (err) {
       console.error('정보 수정 에러:', err);
+      showAlert('서버에 연결할 수 없습니다. 백엔드가 켜져 있는지 확인해 주세요.');
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  });
+}
+
+/* ---------------------- 비밀번호 변경 ---------------------- */
+/* 백엔드 /api/users/me/password PATCH는 현재 비밀번호 확인 후 새 비밀번호로 변경합니다. */
+if (passwordForm) {
+  passwordForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const currentPassword = currentPasswordInput?.value;
+    const newPassword = newPasswordInput?.value;
+    const newPasswordConfirm = newPasswordConfirmInput?.value;
+
+    if (!currentPassword || !newPassword || !newPasswordConfirm) {
+      showAlert('현재 비밀번호와 새 비밀번호를 모두 입력해주세요.');
+      return;
+    }
+    if (newPassword.length < 8) {
+      showAlert('새 비밀번호는 8자 이상이어야 합니다.');
+      return;
+    }
+    if (newPassword !== newPasswordConfirm) {
+      showAlert('새 비밀번호가 일치하지 않습니다.');
+      return;
+    }
+    if (newPassword === currentPassword) {
+      showAlert('새 비밀번호는 현재 비밀번호와 달라야 합니다.');
+      return;
+    }
+
+    const submitBtn = document.getElementById('password-submit-btn');
+    if (submitBtn) submitBtn.disabled = true;
+
+    try {
+      const result = await callApi('/users/me/password', {
+        method: 'PATCH',
+        body: { currentPassword, newPassword },
+      });
+
+      if (result.success) {
+        showAlert(result.message || '비밀번호가 변경되었습니다.', 'success');
+        passwordForm.reset();
+      } else {
+        showAlert(result.message || '비밀번호 변경에 실패했습니다.');
+      }
+    } catch (err) {
+      console.error('비밀번호 변경 에러:', err);
       showAlert('서버에 연결할 수 없습니다. 백엔드가 켜져 있는지 확인해 주세요.');
     } finally {
       if (submitBtn) submitBtn.disabled = false;
