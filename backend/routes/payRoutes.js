@@ -18,6 +18,9 @@ const router = express.Router();
  * /payments/fake:
  *   post:
  *     summary: 모의 결제 처리 (승인된 신청 건만 가능)
+ *     description: >
+ *       [추가] 결제가 완료되면 해당 신청의 결제 기한(paymentDueAt)이 초기화되어,
+ *       결제 대기열 타임아웃 처리(POST /markets/{marketId}/queue/process-timeouts) 대상에서 제외됩니다.
  *     tags: [Payments]
  *     security: [{ bearerAuth: [] }]
  *     requestBody:

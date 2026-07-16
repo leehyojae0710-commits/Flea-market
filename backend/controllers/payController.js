@@ -37,6 +37,9 @@ export async function processFakePayment(req, res) {
       [applicationId, application.boothPrice || 0]
     );
 
+    // [추가] 결제가 완료됐으니 결제 대기열 타임아웃 대상에서 제외되도록 paymentDueAt을 비웁니다.
+    await pool.query('UPDATE applications SET paymentDueAt = NULL WHERE applicationId = ?', [applicationId]);
+
     return res.status(201).json({
       success: true,
       data: { paymentId: result.insertId, applicationId: Number(applicationId), amount: application.boothPrice || 0, status: 'Paid' },

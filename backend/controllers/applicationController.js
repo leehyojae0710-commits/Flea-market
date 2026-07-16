@@ -68,8 +68,59 @@ async function updateApplicationStatus(req, res, nextStatus, successMessage) {
 }
 
 // PATCH /api/applications/:applicationId/approve (로그인 필요, 마켓 주최자)
+// [추가] 승인과 동시에 결제 기한(paymentDueAt)을 설정합니다. 기본 1440분(24시간),
+// body.paymentWindowMinutes 로 조절 가능합니다. 이 기한을 넘기고 미결제 상태면
+// PATCH /markets/:marketId/queue/process-timeouts 처리 시 자동으로 Expired 되고
+// 같은 부스의 다음 대기(Pending) 신청이 자동 승인됩니다.
+// [추가] 같은 부스(marketId + boothNumber)에 이미 Approved 상태인 신청이 있으면 409로 막습니다
+// (한 부스는 한 번에 한 명만 점유하는 대기열 구조).
 export async function approveSellerApplication(req, res) {
-  return updateApplicationStatus(req, res, 'Approved', '신청을 승인했습니다.');
+  const { userId } = req.user;
+  const { applicationId } = req.params;
+  const paymentWindowMinutes = Number(req.body?.paymentWindowMinutes) || 1440;
+
+  try {
+    const [rows] = await pool.query(
+      `SELECT a.applicationId, a.marketId, a.boothNumber, m.hostId
+       FROM applications a
+       JOIN markets m ON m.marketId = a.marketId
+       WHERE a.applicationId = ?`,
+      [applicationId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, data: null, message: '해당 신청을 찾을 수 없습니다.' });
+    }
+    const application = rows[0];
+    if (Number(application.hostId) !== Number(userId)) {
+      return res.status(403).json({ success: false, data: null, message: '본인 마켓의 신청 건만 처리할 수 있습니다.' });
+    }
+
+    const [conflicts] = await pool.query(
+      `SELECT applicationId FROM applications
+       WHERE marketId = ? AND boothNumber = ? AND status = 'Approved' AND applicationId != ?`,
+      [application.marketId, application.boothNumber, applicationId]
+    );
+    if (conflicts.length > 0) {
+      return res.status(409).json({ success: false, data: null, message: '해당 부스는 이미 다른 신청이 승인되어 있습니다.' });
+    }
+
+    await pool.query(
+      `UPDATE applications SET status = 'Approved', paymentDueAt = DATE_ADD(NOW(), INTERVAL ? MINUTE) WHERE applicationId = ?`,
+      [paymentWindowMinutes, applicationId]
+    );
+
+    const [updatedRows] = await pool.query('SELECT paymentDueAt FROM applications WHERE applicationId = ?', [applicationId]);
+
+    return res.status(200).json({
+      success: true,
+      data: { applicationId: Number(applicationId), status: 'Approved', paymentDueAt: updatedRows[0].paymentDueAt },
+      message: '신청을 승인했습니다.',
+    });
+  } catch (error) {
+    console.error('신청 승인 오류:', error.message);
+    return res.status(500).json({ success: false, data: null, message: '서버 오류로 신청 처리에 실패했습니다.' });
+  }
 }
 
 // PATCH /api/applications/:applicationId/reject (로그인 필요, 마켓 주최자)

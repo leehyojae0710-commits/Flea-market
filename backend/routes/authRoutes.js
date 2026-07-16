@@ -1,5 +1,6 @@
 // backend/routes/authRoutes.js
 import express from 'express';
+import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import pool from '../config/db.js';
@@ -25,7 +26,7 @@ function publicUser(row) {
  * @swagger
  * tags:
  *   name: Auth
- *   description: 회원가입 / 로그인
+ *   description: 회원가입 / 로그인 / 역할 전환
  */
 
 /**
@@ -80,13 +81,13 @@ router.post('/register', async (req, res) => {
   const { userType, email, password, phone, region } = req.body;
 
   if (userType === undefined || !email || !password || !phone || !region) {
-    return res.status(400).json({ success: false, data: null, message: '필수 항목이 누락되었습니다.' });
+    return res.status(400).json({ success: false, message: '필수 항목이 누락되었습니다.' });
   }
 
   try {
     const [existing] = await pool.query('SELECT email FROM users WHERE email = ?', [email]);
     if (existing.length > 0) {
-      return res.status(409).json({ success: false, data: null, message: '이미 가입된 이메일입니다.' });
+      return res.status(409).json({ success: false, message: '이미 가입된 이메일입니다.' });
     }
 
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
@@ -108,7 +109,7 @@ router.post('/register', async (req, res) => {
     });
   } catch (error) {
     console.error('회원가입 오류:', error.message);
-    return res.status(500).json({ success: false, data: null, message: '서버 오류로 회원가입에 실패했습니다.' });
+    return res.status(500).json({ success: false, message: '서버 오류로 회원가입에 실패했습니다.' });
   }
 });
 
@@ -161,21 +162,21 @@ router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
-    return res.status(400).json({ success: false, data: null, message: '이메일과 비밀번호를 입력해주세요.' });
+    return res.status(400).json({ success: false, message: '이메일과 비밀번호를 입력해주세요.' });
   }
 
   try {
     const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
 
     if (rows.length === 0) {
-      return res.status(401).json({ success: false, data: null, message: '이메일 또는 비밀번호가 올바르지 않습니다.' });
+      return res.status(401).json({ success: false, message: '이메일 또는 비밀번호가 올바르지 않습니다.' });
     }
 
     const user = rows[0];
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
-      return res.status(401).json({ success: false, data: null, message: '이메일 또는 비밀번호가 올바르지 않습니다.' });
+      return res.status(401).json({ success: false, message: '이메일 또는 비밀번호가 올바르지 않습니다.' });
     }
 
     const token = jwt.sign({ userId: user.userId, userType: user.userType }, JWT_SECRET, { expiresIn: '7d' });
@@ -187,45 +188,8 @@ router.post('/login', async (req, res) => {
     });
   } catch (error) {
     console.error('로그인 오류:', error.message);
-    return res.status(500).json({ success: false, data: null, message: '서버 오류로 로그인에 실패했습니다.' });
+    return res.status(500).json({ success: false, message: '서버 오류로 로그인에 실패했습니다.' });
   }
-});
-
-/**
- * @swagger
- * /auth/logout:
- *   post:
- *     summary: 로그아웃
- *     description: >
- *       JWT는 서버에 세션을 두지 않는(stateless) 방식이라 서버가 토큰을 강제로 만료시키지는 않습니다.
- *       이 API는 "로그아웃 처리를 서버에도 기록"하는 용도이며, 실제 로그아웃은 프론트에서
- *       토큰 삭제(localStorage.removeItem('token'))로 완료됩니다.
- *     tags: [Auth]
- *     security: [{ bearerAuth: [] }]
- *     responses:
- *       200:
- *         description: 로그아웃 처리 완료
- *         content:
- *           application/json:
- *             schema:
- *               allOf:
- *                 - $ref: '#/components/schemas/ApiEnvelope'
- *                 - type: object
- *                   properties:
- *                     data: { type: 'object', nullable: true, example: null }
- *       401:
- *         description: 인증 필요
- *         content:
- *           application/json:
- *             schema: { $ref: '#/components/schemas/ErrorResponse' }
- *       500:
- *         description: 서버 오류
- *         content:
- *           application/json:
- *             schema: { $ref: '#/components/schemas/ErrorResponse' }
- */
-router.post('/logout', authenticateToken, (req, res) => {
-  return res.status(200).json({ success: true, data: null, message: '로그아웃되었습니다.' });
 });
 
 /**

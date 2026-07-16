@@ -72,6 +72,10 @@ router.post('/', authenticateToken, applyForBooth);
  * /applications/{applicationId}/approve:
  *   patch:
  *     summary: 신청 승인 (마켓 주최자 본인만)
+ *     description: >
+ *       [추가] 승인과 동시에 결제 기한(paymentDueAt)이 설정됩니다. 기본 1440분(24시간)이며
+ *       body.paymentWindowMinutes로 조절할 수 있습니다. 같은 부스에 이미 Approved 상태인 다른
+ *       신청이 있으면 409로 거부됩니다(한 부스는 한 번에 한 명만 점유).
  *     tags: [Applications]
  *     security: [{ bearerAuth: [] }]
  *     parameters:
@@ -79,6 +83,17 @@ router.post('/', authenticateToken, applyForBooth);
  *         name: applicationId
  *         required: true
  *         schema: { type: integer }
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               paymentWindowMinutes:
+ *                 type: integer
+ *                 description: 결제 기한(분). 기본 1440분(24시간)
+ *                 example: 1440
  *     responses:
  *       200:
  *         description: 승인 성공
@@ -97,6 +112,11 @@ router.post('/', authenticateToken, applyForBooth);
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *       404:
  *         description: 존재하지 않는 신청
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       409:
+ *         description: "[추가] 해당 부스에 이미 승인된 다른 신청이 있음"
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
