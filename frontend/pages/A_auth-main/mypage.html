@@ -33,11 +33,26 @@
           <label for="region">거주 지역</label>
           <input type="text" id="region" class="form-input" placeholder="예: 서울 마포구" />
         </div>
-        <div class="form-field">
-          <label for="password">새 비밀번호</label>
-          <input type="password" id="password" class="form-input" placeholder="변경하지 않으려면 비워두세요 (8자 이상)" autocomplete="new-password" minlength="8" />
-        </div>
         <button type="submit" id="profile-submit-btn" class="btn btn-primary btn-block">정보 수정</button>
+      </form>
+
+      <hr class="section-divider" />
+
+      <div class="section-title">비밀번호 변경</div>
+      <form id="password-form" novalidate>
+        <div class="form-field">
+          <label for="current-password">현재 비밀번호</label>
+          <input type="password" id="current-password" class="form-input" placeholder="현재 비밀번호" autocomplete="current-password" />
+        </div>
+        <div class="form-field">
+          <label for="new-password">새 비밀번호</label>
+          <input type="password" id="new-password" class="form-input" placeholder="8자 이상" autocomplete="new-password" minlength="8" />
+        </div>
+        <div class="form-field">
+          <label for="new-password-confirm">새 비밀번호 확인</label>
+          <input type="password" id="new-password-confirm" class="form-input" placeholder="새 비밀번호 다시 입력" autocomplete="new-password" minlength="8" />
+        </div>
+        <button type="submit" id="password-submit-btn" class="btn btn-primary btn-block">비밀번호 변경</button>
       </form>
 
       <hr class="section-divider" />
