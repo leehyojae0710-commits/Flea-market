@@ -162,7 +162,6 @@ export async function getApplicationsByMarket(req, res) {
   }
 }
 
-<<<<<<< HEAD
 // ── [추가] 부스 관리: 드래그 앤 드롭 부스 배치 ──────────────────────────────
 // 행사 장소 도면 위에서 부스 구역을 드래그하여 배치하는 기능.
 // booth_layouts 테이블에 (marketId, applicationId)별 좌표를 저장합니다.
@@ -439,6 +438,3 @@ export async function processQueueTimeouts(req, res) {
     return res.status(500).json({ success: false, data: null, message: '서버 오류로 대기열 처리에 실패했습니다.' });
   }
 }
-=======
-
->>>>>>> feat/강민훈
