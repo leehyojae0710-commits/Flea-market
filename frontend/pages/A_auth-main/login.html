@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>로그인 - 플리마켓</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../../common/css/style.css" />
+  <link rel="stylesheet" href="css/auth.css" />
+</head>
+<body>
+  <div class="auth-wrap">
+    <a href="../../index.html" class="auth-brand">
+      <span class="pin-dot" aria-hidden="true"></span>플리마켓
+    </a>
+
+    <div class="auth-card">
+      <span class="pin" aria-hidden="true"></span>
+      <h1>로그인</h1>
+      <p class="auth-sub">동네 벼룩시장, 로그인하고 더 편하게 이용하세요.</p>
+
+      <div id="alert-box" class="alert alert-error" role="alert"></div>
+
+      <form id="login-form" novalidate>
+        <div class="form-field">
+          <label for="email">이메일</label>
+          <input type="email" id="email" class="form-input" placeholder="you@example.com" autocomplete="email" required />
+        </div>
+        <div class="form-field">
+          <label for="password">비밀번호</label>
+          <input type="password" id="password" class="form-input" placeholder="비밀번호" autocomplete="current-password" required />
+        </div>
+        <button type="submit" id="login-submit-btn" class="btn btn-primary btn-block">로그인</button>
+      </form>
+
+      <p class="auth-foot">아직 계정이 없으신가요? <a href="register.html">회원가입</a></p>
+    </div>
+
+    <a href="../../index.html" class="back-home">← 로그인 없이 마켓 둘러보기</a>
+  </div>
+
+  <script src="../../common/js/api.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>

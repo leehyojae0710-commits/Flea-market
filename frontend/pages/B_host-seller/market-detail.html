@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>마켓 상세 - 플리마켓</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../../common/css/style.css" />
+  <link rel="stylesheet" href="css/host-seller.css" />
+</head>
+<body>
+  <div class="page-wrap">
+    <header class="nav">
+      <a href="../../index.html" class="brand"><span class="pin-dot" aria-hidden="true"></span>플리마켓</a>
+      <a href="../A_auth-main/mypage.html" class="link-ghost">마이페이지</a>
+    </header>
+
+    <div id="alert-box" class="alert alert-error" role="alert"></div>
+
+    <div class="panel">
+      <span class="pin" aria-hidden="true"></span>
+      <h1 id="market-title">마켓 정보를 불러오는 중...</h1>
+      <p class="panel-sub" id="market-info"></p>
+
+      <h2>부스 선택</h2>
+      <p class="form-hint" style="margin-bottom:12px;">참가하고 싶은 부스 번호를 선택하면 신청 화면으로 이동해요.</p>
+      <div id="booth-select" class="booth-grid">
+        <button type="button" class="booth-btn" data-booth="1">1번 부스</button>
+        <button type="button" class="booth-btn" data-booth="2">2번 부스</button>
+        <button type="button" class="booth-btn" data-booth="3">3번 부스</button>
+      </div>
+    </div>
+
+    <div class="panel" id="host-panel">
+      <h2>신청자 목록 <span class="form-hint">(주최측 전용)</span></h2>
+      <div id="application-list">
+        <p class="list-empty">신청 내역을 불러오는 중...</p>
+      </div>
+      <hr class="section-divider" />
+      <button type="button" id="close-market-btn" class="btn btn-outline btn-sm">이 마켓 마감 처리하기</button>
+    </div>
+
+    <div class="panel">
+      <h2>댓글 / 문의</h2>
+      <div id="comment-list">
+        <p class="list-empty">댓글을 불러오는 중...</p>
+      </div>
+      <form id="comment-form" novalidate>
+        <div class="form-field">
+          <input type="text" id="comment-content" class="form-input" placeholder="문의할 내용을 입력하세요" required />
+        </div>
+        <button type="submit" class="btn btn-primary">등록</button>
+      </form>
+    </div>
+
+    <a href="../../index.html" class="back-link">← 마켓 목록으로</a>
+  </div>
+
+  <script src="../../common/js/api.js"></script>
+  <script src="js/market.js"></script>
+</body>
+</html>
