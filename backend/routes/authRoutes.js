@@ -69,6 +69,11 @@ function publicUser(row) {
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         description: 서버 오류
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
 // 1. 회원가입 API
 router.post('/register', async (req, res) => {
@@ -145,6 +150,11 @@ router.post('/register', async (req, res) => {
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         description: 서버 오류
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
 // 2. 로그인 API (이메일 + 비밀번호)
 router.post('/login', async (req, res) => {
@@ -208,6 +218,11 @@ router.post('/login', async (req, res) => {
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         description: 서버 오류
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
 router.post('/logout', authenticateToken, (req, res) => {
   return res.status(200).json({ success: true, data: null, message: '로그아웃되었습니다.' });
@@ -238,6 +253,11 @@ router.post('/logout', authenticateToken, (req, res) => {
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *       404:
  *         description: 사용자를 찾을 수 없음
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         description: 서버 오류
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }

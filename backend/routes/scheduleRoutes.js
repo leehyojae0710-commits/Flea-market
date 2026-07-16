@@ -36,6 +36,11 @@ const router = express.Router();
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         description: 서버 오류
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
 router.get('/me', authenticateToken, getMySchedule);
 

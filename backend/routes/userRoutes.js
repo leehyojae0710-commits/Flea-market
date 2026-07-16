@@ -52,6 +52,11 @@ const SALT_ROUNDS = 10;
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         description: 서버 오류
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
 router.patch('/me', authenticateToken, async (req, res) => {
   const { userId } = req.user;
@@ -99,6 +104,11 @@ router.patch('/me', authenticateToken, async (req, res) => {
  *                     data: { type: object, nullable: true, example: null }
  *       401:
  *         description: 인증 필요
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         description: 서버 오류
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }

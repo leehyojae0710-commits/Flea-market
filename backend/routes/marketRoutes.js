@@ -51,6 +51,11 @@ const router = express.Router();
  *                 - type: object
  *                   properties:
  *                     data: { type: array, items: { $ref: '#/components/schemas/Market' } }
+ *       500:
+ *         description: 서버 오류
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *   post:
  *     summary: 마켓 등록
  *     tags: [Markets]
@@ -92,6 +97,11 @@ const router = express.Router();
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         description: 서버 오류
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
 router.get('/', getMarketList);
 router.post('/', authenticateToken, createMarket);
@@ -121,6 +131,11 @@ router.post('/', authenticateToken, createMarket);
  *                     data: { $ref: '#/components/schemas/Market' }
  *       404:
  *         description: 존재하지 않는 마켓
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         description: 서버 오류
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -165,6 +180,11 @@ router.post('/', authenticateToken, createMarket);
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *       404:
  *         description: 존재하지 않는 마켓
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         description: 서버 오류
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -221,6 +241,11 @@ router.patch('/:marketId', authenticateToken, updateMarketStatus);
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         description: 서버 오류
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
 router.patch('/:marketId/location', authenticateToken, updateMarketLocation);
 
@@ -254,6 +279,11 @@ router.patch('/:marketId/location', authenticateToken, updateMarketLocation);
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *       404:
  *         description: 존재하지 않는 마켓
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         description: 서버 오류
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }

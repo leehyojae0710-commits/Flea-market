@@ -47,6 +47,11 @@ const router = express.Router();
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         description: 서버 오류
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *   get:
  *     summary: 댓글 목록 조회
  *     tags: [Comments]
@@ -73,6 +78,11 @@ const router = express.Router();
  *                     data: { type: array, items: { $ref: '#/components/schemas/Comment' } }
  *       400:
  *         description: 쿼리 파라미터 누락
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         description: 서버 오류
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }

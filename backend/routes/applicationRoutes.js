@@ -59,6 +59,11 @@ const router = express.Router();
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         description: 서버 오류
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
 router.post('/', authenticateToken, applyForBooth);
 
@@ -95,6 +100,11 @@ router.post('/', authenticateToken, applyForBooth);
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         description: 서버 오류
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
 router.patch('/:applicationId/approve', authenticateToken, approveSellerApplication);
 
@@ -128,6 +138,11 @@ router.patch('/:applicationId/approve', authenticateToken, approveSellerApplicat
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *       404:
  *         description: 존재하지 않는 신청
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         description: 서버 오류
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
