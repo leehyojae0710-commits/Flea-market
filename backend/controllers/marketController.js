@@ -50,7 +50,7 @@ export async function getMarketDetail(req, res) {
 // POST /api/markets (로그인 필요, 주최자)
 export async function createMarket(req, res) {
   const { userId } = req.user;
-  const { title, description, marketImage, locationName, latitude, longitude, eventDate, boothPrice } = req.body;
+  const { title, description, marketImage, locationName, region, latitude, longitude, eventDate, boothPrice , category, isExpired, maxParticipants } = req.body;
 
   if (!title || !eventDate || !locationName) {
     return res.status(400).json({ success: false, data: null, message: '마켓 이름, 개최 일자, 장소는 필수입니다.' });
@@ -58,9 +58,9 @@ export async function createMarket(req, res) {
 
   try {
     const [result] = await pool.query(
-      `INSERT INTO markets (hostId, title, description, marketImage, locationName, latitude, longitude, eventDate, boothPrice)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [userId, title, description || '', marketImage || null, locationName, latitude || 0, longitude || 0, eventDate, boothPrice || 0]
+      `INSERT INTO markets (hostId, title, description, marketImage, locationName, region, latitude, longitude, eventDate, boothPrice, category, isExpired, maxParticipants)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [userId, title, description || '', marketImage || null, locationName, region || null, latitude || 0, longitude || 0, eventDate, boothPrice || 0, category || null, isExpired || 0, maxParticipants || 0]
     );
 
     return res.status(201).json({
@@ -162,6 +162,7 @@ export async function getApplicationsByMarket(req, res) {
   }
 }
 
+<<<<<<< HEAD
 // ── [추가] 부스 관리: 드래그 앤 드롭 부스 배치 ──────────────────────────────
 // 행사 장소 도면 위에서 부스 구역을 드래그하여 배치하는 기능.
 // booth_layouts 테이블에 (marketId, applicationId)별 좌표를 저장합니다.
@@ -438,3 +439,6 @@ export async function processQueueTimeouts(req, res) {
     return res.status(500).json({ success: false, data: null, message: '서버 오류로 대기열 처리에 실패했습니다.' });
   }
 }
+=======
+
+>>>>>>> feat/강민훈
