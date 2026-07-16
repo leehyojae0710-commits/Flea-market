@@ -29,3 +29,19 @@ export function authenticateToken(req, res, next) {
     next();
   });
 }
+
+// 로그인 선택적 API용 (토큰 없거나 무효해도 그냥 통과, req.user만 채워짐)
+export function attachUserIfLoggedIn(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    try {
+      req.user = jwt.verify(token, JWT_SECRET);
+    } catch (error) {
+      req.user = null;
+    }
+  } else {
+    req.user = null;
+  }
+  next();
+}

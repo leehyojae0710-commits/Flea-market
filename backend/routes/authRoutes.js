@@ -3,11 +3,7 @@ import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import pool from '../config/db.js';
-<<<<<<< HEAD
-import { verifyToken } from '../middlewares/authMiddleware.js';
-=======
 import { authenticateToken } from '../middleware/authMiddleware.js';
->>>>>>> main
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'flea-market-dev-secret-change-me';
@@ -171,9 +167,8 @@ router.post('/logout', (req, res) => {
   return res.status(200).json({ success: true, data: null, message: '로그아웃되었습니다.' });
 });
 
-<<<<<<< HEAD
 // 4. 비밀번호 변경 (로그인 필요)
-router.patch('/password', verifyToken, async (req, res) => {
+router.patch('/password', authenticateToken, async (req, res) => {
   const { userId } = req.user;
   const { currentPassword, newPassword } = req.body;
 
@@ -205,9 +200,6 @@ router.patch('/password', verifyToken, async (req, res) => {
   }
 });
 
-
-export default router;
-=======
 /**
  * @swagger
  * /auth/toggle-role:
@@ -247,4 +239,3 @@ router.patch('/toggle-role', authenticateToken, async (req, res) => {
 });
 
 export default router;
->>>>>>> main

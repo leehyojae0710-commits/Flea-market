@@ -7,8 +7,14 @@ import pool from '../config/db.js';
 export async function getMarketList(req, res) {
   const { region, sort } = req.query;
   const includeExpired = req.query.includeExpired === 'true';
-
   try {
+    // 로그인한 사용자의 지역 (attachUserIfLoggedIn이 채워준 req.user가 있으면)
+    let myRegion = null;
+    if (req.user) {
+      const [meRows] = await pool.query('SELECT region FROM users WHERE userId = ?', [req.user.userId]);
+      if (meRows.length > 0) myRegion = meRows[0].region;
+    }
+
     let sql = `
       SELECT m.*, u.region AS hostRegion
       FROM markets m
@@ -16,12 +22,19 @@ export async function getMarketList(req, res) {
     `;
     const conditions = [];
     const values = [];
-
     if (!includeExpired) conditions.push('m.isExpired = 0');
     if (region) { conditions.push('u.region = ?'); values.push(region); }
     if (conditions.length > 0) sql += ` WHERE ${conditions.join(' AND ')}`;
 
-    sql += sort === 'eventDate' ? ' ORDER BY m.eventDate ASC' : ' ORDER BY m.marketId DESC';
+    const baseOrder = sort === 'eventDate' ? 'm.eventDate ASC' : 'm.marketId DESC';
+
+    if (myRegion && !region) {
+      // 명시적 지역 필터가 없을 때만 "내 지역 우선" 적용
+      sql += ` ORDER BY (u.region = ?) DESC, ${baseOrder}`;
+      values.push(myRegion);
+    } else {
+      sql += ` ORDER BY ${baseOrder}`;
+    }
 
     const [rows] = await pool.query(sql, values);
     return res.status(200).json({ success: true, data: rows, message: '마켓 목록을 조회했습니다.' });
