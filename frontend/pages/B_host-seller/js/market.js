@@ -84,6 +84,7 @@ function handleMarketCreateSubmit() {
   const submitBtn = document.getElementById('market-create-submit-btn');
 
   form.addEventListener('submit', async (e) => {
+    conslole.log('마켓 등록 폼 제출 이벤트 발생');
     e.preventDefault();
     hideAlert();
 
@@ -92,7 +93,7 @@ function handleMarketCreateSubmit() {
       eventDate: document.getElementById('event-date').value,
       boothPrice: Number(document.getElementById('booth-price').value) || 0,
       description: document.getElementById('description').value.trim(),
-      locationName: document.getElementById('address-input').value.trim(),
+      locationName: `${document.getElementById('address').value.trim()} ${document.getElementById('detailAddress').value.trim()}`.trim(),
       latitude: document.getElementById('latitude').value || null,
       longitude: document.getElementById('longitude').value || null,
     };
@@ -401,7 +402,6 @@ function handleCommentSubmit() {
 
 document.addEventListener('DOMContentLoaded', () => {
   handleMarketCreateSubmit();
-
   loadMarketDetail();
   handleBoothSelectClick();
   loadApplicationList();

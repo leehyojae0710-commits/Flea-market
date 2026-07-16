@@ -115,3 +115,37 @@ UNLOCK TABLES;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
 -- Dump completed on 2026-07-14 18:01:42
+
+-- ------------------------------------------------------
+-- 아래는 Swagger API 작업으로 추가된 스키마입니다.
+-- 이미 DB를 만들어 둔 사람은 이 파일을 재실행하지 말고
+-- scripts/migrate-add-swagger-columns.js 를 대신 실행하세요.
+-- ------------------------------------------------------
+
+ALTER TABLE markets ADD COLUMN IF NOT EXISTS boothPrice INT DEFAULT 0;
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS productDesc TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS activeRole VARCHAR(10) DEFAULT 'seller';
+
+CREATE TABLE IF NOT EXISTS `comments` (
+  `commentId` int NOT NULL AUTO_INCREMENT,
+  `targetType` varchar(20) NOT NULL COMMENT 'market 등 댓글이 달리는 대상 종류',
+  `targetId` int NOT NULL,
+  `userId` BIGINT UNSIGNED NOT NULL COMMENT '작성자',
+  `content` varchar(500) NOT NULL,
+  `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`commentId`),
+  KEY `userId` (`userId`),
+  KEY `target` (`targetType`,`targetId`),
+  CONSTRAINT `comments_ibfk_1` FOREIGN KEY (`userId`) REFERENCES `users` (`userId`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS `payments` (
+  `paymentId` int NOT NULL AUTO_INCREMENT,
+  `applicationId` int NOT NULL,
+  `amount` int NOT NULL DEFAULT '0',
+  `status` varchar(20) NOT NULL DEFAULT 'Paid' COMMENT '모의 결제이므로 항상 Paid',
+  `paidAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`paymentId`),
+  KEY `applicationId` (`applicationId`),
+  CONSTRAINT `payments_ibfk_1` FOREIGN KEY (`applicationId`) REFERENCES `applications` (`applicationId`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

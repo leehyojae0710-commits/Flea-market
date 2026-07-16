@@ -1,9 +1,13 @@
-// backend/routes/authRoutes.js
+﻿// backend/routes/authRoutes.js
 import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import pool from '../config/db.js';
+<<<<<<< HEAD
 import { verifyToken } from '../middlewares/authMiddleware.js';
+=======
+import { authenticateToken } from '../middleware/authMiddleware.js';
+>>>>>>> main
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'flea-market-dev-secret-change-me';
@@ -19,7 +23,42 @@ function publicUser(row) {
   };
 }
 
-// 1. 회원가입
+/**
+ * @swagger
+ * tags:
+ *   name: Auth
+ *   description: 회원가입 / 로그인
+ */
+
+/**
+ * @swagger
+ * /auth/register:
+ *   post:
+ *     summary: 회원가입
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [userType, email, password, phone, region]
+ *             properties:
+ *               userType: { type: integer, description: "0: 판매자, 1: 주최자", example: 0 }
+ *               email: { type: string, example: "seller01@example.com" }
+ *               password: { type: string, example: "password123!" }
+ *               phone: { type: string, example: "010-1234-5678" }
+ *               region: { type: string, example: "서울시 강남구" }
+ *     responses:
+ *       201:
+ *         description: 회원가입 성공 (토큰 발급)
+ *       400:
+ *         description: 필수 항목 누락
+ *       409:
+ *         description: 이미 가입된 이메일
+ */
+// 1. 회원가입 API
 router.post('/register', async (req, res) => {
   const { userType, email, password, phone, region } = req.body;
 
@@ -56,7 +95,32 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// 2. 로그인
+/**
+ * @swagger
+ * /auth/login:
+ *   post:
+ *     summary: 로그인
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email: { type: string, example: "seller01@example.com" }
+ *               password: { type: string, example: "password123!" }
+ *     responses:
+ *       200:
+ *         description: 로그인 성공 (토큰 발급)
+ *       400:
+ *         description: 이메일/비밀번호 누락
+ *       401:
+ *         description: 이메일 또는 비밀번호 불일치
+ */
+// 2. 로그인 API (이메일 + 비밀번호)
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
@@ -91,11 +155,23 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// 3. 로그아웃 (JWT는 서버가 따로 저장 안 하니, 클라이언트가 토큰 삭제하면 끝. 서버는 형식상 응답만)
+/**
+ * @swagger
+ * /auth/logout:
+ *   post:
+ *     summary: 로그아웃
+ *     tags: [Auth]
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: 로그아웃 처리됨 (클라이언트에서 토큰 삭제)
+ */
+// 3. 로그아웃 (JWT는 서버가 따로 세션을 안 갖고 있으니, 클라이언트가 토큰 삭제하면 됨. 서버는 형식만 응답)
 router.post('/logout', (req, res) => {
-  return res.status(200).json({ success: true, data: null, message: '로그아웃 되었습니다.' });
+  return res.status(200).json({ success: true, data: null, message: '로그아웃되었습니다.' });
 });
 
+<<<<<<< HEAD
 // 4. 비밀번호 변경 (로그인 필요)
 router.patch('/password', verifyToken, async (req, res) => {
   const { userId } = req.user;
@@ -131,3 +207,44 @@ router.patch('/password', verifyToken, async (req, res) => {
 
 
 export default router;
+=======
+/**
+ * @swagger
+ * /auth/toggle-role:
+ *   patch:
+ *     summary: 판매자 <-> 주최자 역할 전환
+ *     tags: [Auth]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: 역할 전환 성공
+ *       401:
+ *         description: 인증 필요
+ *       404:
+ *         description: 사용자를 찾을 수 없음
+ */
+router.patch('/toggle-role', authenticateToken, async (req, res) => {
+  const { userId } = req.user;
+
+  try {
+    const [rows] = await pool.query('SELECT activeRole FROM users WHERE userId = ?', [userId]);
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, data: null, message: '사용자를 찾을 수 없습니다.' });
+    }
+
+    const nextRole = rows[0].activeRole === 'host' ? 'seller' : 'host';
+    await pool.query('UPDATE users SET activeRole = ? WHERE userId = ?', [nextRole, userId]);
+
+    return res.status(200).json({
+      success: true,
+      data: { activeRole: nextRole },
+      message: `${nextRole === 'host' ? '주최자' : '판매자'} 모드로 전환했습니다.`,
+    });
+  } catch (error) {
+    console.error('역할 전환 오류:', error.message);
+    return res.status(500).json({ success: false, data: null, message: '서버 오류로 역할 전환에 실패했습니다.' });
+  }
+});
+
+export default router;
+>>>>>>> main
