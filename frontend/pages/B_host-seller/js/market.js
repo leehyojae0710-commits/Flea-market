@@ -91,16 +91,19 @@ export function handleMarketCreateSubmit() {
 
     const payload = {
       title: document.getElementById('title').value.trim(),
-      eventDate: document.getElementById('event-date').value,
+      eventDate_min: document.getElementById('start-event-date').value,
+      eventDate_max: document.getElementById('end-event-date').value,
       boothPrice: Number(document.getElementById('booth-price').value) || 0,
       description: document.getElementById('description').value.trim(),
       locationName: document.getElementById('fullAddress').value.trim(),
       region: document.getElementById('region').value || null,
       latitude: document.getElementById('latitude').value || null,
       longitude: document.getElementById('longitude').value || null,
+      maxparticipants: Number(document.getElementById('max-participants').value) || null,
       marketImage: document.getElementById('uploadedImagePath').value || null,
     };
 
+    console.log('마켓 등록 payload:', payload);
 
     // // 📌 파일 첨부 (input의 name과 무관하게, 여기 문자열이 백엔드 marketUpload.single()과 일치해야 함)
     // const imageFile = document.getElementById('market-image').files[0];
@@ -108,7 +111,7 @@ export function handleMarketCreateSubmit() {
     //   formData.append('marketImage', imageFile);
     // }
 
-    if (!document.getElementById('title').value.trim() || !document.getElementById('event-date').value) {
+    if (!document.getElementById('title').value.trim() || !document.getElementById('start-event-date').value) {
       renderAlert('마켓 이름과 개최 일자는 꼭 입력해주세요.');
       return;
     }
@@ -118,9 +121,9 @@ export function handleMarketCreateSubmit() {
       const res = await createMarket(payload);
       if (res && res.success) {
         renderAlert('마켓이 등록됐어요!', 'success');
-        setTimeout(() => {
-          window.location.href = '../../index.html';
-        }, 1000);
+        // setTimeout(() => {
+        //   window.location.href = '../../index.html';
+        // }, 1000);
       } else {
         renderAlert(res?.message || '등록에 실패했어요. 입력값을 확인해주세요.');
         setButtonLoading(submitBtn, false, '등록 중...', '등록하기');

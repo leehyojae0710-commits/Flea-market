@@ -8,16 +8,16 @@
 //    boothPrice, hostRegion(= users.region JOIN)
 // 목데이터도 반드시 같은 필드명을 써야 실제 API로 전환했을 때 화면이 안 깨집니다.
 
-const MOCK_MARKETS = [
-  { marketId: 1, title: "홍대 골목 빈티지 마켓", hostRegion: "마포구", locationName: "서울 마포구 와우산로", eventDate: "2026-07-19", boothPrice: 30000 },
-  { marketId: 2, title: "연남동 주말 플리마켓", hostRegion: "마포구", locationName: "서울 마포구 연남동", eventDate: "2026-07-26", boothPrice: 20000 },
-  { marketId: 3, title: "성수동 브런치 마켓", hostRegion: "성동구", locationName: "서울 성동구 성수동", eventDate: "2026-07-20", boothPrice: 0 },
-  { marketId: 4, title: "판교 테크밸리 나눔장터", hostRegion: "성남시", locationName: "경기 성남시 분당구", eventDate: "2026-08-02", boothPrice: 10000 },
-  { marketId: 5, title: "잠실 한강 야시장", hostRegion: "송파구", locationName: "서울 송파구 잠실동", eventDate: "2026-07-25", boothPrice: 40000 },
-  { marketId: 6, title: "이태원 세계 소품 마켓", hostRegion: "용산구", locationName: "서울 용산구 이태원동", eventDate: "2026-08-09", boothPrice: 25000 },
-  { marketId: 7, title: "익선동 골동품 벼룩시장", hostRegion: "종로구", locationName: "서울 종로구 익선동", eventDate: "2026-07-12", boothPrice: 15000 },
-  { marketId: 8, title: "제주 애월 로컬 마켓", hostRegion: "제주시", locationName: "제주 제주시 애월읍", eventDate: "2026-08-16", boothPrice: 0 },
-];
+// const MOCK_MARKETS = [
+//   { marketId: 1, title: "홍대 골목 빈티지 마켓", hostRegion: "마포구", locationName: "서울 마포구 와우산로", eventDate: "2026-07-19", boothPrice: 30000 },
+//   { marketId: 2, title: "연남동 주말 플리마켓", hostRegion: "마포구", locationName: "서울 마포구 연남동", eventDate: "2026-07-26", boothPrice: 20000 },
+//   { marketId: 3, title: "성수동 브런치 마켓", hostRegion: "성동구", locationName: "서울 성동구 성수동", eventDate: "2026-07-20", boothPrice: 0 },
+//   { marketId: 4, title: "판교 테크밸리 나눔장터", hostRegion: "성남시", locationName: "경기 성남시 분당구", eventDate: "2026-08-02", boothPrice: 10000 },
+//   { marketId: 5, title: "잠실 한강 야시장", hostRegion: "송파구", locationName: "서울 송파구 잠실동", eventDate: "2026-07-25", boothPrice: 40000 },
+//   { marketId: 6, title: "이태원 세계 소품 마켓", hostRegion: "용산구", locationName: "서울 용산구 이태원동", eventDate: "2026-08-09", boothPrice: 25000 },
+//   { marketId: 7, title: "익선동 골동품 벼룩시장", hostRegion: "종로구", locationName: "서울 종로구 익선동", eventDate: "2026-07-12", boothPrice: 15000 },
+//   { marketId: 8, title: "제주 애월 로컬 마켓", hostRegion: "제주시", locationName: "제주 제주시 애월읍", eventDate: "2026-08-16", boothPrice: 0 },
+// ];
 
 function todayMidnight() {
   const d = new Date();
@@ -125,10 +125,10 @@ function renderMarketList(markets) {
         <span class="pin" aria-hidden="true"></span>
         <div class="card-top">
           <span class="category-tag">${m.hostRegion || ""}</span>
-          <span class="dday-tag">${ddayLabel(m.eventDate)}</span>
+          <span class="dday-tag">${ddayLabel(m.eventDate_min)}</span>
         </div>
         <h3>${m.title}</h3>
-        <p class="market-meta">${m.eventDate} · ${m.locationName || ""}</p>
+        <p class="market-meta">${m.eventDate_min} ~ ${m.eventDate_max} · ${m.locationName || ""}</p>
         <div class="card-bottom">
           <span class="price-tag ${Number(m.boothPrice) === 0 ? "free" : ""}">${formatPrice(m.boothPrice)}</span>
           <span class="card-arrow">자세히 보기 →</span>

@@ -102,7 +102,7 @@ app.get('/', async (req, res) => {
                     <td><code>${m.marketImage || ''}</code></td>
                     <td>${m.locationName}</td>
                     <td>${m.latitude}, ${m.longitude}</td>
-                    <td>${new Date(m.eventDate).toLocaleDateString()}</td>
+                    <td>${new Date(m.eventDate_min).toLocaleDateString()} ~ ${new Date(m.eventDate_max).toLocaleDateString()}</td>
                     <td>${m.isExpired ? '❌ 마감' : '✅ 모집중'}</td>
                   </tr>
                 `).join('')}
