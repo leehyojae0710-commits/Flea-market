@@ -18,6 +18,7 @@
   <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
   <script type="module" src="js/market.js"></script>
   <script src="../../common/js/api.js"></script>
+  <script type="module" src="js/marketdate.js"></script>
   <!-- <script type="module" src="js/map-integration.js"></script> -->
 </head>
 
@@ -43,7 +44,11 @@
 
         <div class="form-field">
           <label for="event-date">개최 일자</label>
-          <input type="date" id="event-date" class="form-input" required />
+          <div class="date-row">
+            <input type="date" id="start-event-date" class="form-input date-input" required />
+            <span class="date-separator">~</span>
+            <input type="date" id="end-event-date" class="form-input date-input" required />
+          </div>
         </div>
 
         <div class="form-field">

@@ -19,12 +19,12 @@ export async function getMarketList(req, res) {
 
     if (!includeExpired) {
       conditions.push('m.isExpired = 0');
-      conditions.push('m.eventDate >= CURDATE()'); // D-0(오늘)까지는 보이고, 다음 날부터 자동 제외
+      conditions.push('m.eventDate_max >= CURDATE()'); // D-0(오늘)까지는 보이고, 다음 날부터 자동 제외
     }
     if (region) { conditions.push('u.region = ?'); values.push(region); }
     if (conditions.length > 0) sql += ` WHERE ${conditions.join(' AND ')}`;
 
-    sql += sort === 'eventDate' ? ' ORDER BY m.eventDate ASC' : ' ORDER BY m.marketId DESC';
+    sql += sort === 'eventDate' ? ' ORDER BY m.eventDate_min ASC' : ' ORDER BY m.marketId DESC';
 
     const [rows] = await pool.query(sql, values);
     return res.status(200).json({ success: true, data: rows, message: '마켓 목록을 조회했습니다.' });
@@ -53,17 +53,17 @@ export async function getMarketDetail(req, res) {
 // POST /api/markets (로그인 필요, 주최자)
 export async function createMarket(req, res) {
   const { userId } = req.user;
-  const { title, description, marketImage, locationName, region, latitude, longitude, eventDate, boothPrice , isExpired, maxParticipants } = req.body;
+  const { title, description, marketImage, locationName, region, latitude, longitude, eventDate_min, eventDate_max, boothPrice , isExpired, maxParticipants } = req.body;
 
-  if (!title || !eventDate || !locationName) {
+  if (!title || !eventDate_min || !eventDate_max || !locationName) {
     return res.status(400).json({ success: false, data: null, message: '마켓 이름, 개최 일자, 장소는 필수입니다.' });
   }
 
   try {
     const [result] = await pool.query(
-      `INSERT INTO markets (hostId, title, description, marketImage, locationName, region, latitude, longitude, eventDate, boothPrice, isExpired, maxParticipants)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [userId, title, description || '', marketImage || null, locationName, region || null, latitude || 0, longitude || 0, eventDate, boothPrice || 0, isExpired || 0, maxParticipants || 0]
+      `INSERT INTO markets (hostId, title, description, marketImage, locationName, region, latitude, longitude, eventDate_min, eventDate_max, boothPrice, isExpired, maxParticipants)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [userId, title, description || '', marketImage || null, locationName, region || null, latitude || 0, longitude || 0, eventDate_min, eventDate_max, boothPrice || 1, isExpired || 0, maxParticipants || 0]
     );
 
     return res.status(201).json({

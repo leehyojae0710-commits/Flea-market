@@ -16,10 +16,10 @@ export async function getMySchedule(req, res) {
     );
 
     const [selling] = await pool.query(
-      `SELECT m.marketId, m.title, m.eventDate, m.locationName, a.applicationId, a.status, 'seller' AS role
+      `SELECT m.marketId, m.title, m.eventDate_min, m.eventDate_max, m.locationName, a.applicationId, a.status, 'seller' AS role
        FROM applications a
        JOIN markets m ON m.marketId = a.marketId
-       WHERE a.sellerId = ? ORDER BY m.eventDate ASC`,
+       WHERE a.sellerId = ? ORDER BY m.eventDate_min ASC`,
       [userId]
     );
 
