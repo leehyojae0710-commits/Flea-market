@@ -104,6 +104,7 @@ function populateRegionOptions(markets) {
   if (regions.includes(currentValue)) select.value = currentValue;
 }
 
+
 function renderMarketList(markets) {
   const grid = document.getElementById("market-grid");
   const emptyState = document.getElementById("empty-state");
@@ -206,3 +207,5 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   await handleFilterChange();
 });
+
+
