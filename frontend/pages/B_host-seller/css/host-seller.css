@@ -114,6 +114,57 @@ body {
   margin: 0 0 22px;
 }
 
+/* ---------- 마켓 상세: 제목행 / 상태배지 / 이미지 / 설명 / 지도링크 / D-day ---------- */
+.market-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.market-title-row h1 { flex: 1; margin-bottom: 0; }
+
+.status-tag.open { background: var(--sage-bg); color: var(--sage-text); }
+.status-tag.closed { background: #ece1cd; color: var(--ink-soft); }
+
+.market-image {
+  width: 100%;
+  max-height: 260px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  border: 1.5px solid #ece1cd;
+}
+
+.market-description {
+  font-family: "Inter", sans-serif;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink);
+  white-space: pre-line;
+  margin: 0 0 18px;
+}
+
+.market-map-link {
+  display: inline-block;
+  margin: -8px 0 18px;
+  text-decoration: none;
+  color: var(--mustard-text);
+}
+.market-map-link:hover { text-decoration: underline; }
+
+#market-dday {
+  display: inline-block;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 3px 9px;
+  border-radius: 4px;
+  margin: -14px 0 18px;
+}
+#market-dday.dday-upcoming { background: var(--mustard-bg, #fdf1d6); color: var(--mustard-text); }
+#market-dday.dday-ongoing { background: var(--sage-bg); color: var(--sage-text); }
+#market-dday.dday-ended { background: #ece1cd; color: var(--ink-soft); }
+
 /* ---------- form fields (인증 화면과 동일 톤) ---------- */
 .form-field {
   margin-bottom: 14px;
@@ -255,6 +306,13 @@ body {
   color: var(--ink);
 }
 .booth-btn:hover { border-color: var(--mustard); color: var(--mustard-text); }
+.booth-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  border-color: #e2d7c3;
+  color: var(--ink-soft);
+}
+.booth-btn:disabled:hover { border-color: #e2d7c3; color: var(--ink-soft); }
 
 /* ---------- list items (applications / comments) ---------- */
 .list-empty {

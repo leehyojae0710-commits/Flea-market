@@ -1,4 +1,3 @@
-import { handleMarketCreateSubmit } from './market.js';
 document.addEventListener('DOMContentLoaded', function() {
   kakao.maps.load(function() {
     var mapContainer = document.getElementById('map-container'),

@@ -21,19 +21,29 @@
 
     <div class="panel">
       <span class="pin" aria-hidden="true"></span>
-      <h1 id="market-title">마켓 정보를 불러오는 중...</h1>
+      <div class="market-title-row">
+        <h1 id="market-title">마켓 정보를 불러오는 중...</h1>
+        <span id="market-status" class="status-tag" style="display:none;"></span>
+      </div>
       <p class="panel-sub" id="market-info"></p>
+      <p class="panel-sub" id="market-dday" style="display:none;"></p>
 
-      <h2>부스 선택</h2>
-      <p class="form-hint" style="margin-bottom:12px;">참가하고 싶은 부스 번호를 선택하면 신청 화면으로 이동해요.</p>
-      <div id="booth-select" class="booth-grid">
-        <button type="button" class="booth-btn" data-booth="1">1번 부스</button>
-        <button type="button" class="booth-btn" data-booth="2">2번 부스</button>
-        <button type="button" class="booth-btn" data-booth="3">3번 부스</button>
+      <img id="market-image" class="market-image" alt="마켓 대표 이미지" style="display:none;" />
+      <p id="market-description" class="market-description"></p>
+      <a id="market-map-link" class="form-hint market-map-link" href="#" target="_blank" rel="noopener" style="display:none;">📍 카카오맵에서 위치 보기</a>
+
+      <div id="booth-select-panel">
+        <h2>부스 선택</h2>
+        <p class="form-hint" id="booth-select-hint" style="margin-bottom:12px;">참가하고 싶은 부스 번호를 선택하면 신청 화면으로 이동해요.</p>
+        <div id="booth-select" class="booth-grid">
+          <button type="button" class="booth-btn" data-booth="1">1번 부스</button>
+          <button type="button" class="booth-btn" data-booth="2">2번 부스</button>
+          <button type="button" class="booth-btn" data-booth="3">3번 부스</button>
+        </div>
       </div>
     </div>
 
-    <div class="panel" id="host-panel">
+    <div class="panel" id="host-panel" style="display:none;">
       <h2>신청자 목록 <span class="form-hint">(주최측 전용)</span></h2>
       <div id="application-list">
         <p class="list-empty">신청 내역을 불러오는 중...</p>
@@ -60,5 +70,7 @@
 
   <script src="../../common/js/api.js"></script>
   <script src="js/market.js"></script>
+  <script src="js/market-detail-extra.js"></script>
+  <script src="js/market-role-view.js"></script>
 </body>
 </html>
