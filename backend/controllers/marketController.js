@@ -53,7 +53,10 @@ export async function getMarketDetail(req, res) {
 // POST /api/markets (로그인 필요, 주최자)
 export async function createMarket(req, res) {
   const { userId } = req.user;
-  const { title, description, marketImage, locationName, region, latitude, longitude, eventDate_min, eventDate_max, boothPrice , isExpired, maxParticipants } = req.body;
+  const { title, description, marketImage, locationName, region, latitude, longitude, eventDate_min, eventDate_max, boothPrice, isExpired, maxParticipants } = req.body;
+  console.log('createMarket called with:', req.body);
+  console.log('maxParticipants', maxParticipants);
+
 
   if (!title || !eventDate_min || !eventDate_max || !locationName) {
     return res.status(400).json({ success: false, data: null, message: '마켓 이름, 개최 일자, 장소는 필수입니다.' });
@@ -63,7 +66,7 @@ export async function createMarket(req, res) {
     const [result] = await pool.query(
       `INSERT INTO markets (hostId, title, description, marketImage, locationName, region, latitude, longitude, eventDate_min, eventDate_max, boothPrice, isExpired, maxParticipants)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [userId, title, description || '', marketImage || null, locationName, region || null, latitude || 0, longitude || 0, eventDate_min, eventDate_max, boothPrice || 1, isExpired || 0, maxParticipants || 0]
+      [userId, title, description || '', marketImage || null, locationName, region || null, latitude || 0, longitude || 0, eventDate_min, eventDate_max, boothPrice || 0, isExpired || 0, maxParticipants || 1]
     );
 
     return res.status(201).json({
