@@ -47,6 +47,13 @@ function formatPrice(price) {
   return n === 0 ? "무료 참가" : `참가비 ${n.toLocaleString()}원`;
 }
 
+// market-detail-extra.js의 renderMarketImage()와 동일한 규칙:
+// 절대 URL(http로 시작)이면 그대로, 아니면 백엔드 API_BASE_URL을 붙여서 완성합니다.
+function getMarketImageSrc(marketImage) {
+  if (!marketImage) return null;
+  return marketImage.startsWith("http") ? marketImage : `${API_BASE_URL}${marketImage}`;
+}
+
 // 화면의 "마감임박순(deadline)" / "최신등록순(latest)" 옵션 값을
 // 백엔드가 이해하는 sort 값(eventDate/latest)으로 변환합니다.
 // (docs/api-routes.md 기준: GET /api/markets?sort=latest|eventDate)
@@ -119,10 +126,12 @@ function renderMarketList(markets) {
   emptyState.hidden = true;
 
   grid.innerHTML = markets
-    .map(
-      (m) => `
+    .map((m) => {
+      const imageSrc = getMarketImageSrc(m.marketImage);
+      return `
       <a class="market-card" href="pages/B_host-seller/market-detail.html?marketId=${m.marketId}">
         <span class="pin" aria-hidden="true"></span>
+        ${imageSrc ? `<div class="card-image-wrap"><img class="card-image" src="${imageSrc}" alt="${m.title} 대표 이미지" loading="lazy" /></div>` : ""}
         <div class="card-top">
           <span class="category-tag">${m.hostRegion || ""}</span>
           <span class="dday-tag">${ddayLabel(m.eventDate_min)}</span>
@@ -133,8 +142,8 @@ function renderMarketList(markets) {
           <span class="price-tag ${Number(m.boothPrice) === 0 ? "free" : ""}">${formatPrice(m.boothPrice)}</span>
           <span class="card-arrow">자세히 보기 →</span>
         </div>
-      </a>`
-    )
+      </a>`;
+    })
     .join("");
 }
 
