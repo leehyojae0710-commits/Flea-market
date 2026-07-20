@@ -17,7 +17,10 @@ export async function getMarketList(req, res) {
     const conditions = [];
     const values = [];
 
-    if (!includeExpired) conditions.push('m.isExpired = 0');
+    if (!includeExpired) {
+      conditions.push('m.isExpired = 0');
+      conditions.push('m.eventDate >= CURDATE()'); // D-0(오늘)까지는 보이고, 다음 날부터 자동 제외
+    }
     if (region) { conditions.push('u.region = ?'); values.push(region); }
     if (conditions.length > 0) sql += ` WHERE ${conditions.join(' AND ')}`;
 
