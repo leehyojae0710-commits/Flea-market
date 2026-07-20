@@ -121,9 +121,9 @@ function handleMarketCreateSubmit() {
       const res = await createMarket(payload);
       if (res && res.success) {
         renderAlert('마켓이 등록됐어요!', 'success');
-        // setTimeout(() => {
-        //   window.location.href = '../../index.html';
-        // }, 1000);
+        setTimeout(() => {
+          window.location.href = '../../index.html';
+        }, 1000);
       } else {
         renderAlert(res?.message || '등록에 실패했어요. 입력값을 확인해주세요.');
         setButtonLoading(submitBtn, false, '등록 중...', '등록하기');
