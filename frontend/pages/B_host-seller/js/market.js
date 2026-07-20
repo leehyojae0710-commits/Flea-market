@@ -78,7 +78,7 @@ const STATUS_CLASS = { Pending: 'pending', Approved: 'approved', Rejected: 'reje
 
 // ---------- 마켓 등록 ----------
 
-export function handleMarketCreateSubmit() {
+function handleMarketCreateSubmit() {
   console.log('등록 시작');
   const form = document.getElementById('market-create-form');
   if (!form) return;
