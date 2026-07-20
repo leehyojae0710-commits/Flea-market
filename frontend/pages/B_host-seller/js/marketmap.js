@@ -52,3 +52,34 @@ document.addEventListener('DOMContentLoaded', function() {
     handleMarketCreateSubmit();
   });
 });
+
+document.getElementById('image-upload-btn').addEventListener('click', async() => {
+  console.log('Image upload button clicked');
+  const fileInput = document.getElementById('market-image');
+  const file = fileInput.files[0];
+  
+  if (!file) {
+    console.log('No file selected');
+  }
+
+  const formData = new FormData();
+  formData.append('marketImage', file);
+
+  try {
+    const response = await fetch('http://localhost:5000/api/upload', {
+      method: 'POST',
+      body: formData
+    });
+    const data = await response.json();
+
+    if (data.success) {
+      document.getElementById('uploadedImagePath').value = data.filePath;
+      console.log('Image uploaded successfully:', data.filePath);
+    }
+    else {
+      console.error('Image upload failed:', data.message);
+    }
+  } catch (error) {
+    console.error('Error uploading image:', error);
+  }
+});
