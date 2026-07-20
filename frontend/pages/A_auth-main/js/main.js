@@ -145,16 +145,31 @@ async function handleFilterChange() {
   renderMarketList(markets);
 }
 
+function getLoggedInUser() {
+  const raw = localStorage.getItem("loggedInUser");
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
 function syncAuthNavVisibility() {
   const loginLink = document.getElementById("nav-login-link");
   const mypageLink = document.getElementById("nav-mypage-link");
   const logoutBtn = document.getElementById("nav-logout-btn");
-  if (!loginLink || !mypageLink || !logoutBtn) return;
+  const hostCtaBtn = document.getElementById("host-cta");
+  if (!loginLink || !mypageLink || !logoutBtn || !hostCtaBtn) return;
 
-  const isLoggedIn = !!localStorage.getItem("loggedInUser");
+  const user = getLoggedInUser();
+  const isLoggedIn = !!user;
+  const isHost = user?.userType === 1; // 0: 판매자, 1: 주최자
+
   loginLink.hidden = isLoggedIn;
-  mypageLink.hidden = !isLoggedIn;
   logoutBtn.hidden = !isLoggedIn;
+  mypageLink.hidden = !isLoggedIn;          // 비로그인/판매자/주최자 모두 마이페이지는 숨김
+  hostCtaBtn.hidden = !isLoggedIn || !isHost; // 주최자로 로그인했을 때만 노출
 }
 
 function initAuthNav() {
