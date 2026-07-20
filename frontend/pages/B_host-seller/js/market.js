@@ -98,7 +98,7 @@ export function handleMarketCreateSubmit() {
       region: document.getElementById('region').value || null,
       latitude: document.getElementById('latitude').value || null,
       longitude: document.getElementById('longitude').value || null,
-      marketImage: document.getElementById('market-image').files?.[0]?.name || null,
+      marketImage: document.getElementById('uploadedImagePath').value || null,
     };
 
 

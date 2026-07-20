@@ -13,6 +13,7 @@ import scheduleRoutes from './routes/scheduleRoutes.js';
 import checkinRoutes from './routes/checkinRoutes.js';
 import pool from './config/db.js'; // DB 데이터를 가져오기 위해 연결 풀을 불러옵니다.
 import swaggerSpec from './config/swagger.js';
+import upload  from './middleware/multer.js';
 
 dotenv.config();
 
@@ -30,6 +31,7 @@ app.use('/api/comments', commentRoutes);
 app.use('/api/schedules', scheduleRoutes);
 app.use('/api/checkins', checkinRoutes);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec)); // http://localhost:5000/api-docs
+app.use('/api/uploads', express.static('Z:/markets/'));
 
 // 🌐 http://localhost:5000 접속 시 DB 데이터를 HTML 표로 보여주는 라우터
 app.get('/', async (req, res) => {
@@ -153,4 +155,12 @@ app.get('/', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`서버가 http://localhost:${PORT} 에서 달리는 중입니다! 🏃‍♂️`);
+});
+
+app.post('/api/upload', upload.single('marketImage'), (req, res) => {
+  if (!req.file) {
+    return console.log('No file uploaded');
+  }
+  const filePath = `/uploads/${req.file.filename}`;
+  res.json({ success: true, filePath });
 });
