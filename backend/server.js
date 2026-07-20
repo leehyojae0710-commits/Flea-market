@@ -164,3 +164,18 @@ app.post('/api/upload', upload.single('marketImage'), (req, res) => {
   const filePath = `/uploads/${req.file.filename}`;
   res.json({ success: true, filePath });
 });
+
+async function updateExpiredMarkets() {
+  try {
+    const [result] = await pool.query(`
+      UPDATE markets
+      SET isExpired = 1
+      WHERE eventDate_max < CURDATE() AND isExpired = 0
+    `);
+    console.log(`✅ 만료 마켓 갱신: ${result.affectedRows}개`);
+  } catch (error) {
+    console.error('❌ 만료 갱신 오류:', error);
+  }
+}
+//서버 키면 market 테이블에서 eventDate_max < 오늘 날짜인 마켓들을 isExpired = 1로 갱신합니다.
+updateExpiredMarkets();
