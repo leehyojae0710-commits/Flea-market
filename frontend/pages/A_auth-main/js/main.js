@@ -82,8 +82,8 @@ async function getMarketList(params = {}) {
 
 function applyFilterSort(markets, { region, sort } = {}) {
   let list = markets.filter((m) => !m.isExpired && !isExpiredByDate(m.eventDate_max));
-  if (region) list = list.filter((m) => m.hostRegion === region);
-  //if (region) list = list.filter((m) => m.region === region);
+  //if (region) list = list.filter((m) => m.hostRegion === region);
+  if (region) list = list.filter((m) => m.region === region);
   if (sort === "latest") {
     list = [...list].sort((a, b) => b.marketId - a.marketId);
   } else {
@@ -100,7 +100,7 @@ function populateRegionOptions(markets) {
   // 실제 데이터 기준으로 다시 채워야 하므로, "전체" 옵션만 남기고 초기화합니다.
   select.innerHTML = '<option value="">전체</option>';
 
-  const regions = [...new Set(markets.map((m) => m.hostRegion).filter(Boolean))].sort();
+  const regions = [...new Set(markets.map((m) => m.region).filter(Boolean))].sort();
   regions.forEach((r) => {
     const opt = document.createElement("option");
     opt.value = r;
