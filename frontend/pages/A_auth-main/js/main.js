@@ -156,7 +156,7 @@ async function handleFilterChange() {
 }
 
 function getLoggedInUser() {
-  const raw = localStorage.getItem("loggedInUser");
+  const raw = sessionStorage.getItem("loggedInUser");
   if (!raw) return null;
   try {
     return JSON.parse(raw);
@@ -196,7 +196,7 @@ function handleHostCtaClick() {
   if (!btn) return;
   btn.addEventListener("click", () => {
     // 로그인이 되어 있으면 바로 마켓 등록 화면으로, 아니면 로그인 화면으로 보냅니다.
-    const isLoggedIn = !!localStorage.getItem("loggedInUser");
+    const isLoggedIn = !!sessionStorage.getItem("loggedInUser");
     window.location.href = isLoggedIn
       ? "pages/B_host-seller/market-create.html"
       : "pages/A_auth-main/login.html";

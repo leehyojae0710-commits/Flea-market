@@ -35,8 +35,8 @@ if (loginForm) {
         showAlert(result.message || '로그인 성공!', 'success');
 
         if (result.data) {
-          localStorage.setItem('token', result.data.token);
-          localStorage.setItem('loggedInUser', JSON.stringify(result.data.user));
+          sessionStorage.setItem('token', result.data.token);
+          sessionStorage.setItem('loggedInUser', JSON.stringify(result.data.user));
 
           // 로그인 직후엔 특정 마켓이 정해져 있지 않으므로
           // 역할과 무관하게 마켓 목록(메인 화면)으로 이동합니다.
@@ -141,8 +141,8 @@ if (registerForm) {
         showAlert(result.message || '회원가입이 완료되었습니다!', 'success');
 
         if (result.data) {
-          localStorage.setItem('token', result.data.token);
-          localStorage.setItem('loggedInUser', JSON.stringify(result.data.user));
+          sessionStorage.setItem('token', result.data.token);
+          sessionStorage.setItem('loggedInUser', JSON.stringify(result.data.user));
         }
 
         setTimeout(() => {

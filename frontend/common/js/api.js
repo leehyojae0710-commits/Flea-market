@@ -4,7 +4,7 @@
 const API_BASE_URL = 'http://localhost:5000/api';
 
 async function callApi(path, { method = 'GET', body = null } = {}) {
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   const headers = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
@@ -25,7 +25,7 @@ async function callApi(path, { method = 'GET', body = null } = {}) {
 // 공통 로그아웃 처리 (docs/naming-convention.md 함수명 규칙: logoutUser())
 // POST /api/auth/logout 은 서버 쪽 기록용이라 실패해도 무시하고, 항상 로컬 토큰은 지웁니다.
 async function logoutUser() {
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   if (token) {
     try {
       await callApi('/auth/logout', { method: 'POST' });
@@ -33,6 +33,6 @@ async function logoutUser() {
       console.error('로그아웃 API 호출 실패(무시하고 로컬 로그아웃 진행):', e);
     }
   }
-  localStorage.removeItem('token');
-  localStorage.removeItem('loggedInUser');
+  sessionStorage.removeItem('token');
+  sessionStorage.removeItem('loggedInUser');
 }
