@@ -172,7 +172,7 @@ document.querySelectorAll('input[type="date"]').forEach((input) => {
 })
 }
 // async function createMarketWithImage(formData) {
-//   const token = localStorage.getItem('token');
+//   const token = sessionStorage.getItem('token');
 
 //   const res = await fetch(`http://localhost:5000/api/markets`, {
 //     method: 'POST',

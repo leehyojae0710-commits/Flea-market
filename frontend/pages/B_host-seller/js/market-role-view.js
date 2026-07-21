@@ -9,7 +9,7 @@
 
 function getCurrentUser() {
   try {
-    const raw = localStorage.getItem('loggedInUser');
+    const raw = sessionStorage.getItem('loggedInUser');
     return raw ? JSON.parse(raw) : null;
   } catch (err) {
     console.error('로그인 사용자 정보 파싱 실패:', err);

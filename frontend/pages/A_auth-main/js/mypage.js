@@ -9,7 +9,7 @@ function showAlert(message, type = 'error') {
 }
 
 /* ---------------------- 로그인 여부 확인 & 초기값 세팅 ---------------------- */
-const rawUser = localStorage.getItem('loggedInUser');
+const rawUser = sessionStorage.getItem('loggedInUser');
 let currentUser = rawUser ? JSON.parse(rawUser) : null;
 
 if (!currentUser) {
@@ -76,7 +76,7 @@ if (profileForm) {
         showAlert(result.message || '정보가 수정되었습니다.', 'success');
         // 백엔드가 최신 사용자 정보를 그대로 돌려주므로 그걸 기준으로 저장합니다.
         currentUser = result.data ? { ...currentUser, ...result.data } : { ...currentUser, ...body };
-        localStorage.setItem('loggedInUser', JSON.stringify(currentUser));
+        sessionStorage.setItem('loggedInUser', JSON.stringify(currentUser));
       } else {
         showAlert(result.message || '정보 수정에 실패했습니다.');
       }
@@ -161,8 +161,8 @@ if (deleteAccountBtn) {
 
       if (result.success) {
         showAlert(result.message || '회원 탈퇴가 완료되었습니다.', 'success');
-        localStorage.removeItem('token');
-        localStorage.removeItem('loggedInUser');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('loggedInUser');
         setTimeout(() => {
           window.location.href = '../../index.html';
         }, 800);
