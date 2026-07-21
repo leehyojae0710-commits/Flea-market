@@ -17,10 +17,17 @@ document.addEventListener('DOMContentLoaded', function() {
       var combined = detail ? `${address} ${detail}` : address;
       document.getElementById('fullAddress').value = combined;
     }
-
+    let isPostcodeOpen = false;
+    const str = document.getElementById('button_hint');
     window.execDaumPostcode = function() {
+      if (isPostcodeOpen) {
+        str.textContent = "이미 우편번호 찾기 창이 열려 있어요.";
+        str.style.color = "red";
+        return;
+      }
+      isPostcodeOpen = true;
       new daum.Postcode({
-        oncomplete: function (data) {
+        oncomplete: (data) => {
           var addr = data.userSelectedType === 'R' ? data.roadAddress : data.jibunAddress;
           document.getElementById('postcode').value = data.zonecode;
           document.getElementById('address').value = addr;
@@ -43,6 +50,11 @@ document.addEventListener('DOMContentLoaded', function() {
               document.getElementById('region').value = result.address.region_1depth_name;
             }
           });
+        },
+        onclose: () => {
+          str.textContent="";
+          str.style.color = "black";
+          isPostcodeOpen = false;
         }
       }).open();
     };
@@ -50,35 +62,4 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('detailAddress').addEventListener('input', updateFullAddress);
     handleMarketCreateSubmit();
   });
-});
-
-document.getElementById('image-upload-btn').addEventListener('click', async() => {
-  console.log('Image upload button clicked');
-  const fileInput = document.getElementById('market-image');
-  const file = fileInput.files[0];
-  
-  if (!file) {
-    console.log('No file selected');
-  }
-
-  const formData = new FormData();
-  formData.append('marketImage', file);
-
-  try {
-    const response = await fetch('http://localhost:5000/api/upload', {
-      method: 'POST',
-      body: formData
-    });
-    const data = await response.json();
-
-    if (data.success) {
-      document.getElementById('uploadedImagePath').value = data.filePath;
-      console.log('Image uploaded successfully:', data.filePath);
-    }
-    else {
-      console.error('Image upload failed:', data.message);
-    }
-  } catch (error) {
-    console.error('Error uploading image:', error);
-  }
 });
