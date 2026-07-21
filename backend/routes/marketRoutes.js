@@ -17,6 +17,8 @@ import {
   processQueueTimeouts,
 } from '../controllers/marketController.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
+import { requireHost } from '../middleware/hostOnlyMiddleware.js';
+import { validateMarketInput } from '../middleware/marketValidationMiddleware.js';
 
 const router = express.Router();
 
@@ -111,8 +113,7 @@ const router = express.Router();
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
 router.get('/', getMarketList);
-router.post('/', authenticateToken, createMarket);
-
+router.post('/', authenticateToken, requireHost, validateMarketInput, createMarket);
 /**
  * @swagger
  * /markets/{marketId}:
