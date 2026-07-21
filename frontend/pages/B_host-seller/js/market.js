@@ -303,7 +303,7 @@ function prefillBoothApplyForm() {
 
   const backLink = document.getElementById('back-to-market');
   if (backLink) {
-    backLink.href = `market-detail.html?marketId=${params.get('marketId') || ''}`;
+    backLink.href = `market-detail?marketId=${params.get('marketId') || ''}`;
   }
 }
 
