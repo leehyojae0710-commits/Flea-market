@@ -106,12 +106,6 @@ function handleMarketCreateSubmit() {
 
     console.log('마켓 등록 payload:', payload);
 
-    // // 📌 파일 첨부 (input의 name과 무관하게, 여기 문자열이 백엔드 marketUpload.single()과 일치해야 함)
-    // const imageFile = document.getElementById('market-image').files[0];
-    // if (imageFile) {
-    //   formData.append('marketImage', imageFile);
-    // }
-
     if (!document.getElementById('title').value.trim() || !document.getElementById('start-event-date').value) {
       renderAlert('마켓 이름과 개최 일자는 꼭 입력해주세요.');
       return;
@@ -139,7 +133,7 @@ async function uploadMarketImage() {
   console.log('Image upload button clicked');
   const fileInput = document.getElementById('market-image');
   const file = fileInput.files[0];
-  
+
   if (!file) {
     console.log('No file selected');
   }
@@ -164,6 +158,18 @@ async function uploadMarketImage() {
   } catch (error) {
     console.error('Error uploading image:', error);
   }
+}
+function initDateInputs() {
+document.querySelectorAll('input[type="date"]').forEach((input) => {
+  input.addEventListener('keydown', (e) => {
+    e.preventDefault();
+  });
+  input.addEventListener('click', (e) => {
+    if (input.showPicker) {
+      input.showPicker();
+    }
+  });
+})
 }
 // async function createMarketWithImage(formData) {
 //   const token = localStorage.getItem('token');
@@ -465,6 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
   handleCloseMarketClick();
   loadCommentList();
   handleCommentSubmit();
+  initDateInputs();
 
   prefillBoothApplyForm();
   handleProductImagePreview();
