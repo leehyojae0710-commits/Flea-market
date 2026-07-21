@@ -83,10 +83,11 @@ async function getMarketList(params = {}) {
 function applyFilterSort(markets, { region, sort } = {}) {
   let list = markets.filter((m) => !m.isExpired && !isExpiredByDate(m.eventDate_max));
   if (region) list = list.filter((m) => m.hostRegion === region);
+  //if (region) list = list.filter((m) => m.region === region);
   if (sort === "latest") {
     list = [...list].sort((a, b) => b.marketId - a.marketId);
   } else {
-    list = [...list].sort((a, b) => daysUntil(a.eventDate_min) - daysUntil(b.eventDate_min));
+    list = [...list].sort((a, b) => daysUntil(a.eventDate_min.toLocaleDateString()) - daysUntil(b.eventDate_min.toLocaleDateString()));
   }
   return list;
 }
