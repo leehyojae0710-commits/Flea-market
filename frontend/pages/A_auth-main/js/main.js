@@ -130,7 +130,7 @@ function renderMarketList(markets) {
     .map((m) => {
       const imageSrc = getMarketImageSrc(m.marketImage);
       return `
-      <a class="market-card" href="pages/B_host-seller/market-detail.html?marketId=${m.marketId}">
+      <a class="market-card" href="pages/B_host-seller/market-detail?marketId=${m.marketId}">
         <span class="pin" aria-hidden="true"></span>
         ${imageSrc ? `<div class="card-image-wrap"><img class="card-image" src="${imageSrc}" alt="${m.title} 대표 이미지" loading="lazy" /></div>` : ""}
         <div class="card-top">
