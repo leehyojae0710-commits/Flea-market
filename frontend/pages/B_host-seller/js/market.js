@@ -497,7 +497,7 @@ function handleCommentSubmit() {
 // ---------- 초기화 ----------
 
 document.addEventListener('DOMContentLoaded', () => {
-  //handleMarketCreateSubmit();
+  handleMarketCreateSubmit();
   loadMarketDetail();
   handleBoothSelectClick();
   loadApplicationList();
