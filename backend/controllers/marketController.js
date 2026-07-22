@@ -59,16 +59,6 @@ export async function createMarket(req, res) {
   if (!title || !eventDate_min || !eventDate_max || !locationName) {
     return res.status(400).json({ success: false, data: null, message: '마켓 이름, 개최 일자, 장소는 필수입니다.' });
   }
-  if (new Date(eventDate_max) < new Date(eventDate_min)) {
-    return res.status(400).json({ success: false, data: null, message: '종료일은 시작일보다 빠를 수 없습니다.' });
-  }
-  if (boothPrice !== undefined && (Number.isNaN(Number(boothPrice)) || Number(boothPrice) < 0)) {
-    return res.status(400).json({ success: false, data: null, message: '부스료는 0 이상의 숫자여야 합니다.' });
-  }
-  if (maxparticipants !== undefined && maxparticipants !== null &&
-      (!Number.isInteger(Number(maxparticipants)) || Number(maxparticipants) < 0)) {
-    return res.status(400).json({ success: false, data: null, message: '최대 부스 수는 0 이상의 정수여야 합니다.' });
-  }
 
   try {
     const [result] = await pool.query(
@@ -228,6 +218,27 @@ export async function saveBoothLayout(req, res) {
     }
     if (Number(marketRows[0].hostId) !== Number(userId)) {
       return res.status(403).json({ success: false, data: null, message: '본인이 등록한 마켓만 배치를 저장할 수 있습니다.' });
+    }
+
+    // [추가] 부스 번호 중복 확인: 저장 대상 applicationId들의 boothNumber가 겹치면 저장을 막습니다.
+    const appIds = layout.map((item) => item?.applicationId).filter((id) => id !== undefined);
+    if (appIds.length > 0) {
+      const [boothRows] = await pool.query(
+        `SELECT applicationId, boothNumber FROM applications WHERE marketId = ? AND applicationId IN (?)`,
+        [marketId, appIds]
+      );
+
+      const seen = new Map(); // boothNumber -> applicationId
+      for (const row of boothRows) {
+        if (seen.has(row.boothNumber)) {
+          return res.status(409).json({
+            success: false,
+            data: null,
+            message: `부스 번호(${row.boothNumber})가 중복되었습니다. 배치를 저장할 수 없습니다.`,
+          });
+        }
+        seen.set(row.boothNumber, row.applicationId);
+      }
     }
 
     let updatedCount = 0;
