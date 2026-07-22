@@ -156,13 +156,12 @@
 
   function applyBoothSelectAvailability(isExpired) {
     const boothHintEl = document.getElementById('booth-select-hint');
-    document.querySelectorAll('#booth-select .booth-btn').forEach((btn) => {
-      btn.disabled = isExpired;
-    });
+    const applyBtn = document.getElementById('booth-apply-btn');
+    if (applyBtn) applyBtn.disabled = isExpired;
     if (boothHintEl) {
       boothHintEl.textContent = isExpired
         ? '마감된 마켓이라 더 이상 부스 신청을 받지 않아요.'
-        : '참가하고 싶은 부스 번호를 선택하면 신청 화면으로 이동해요.';
+        : '참가하고 싶으면 아래 버튼을 눌러 신청해주세요.';
     }
   }
 })();

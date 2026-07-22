@@ -20,13 +20,22 @@
     <div class="panel">
       <span class="pin" aria-hidden="true"></span>
       <h1>부스 신청</h1>
-      <p class="panel-sub" id="booth-apply-sub">선택한 부스에 어떤 물건을 판매하실 건가요?</p>
+      <p class="panel-sub" id="booth-apply-sub">신청할 부스 번호와 판매하실 물건을 알려주세요.</p>
 
       <div id="alert-box" class="alert alert-error" role="alert"></div>
 
       <form id="booth-apply-form" novalidate>
         <input type="hidden" id="market-id" />
-        <input type="hidden" id="booth-number" />
+
+        <div class="form-field">
+          <label for="booth-number">부스 번호</label>
+          <input type="text" id="booth-number" class="form-input" placeholder="예: 1, A1" required />
+        </div>
+
+        <div class="form-field">
+          <label for="booth-title">부스 이름</label>
+          <input type="text" id="booth-title" class="form-input" placeholder="예: 민지네 빈티지샵" required />
+        </div>
 
         <div class="form-field">
           <label for="item-name">판매 물품 이름</label>
@@ -36,8 +45,9 @@
         <div class="form-field">
           <label for="product-image">대표 이미지</label>
           <input type="file" id="product-image" class="form-input" accept="image/*" />
-          <p class="form-hint">이미지 업로드는 백엔드 연동 후 활성화돼요. 지금은 미리보기만 가능해요.</p>
+          <p class="form-hint">jpg, jpeg, png 파일만 업로드할 수 있어요.</p>
           <img id="product-image-preview" alt="" style="display:none;max-width:100%;border-radius:8px;margin-top:10px;" />
+          <input type="hidden" id="uploaded-item-image-path" />
         </div>
 
         <div class="form-field">
@@ -52,7 +62,7 @@
     <a href="#" id="back-to-market" class="back-link">← 마켓 상세로 돌아가기</a>
   </div>
 
-  <script src="../../common/js/api.js"></script>
-  <script src="js/market.js"></script>
+  <script src="../../common/js/api.js?v=2"></script>
+  <script src="js/market.js?v=2"></script>
 </body>
 </html>
