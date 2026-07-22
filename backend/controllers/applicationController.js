@@ -7,7 +7,7 @@ import pool from '../config/db.js';
 // POST /api/applications (로그인 필요, 판매자)
 export async function applyForBooth(req, res) {
   const { userId } = req.user;
-  const { marketId, boothNumber, itemName, productDesc, itemImage } = req.body;
+  const { marketId, boothNumber, title, itemName, productDesc, itemImage } = req.body;
 
   if (!marketId || !boothNumber || !itemName) {
     return res.status(400).json({ success: false, data: null, message: '마켓, 부스 번호, 물품명은 필수입니다.' });
@@ -23,9 +23,9 @@ export async function applyForBooth(req, res) {
     }
 
     const [result] = await pool.query(
-      `INSERT INTO applications (marketId, sellerId, boothNumber, itemName, productDesc, itemImage, status)
-       VALUES (?, ?, ?, ?, ?, ?, 'Pending')`,
-      [marketId, userId, boothNumber, itemName, productDesc || null, itemImage || null]
+      `INSERT INTO applications (marketId, sellerId, boothNumber, title, itemName, productDesc, itemImage, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending')`,
+      [marketId, userId, boothNumber, title || null, itemName, productDesc || null, itemImage || null]
     );
 
     return res.status(201).json({
@@ -48,7 +48,7 @@ export async function getMyApplications(req, res) {
   try {
     const [rows] = await pool.query(
       `SELECT
-         a.applicationId, a.marketId, a.boothNumber, a.itemName,
+         a.applicationId, a.marketId, a.boothNumber, a.title, a.itemName,
          a.productDesc, a.itemImage, a.status,
          m.title AS marketTitle, m.eventDate_min, m.eventDate_max, m.locationName
        FROM applications a
@@ -71,7 +71,7 @@ export async function getMyApplications(req, res) {
 export async function updateMyApplication(req, res) {
   const { userId } = req.user;
   const { applicationId } = req.params;
-  const { boothNumber, itemName, productDesc, itemImage } = req.body;
+  const { boothNumber, title, itemName, productDesc, itemImage } = req.body;
 
   try {
     const [rows] = await pool.query(
@@ -92,11 +92,12 @@ export async function updateMyApplication(req, res) {
     await pool.query(
       `UPDATE applications
        SET boothNumber = COALESCE(?, boothNumber),
+           title = COALESCE(?, title),
            itemName = COALESCE(?, itemName),
            productDesc = ?,
            itemImage = COALESCE(?, itemImage)
        WHERE applicationId = ?`,
-      [boothNumber || null, itemName || null, productDesc ?? application.productDesc ?? null, itemImage || null, applicationId]
+      [boothNumber || null, title || null, itemName || null, productDesc ?? application.productDesc ?? null, itemImage || null, applicationId]
     );
 
     return res.status(200).json({

@@ -13,7 +13,7 @@ import scheduleRoutes from './routes/scheduleRoutes.js';
 import checkinRoutes from './routes/checkinRoutes.js';
 import pool from './config/db.js'; // DB 데이터를 가져오기 위해 연결 풀을 불러옵니다.
 import swaggerSpec from './config/swagger.js';
-import upload  from './middleware/multer.js';
+import upload, { uploadItemImage } from './middleware/multer.js';
 import myMarketRoutes from './routes/myMarketRoutes.js';
 dotenv.config();
 
@@ -159,9 +159,19 @@ app.listen(PORT, () => {
 
 app.post('/api/upload', upload.single('marketImage'), (req, res) => {
   if (!req.file) {
-    return console.log('No file uploaded');
+    return res.status(400).json({ success: false, message: '업로드할 이미지가 없습니다.' });
   }
   const filePath = `/uploads/${req.file.filename}`;
+  res.json({ success: true, filePath });
+});
+
+// [추가] 부스 신청 시 판매 물품 대표 이미지 업로드
+app.post('/api/upload/item-image', uploadItemImage.single('itemImage'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: '업로드할 이미지가 없습니다.' });
+  }
+  const folder = req.uploadedItemFolder || 'untitled';
+  const filePath = `/uploads/${encodeURIComponent(folder)}/${req.file.filename}`;
   res.json({ success: true, filePath });
 });
 

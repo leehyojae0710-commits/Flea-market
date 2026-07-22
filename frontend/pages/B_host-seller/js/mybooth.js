@@ -88,7 +88,7 @@ function renderBoothCard(a) {
     <div class="item-card" data-application-id="${id}">
       <div class="item-card-top">
         <div data-action="toggle" data-id="${id}" style="cursor:pointer;">
-          <div class="item-card-title">${a.marketTitle || '마켓 정보 없음'} · ${a.boothNumber}번 부스</div>
+          <div class="item-card-title">${a.marketTitle || '마켓 정보 없음'} · ${a.boothNumber}번 부스${a.title ? ` · ${a.title}` : ''}</div>
           <div class="item-card-meta">${a.itemName || '이름 미입력'}</div>
         </div>
         <span class="status-tag ${STATUS_CLASS[status] || 'pending'}">${STATUS_LABEL[status] || status}</span>
@@ -116,6 +116,10 @@ function renderBoothDetail(a, isEditing) {
           <input type="text" id="edit-booth-number-${a.applicationId}" class="form-input" value="${escapeAttr(a.boothNumber || '')}" />
         </div>
         <div class="form-field">
+          <label for="edit-booth-title-${a.applicationId}">부스 이름</label>
+          <input type="text" id="edit-booth-title-${a.applicationId}" class="form-input" value="${escapeAttr(a.title || '')}" placeholder="예: 민지네 빈티지샵" />
+        </div>
+        <div class="form-field">
           <label for="edit-product-desc-${a.applicationId}">판매 물품 소개</label>
           <textarea id="edit-product-desc-${a.applicationId}" class="form-textarea">${a.productDesc || ''}</textarea>
         </div>
@@ -129,8 +133,13 @@ function renderBoothDetail(a, isEditing) {
   const eventDateLabel = a.eventDate_min
     ? `${new Date(a.eventDate_min).toLocaleDateString()} ~ ${a.eventDate_max ? new Date(a.eventDate_max).toLocaleDateString() : ''}`
     : '-';
+  const imageSrc = a.itemImage
+    ? (a.itemImage.startsWith('http') ? a.itemImage : `${API_BASE_URL}${a.itemImage}`)
+    : null;
   return `
     <div class="item-card-detail">
+      ${imageSrc ? `<img src="${imageSrc}" alt="" style="max-width:100%;border-radius:8px;margin-bottom:10px;" />` : ''}
+      <p class="item-card-meta">부스 이름: ${a.title || '등록된 이름이 없어요.'}</p>
       <p class="item-card-meta">행사 일자: ${eventDateLabel}</p>
       <p class="item-card-meta">장소: ${a.locationName || '-'}</p>
       <p class="item-card-meta">소개: ${a.productDesc || '등록된 소개가 없어요.'}</p>
@@ -159,6 +168,7 @@ async function handleSaveEdit(id) {
   hideAlert();
   const itemName = document.getElementById(`edit-item-name-${id}`)?.value.trim();
   const boothNumber = document.getElementById(`edit-booth-number-${id}`)?.value.trim();
+  const title = document.getElementById(`edit-booth-title-${id}`)?.value.trim();
   const productDesc = document.getElementById(`edit-product-desc-${id}`)?.value.trim();
 
   if (!itemName || !boothNumber) {
@@ -167,7 +177,7 @@ async function handleSaveEdit(id) {
   }
 
   try {
-    const res = await updateMyBoothApplication(id, { itemName, boothNumber, productDesc });
+    const res = await updateMyBoothApplication(id, { itemName, boothNumber, title, productDesc });
     if (res && res.success) {
       renderAlert('신청 정보를 수정했어요.', 'success');
       editingId = null;
