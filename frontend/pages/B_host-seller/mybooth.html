@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>내 부스 관리 - 플리마켓</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="../../common/css/style.css" />
+    <link rel="stylesheet" href="css/host-seller.css" />
+</head>
+
+<body>
+    <div class="page-wrap">
+        <header class="nav">
+            <a href="../../index.html" class="brand"><span class="pin-dot" aria-hidden="true"></span>플리마켓</a>
+            <a href="../A_auth-main/mypage.html" class="link-ghost">마이페이지</a>
+        </header>
+
+        <div class="panel">
+            <span class="pin" aria-hidden="true"></span>
+            <h1>내 부스 관리</h1>
+            <p class="panel-sub">내가 신청한 부스를 확인하고 수정·취소할 수 있어요.</p>
+
+            <div id="alert-box" class="alert alert-error" role="alert"></div>
+
+            <div id="booth-list-container">
+                <div id="booth-list" class="booth-list"></div>
+                <p id="empty-state" class="list-empty" hidden>아직 신청한 부스가 없어요.</p>
+            </div>
+            <a href="../../index.html" class="back-link">← 마켓 목록으로</a>
+        </div>
+    </div>
+
+    <script src="../../common/js/api.js"></script>
+    <script src="js/mybooth.js"></script>
+</body>
+
+</html>

@@ -1,5 +1,6 @@
 // backend/controllers/applicationController.js
 // 담당 D: 부스 신청 / 승인 / 반려
+// [추가] 판매자 본인의 신청 목록 조회 / 수정 / 취소(삭제)
 
 import pool from '../config/db.js';
 
@@ -35,6 +36,112 @@ export async function applyForBooth(req, res) {
   } catch (error) {
     console.error('부스 신청 오류:', error.message);
     return res.status(500).json({ success: false, data: null, message: '서버 오류로 부스 신청에 실패했습니다.' });
+  }
+}
+
+// GET /api/applications/my (로그인 필요, 판매자 본인)
+// [추가] 내가 신청한 부스 목록을 마켓 정보와 함께 조회합니다.
+// markets 테이블은 조회(JOIN)만 하므로 marketController/marketRoutes는 건드리지 않습니다.
+export async function getMyApplications(req, res) {
+  const { userId } = req.user;
+
+  try {
+    const [rows] = await pool.query(
+      `SELECT
+         a.applicationId, a.marketId, a.boothNumber, a.itemName,
+         a.productDesc, a.itemImage, a.status,
+         m.title AS marketTitle, m.eventDate_min, m.eventDate_max, m.locationName
+       FROM applications a
+       JOIN markets m ON m.marketId = a.marketId
+       WHERE a.sellerId = ?
+       ORDER BY a.applicationId DESC`,
+      [userId]
+    );
+
+    return res.status(200).json({ success: true, data: rows, message: '내 부스 신청 목록을 조회했습니다.' });
+  } catch (error) {
+    console.error('내 부스 목록 조회 오류:', error.message);
+    return res.status(500).json({ success: false, data: null, message: '서버 오류로 목록을 불러오지 못했습니다.' });
+  }
+}
+
+// PATCH /api/applications/:applicationId (로그인 필요, 신청자 본인만)
+// [추가] 대기중(Pending) 상태인 신청만 수정할 수 있습니다.
+// 이미 승인/반려된 신청은 주최자가 이미 확인한 건이라 수정 대상에서 제외합니다.
+export async function updateMyApplication(req, res) {
+  const { userId } = req.user;
+  const { applicationId } = req.params;
+  const { boothNumber, itemName, productDesc, itemImage } = req.body;
+
+  try {
+    const [rows] = await pool.query(
+      'SELECT applicationId, sellerId, status FROM applications WHERE applicationId = ?',
+      [applicationId]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, data: null, message: '해당 신청을 찾을 수 없습니다.' });
+    }
+    const application = rows[0];
+    if (Number(application.sellerId) !== Number(userId)) {
+      return res.status(403).json({ success: false, data: null, message: '본인의 신청 건만 수정할 수 있습니다.' });
+    }
+    if (application.status !== 'Pending') {
+      return res.status(409).json({ success: false, data: null, message: '대기중인 신청만 수정할 수 있습니다.' });
+    }
+
+    await pool.query(
+      `UPDATE applications
+       SET boothNumber = COALESCE(?, boothNumber),
+           itemName = COALESCE(?, itemName),
+           productDesc = ?,
+           itemImage = COALESCE(?, itemImage)
+       WHERE applicationId = ?`,
+      [boothNumber || null, itemName || null, productDesc ?? application.productDesc ?? null, itemImage || null, applicationId]
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: { applicationId: Number(applicationId) },
+      message: '신청 정보를 수정했습니다.',
+    });
+  } catch (error) {
+    console.error('내 부스 신청 수정 오류:', error.message);
+    return res.status(500).json({ success: false, data: null, message: '서버 오류로 수정에 실패했습니다.' });
+  }
+}
+
+// DELETE /api/applications/:applicationId (로그인 필요, 신청자 본인만)
+// [추가] 대기중(Pending) 상태인 신청만 취소할 수 있습니다.
+export async function deleteMyApplication(req, res) {
+  const { userId } = req.user;
+  const { applicationId } = req.params;
+
+  try {
+    const [rows] = await pool.query(
+      'SELECT applicationId, sellerId, status FROM applications WHERE applicationId = ?',
+      [applicationId]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, data: null, message: '해당 신청을 찾을 수 없습니다.' });
+    }
+    const application = rows[0];
+    if (Number(application.sellerId) !== Number(userId)) {
+      return res.status(403).json({ success: false, data: null, message: '본인의 신청 건만 삭제할 수 있습니다.' });
+    }
+    if (application.status !== 'Pending') {
+      return res.status(409).json({ success: false, data: null, message: '대기중인 신청만 취소할 수 있습니다.' });
+    }
+
+    await pool.query('DELETE FROM applications WHERE applicationId = ?', [applicationId]);
+
+    return res.status(200).json({
+      success: true,
+      data: { applicationId: Number(applicationId) },
+      message: '신청을 취소했습니다.',
+    });
+  } catch (error) {
+    console.error('내 부스 신청 삭제 오류:', error.message);
+    return res.status(500).json({ success: false, data: null, message: '서버 오류로 삭제에 실패했습니다.' });
   }
 }
 
