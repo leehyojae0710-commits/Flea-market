@@ -174,11 +174,13 @@ function syncAuthNavVisibility() {
   const logoutBtn = document.getElementById("nav-logout-btn");
   const hostCtaBtn = document.getElementById("host-cta");
   const hostmarketpageLink = document.getElementById("nav-hostmarket-link");
-  if (!loginLink || !mypageLink || !logoutBtn || !hostCtaBtn || !hostmarketpageLink) return;
+  const sellerBoothLink = document.getElementById("nav-sellerbooth-link");
+  if (!loginLink || !mypageLink || !logoutBtn || !hostCtaBtn || !hostmarketpageLink || !sellerBoothLink) return;
 
   const user = getLoggedInUser();
   const isLoggedIn = !!user;
   const isHost = user?.userType === 1; // 0: 판매자, 1: 주최자
+  const isSeller = user?.userType === 0;
 
   loginLink.hidden = isLoggedIn;
   if (registerLink) registerLink.hidden = isLoggedIn;
@@ -186,6 +188,7 @@ function syncAuthNavVisibility() {
   mypageLink.hidden = !isLoggedIn;          // 비로그인/판매자/주최자 모두 마이페이지는 숨김
   hostCtaBtn.hidden = !isLoggedIn || !isHost; // 주최자로 로그인했을 때만 노출
   hostmarketpageLink.hidden = !isLoggedIn || !isHost; // 주최자로 로그인했을 때만 노출
+  sellerBoothLink.hidden = !isLoggedIn || !isSeller; // 판매자로 로그인했을 때만 노출
 }
 
 function initAuthNav() {
