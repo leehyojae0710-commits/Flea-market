@@ -173,7 +173,8 @@ function syncAuthNavVisibility() {
   const mypageLink = document.getElementById("nav-mypage-link");
   const logoutBtn = document.getElementById("nav-logout-btn");
   const hostCtaBtn = document.getElementById("host-cta");
-  if (!loginLink || !mypageLink || !logoutBtn || !hostCtaBtn) return;
+  const hostmarketpageLink = document.getElementById("nav-hostmarket-link");
+  if (!loginLink || !mypageLink || !logoutBtn || !hostCtaBtn || !hostmarketpageLink) return;
 
   const user = getLoggedInUser();
   const isLoggedIn = !!user;
@@ -184,6 +185,7 @@ function syncAuthNavVisibility() {
   logoutBtn.hidden = !isLoggedIn;
   mypageLink.hidden = !isLoggedIn;          // 비로그인/판매자/주최자 모두 마이페이지는 숨김
   hostCtaBtn.hidden = !isLoggedIn || !isHost; // 주최자로 로그인했을 때만 노출
+  hostmarketpageLink.hidden = !isLoggedIn || !isHost; // 주최자로 로그인했을 때만 노출
 }
 
 function initAuthNav() {
@@ -206,12 +208,23 @@ function handleHostCtaClick() {
       : "pages/A_auth-main/login.html";
   });
 }
+function handleHostMarketPageClick() {
+  const btn = document.getElementById("nav-hostmarket-link");
+  if (!btn) return;
+  btn.addEventListener("click", () => {
+    const isLoggedIn = !!sessionStorage.getItem("loggedInUser");
+    window.location.href = isLoggedIn
+      ? "pages/B_host-seller/mymarketpage.html"
+      : "pages/A_auth-main/login.html";
+  });
+}
 
 document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("region-filter")?.addEventListener("change", handleFilterChange);
   document.getElementById("sort-filter")?.addEventListener("change", handleFilterChange);
   initAuthNav();
   handleHostCtaClick();
+  handleHostMarketPageClick();
 
   // 지역 옵션은 필터가 걸리지 않은 전체 목록 기준으로 한 번만 채웁니다.
   // (필터링된 목록으로 채우면 지역을 고를수록 선택지가 줄어드는 버그가 생깁니다.)
