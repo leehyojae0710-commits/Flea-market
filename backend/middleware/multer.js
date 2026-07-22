@@ -37,7 +37,7 @@ function sanitizeFolderName(name) {
 const itemImageStorage = multer.diskStorage({
     destination: (req, file, cb) => {
         const folderName = sanitizeFolderName(req.body?.title);
-        const dir = path.join('Z:/markets/', folderName);
+        const dir = path.join('Z:/seller/', folderName);
         fs.mkdirSync(dir, { recursive: true });
         // 실제 업로드 경로를 라우트 핸들러에서도 그대로 쓸 수 있도록 req에 기록해둡니다.
         req.uploadedItemFolder = folderName;
