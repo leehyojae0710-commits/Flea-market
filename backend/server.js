@@ -14,7 +14,7 @@ import checkinRoutes from './routes/checkinRoutes.js';
 import pool from './config/db.js'; // DB 데이터를 가져오기 위해 연결 풀을 불러옵니다.
 import swaggerSpec from './config/swagger.js';
 import upload  from './middleware/multer.js';
-
+import myMarketRoutes from './routes/myMarketRoutes.js';
 dotenv.config();
 
 const app = express();
@@ -32,7 +32,7 @@ app.use('/api/schedules', scheduleRoutes);
 app.use('/api/checkins', checkinRoutes);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec)); // http://localhost:5000/api-docs
 app.use('/api/uploads', express.static('Z:/markets/'));
-
+app.use('/api/my-markets', myMarketRoutes);
 // 🌐 http://localhost:5000 접속 시 DB 데이터를 HTML 표로 보여주는 라우터
 app.get('/', async (req, res) => {
   try {
