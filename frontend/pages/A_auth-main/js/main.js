@@ -139,7 +139,7 @@ function renderMarketList(markets) {
           <span class="dday-tag">${ddayLabel(m.eventDate_min)}</span>
         </div>
         <h3>${m.title}</h3>
-        <p class="market-meta">${m.eventDate_min} ~ ${m.eventDate_max} · ${m.locationName || ""}</p>
+        <p class="market-meta">${new Date(m.eventDate_min).toLocaleDateString()} ~ ${new Date(m.eventDate_max).toLocaleDateString()} · ${m.locationName || ""}</p>
         <div class="card-bottom">
           <span class="price-tag ${Number(m.boothPrice) === 0 ? "free" : ""}">${formatPrice(m.boothPrice)}</span>
           <span class="card-arrow">자세히 보기 →</span>
@@ -168,6 +168,7 @@ function getLoggedInUser() {
 
 function syncAuthNavVisibility() {
   const loginLink = document.getElementById("nav-login-link");
+  const registerLink = document.getElementById("nav-register-link");
   const mypageLink = document.getElementById("nav-mypage-link");
   const logoutBtn = document.getElementById("nav-logout-btn");
   const hostCtaBtn = document.getElementById("host-cta");
@@ -178,6 +179,7 @@ function syncAuthNavVisibility() {
   const isHost = user?.userType === 1; // 0: 판매자, 1: 주최자
 
   loginLink.hidden = isLoggedIn;
+  if (registerLink) registerLink.hidden = isLoggedIn;
   logoutBtn.hidden = !isLoggedIn;
   mypageLink.hidden = !isLoggedIn;          // 비로그인/판매자/주최자 모두 마이페이지는 숨김
   hostCtaBtn.hidden = !isLoggedIn || !isHost; // 주최자로 로그인했을 때만 노출
