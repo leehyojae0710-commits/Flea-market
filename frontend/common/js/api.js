@@ -23,16 +23,8 @@ async function callApi(path, { method = 'GET', body = null } = {}) {
 // 다른 파일에서 <script src="../../common/js/api.js"></script>로 불러와 사용하세요.
 
 // 공통 로그아웃 처리 (docs/naming-convention.md 함수명 규칙: logoutUser())
-// POST /api/auth/logout 은 서버 쪽 기록용이라 실패해도 무시하고, 항상 로컬 토큰은 지웁니다.
+// 서버에 별도 로그아웃 라우트(POST /auth/logout)가 없으므로, 로컬 토큰 삭제만 수행합니다.
 async function logoutUser() {
-  const token = sessionStorage.getItem('token');
-  if (token) {
-    try {
-      await callApi('/auth/logout', { method: 'POST' });
-    } catch (e) {
-      console.error('로그아웃 API 호출 실패(무시하고 로컬 로그아웃 진행):', e);
-    }
-  }
   sessionStorage.removeItem('token');
   sessionStorage.removeItem('loggedInUser');
 }
