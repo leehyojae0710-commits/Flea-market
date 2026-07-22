@@ -72,10 +72,11 @@ async function getMarketList(params = {}) {
     const query = new URLSearchParams(backendParams).toString();
     const res = await callApi(`/markets${query ? `?${query}` : ""}`);
     if (res && res.success && Array.isArray(res.data)) {
+      MOCK_MARKETS=res.data; // 목데이터를 실제 응답으로 갱신합니다.
       return res.data;
     }
     throw new Error("응답 형식이 올바르지 않음 - 목데이터로 대체");
-  } catch (e) {
+  } catch (e) {;
     return applyFilterSort(MOCK_MARKETS, { region, sort });
   }
 }
@@ -135,7 +136,7 @@ function renderMarketList(markets) {
         <span class="pin" aria-hidden="true"></span>
         ${imageSrc ? `<div class="card-image-wrap"><img class="card-image" src="${imageSrc}" alt="${m.title} 대표 이미지" loading="lazy" /></div>` : ""}
         <div class="card-top">
-          <span class="category-tag">${m.hostRegion || ""}</span>
+          <span class="category-tag">${m.region || ""}</span>
           <span class="dday-tag">${ddayLabel(m.eventDate_min)}</span>
         </div>
         <h3>${m.title}</h3>

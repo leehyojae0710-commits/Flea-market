@@ -10,7 +10,7 @@ export async function getMarketList(req, res) {
 
   try {
     let sql = `
-      SELECT m.*, u.region AS hostRegion
+      SELECT m.*
       FROM markets m
       JOIN users u ON u.userId = m.hostId
     `;
@@ -21,7 +21,7 @@ export async function getMarketList(req, res) {
       conditions.push('m.isExpired = 0');
       conditions.push('m.eventDate_max >= CURDATE()'); // D-0(오늘)까지는 보이고, 다음 날부터 자동 제외
     }
-    if (region) { conditions.push('u.region = ?'); values.push(region); }
+    if (region) { conditions.push('m.region = ?'); values.push(region); }
     if (conditions.length > 0) sql += ` WHERE ${conditions.join(' AND ')}`;
 
     sql += sort === 'eventDate' ? ' ORDER BY m.eventDate_min ASC' : ' ORDER BY m.marketId DESC';
