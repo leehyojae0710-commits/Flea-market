@@ -15,6 +15,7 @@ import {
   notifySettlement,
   getBoothQueue,
   processQueueTimeouts,
+  getMyMarket,
 } from '../controllers/marketController.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 import { requireHost } from '../middleware/hostOnlyMiddleware.js';
@@ -113,7 +114,14 @@ const router = express.Router();
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
 router.get('/', getMarketList);
+
+router.post('/', authenticateToken, createMarket);
+
+router.get('/mine',authenticateToken, getMyMarket);
+
+
 router.post('/', authenticateToken, requireHost, validateMarketInput, createMarket);
+
 /**
  * @swagger
  * /markets/{marketId}:

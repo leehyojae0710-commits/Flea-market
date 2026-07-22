@@ -454,3 +454,31 @@ export async function processQueueTimeouts(req, res) {
     return res.status(500).json({ success: false, data: null, message: '서버 오류로 대기열 처리에 실패했습니다.' });
   }
 }
+
+export async function getMyMarket(req, res) {
+  const { userId } = req.user;
+  try {
+    const [rows] = await pool.query(
+      'SELECT * FROM markets WHERE hostId = ? ORDER BY marketId DESC',
+      [userId]
+    );
+    // 밑에 코드는 참여자 수 까지 가져오는 코드지만 아직 applications db가 완성 되지 않아 보류
+    // const [rows] = await pool.query(
+    //   `select 
+    //     m.*,
+    //   (select count(*) from applications a where a.marketId = m.marketId) as applicantCount
+    //   from markets  m
+    //   where m.hostId= ?
+    //   order by marketId desc`, [userId]
+    // );
+    return res.status(200).json({
+      success: true,
+      data: rows,
+      message: '내 마켓 목록 조회'
+    });
+  }
+  catch (error) {
+    console.error('조회 실패');
+    return res.status(500).json({ success: false, data: null, message: '서버 오류' })
+  }
+}

@@ -452,3 +452,41 @@ body {
   font-size: 14px;
   color: #b6a894;
 }
+
+
+.my-market-item {
+  background: #fff;
+  border: 1.5px solid #ece1cd;
+  border-radius: 9px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+.my-market-item:hover {
+  border-color: var(--mustard);
+}
+.my-market-item.active {
+  border-color: var(--mustard);
+  box-shadow: 0 0 0 1.5px var(--mustard) inset;
+}
+.my-market-item-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.my-market-item-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.my-market-item-meta {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-top: 4px;
+}
