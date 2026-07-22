@@ -87,29 +87,62 @@ function handleMarketCreateSubmit() {
   form.addEventListener('submit', async (e) => {
     console.log('마켓 등록 폼 제출 이벤트 발생');
     e.preventDefault();
-    //hideAlert();
+    hideAlert();
+
+    // ---- 1) 원본 입력값 먼저 읽기 (검증은 가공 전 원본 문자열로) ----
+    const titleVal = document.getElementById('title').value.trim();
+    const startDateVal = document.getElementById('start-event-date').value;
+    const endDateVal = document.getElementById('end-event-date').value;
+    const boothPriceRaw = document.getElementById('booth-price').value;
+    const maxParticipantsRaw = document.getElementById('max-participants').value;
+    const fullAddressVal = document.getElementById('fullAddress').value.trim();
+
+    // ---- 2) 필수값 + 형식 + 범위 + 논리 검증을 이미지 업로드보다 먼저 수행 ----
+    if (!titleVal) {
+      renderAlert('마켓 이름을 입력해주세요.');
+      return;
+    }
+    if (!startDateVal || !endDateVal) {
+      renderAlert('개최 일자를 모두 입력해주세요.');
+      return;
+    }
+    if (new Date(endDateVal) < new Date(startDateVal)) {
+      renderAlert('종료일은 시작일보다 빠를 수 없어요.');
+      return;
+    }
+    if (!fullAddressVal) {
+      renderAlert('개최 장소 주소를 검색해서 선택해주세요.');
+      return;
+    }
+    const boothPriceNum = Number(boothPriceRaw);
+    if (boothPriceRaw === '' || Number.isNaN(boothPriceNum) || boothPriceNum < 0) {
+      renderAlert('부스료는 0 이상의 숫자로 입력해주세요.');
+      return;
+    }
+    const maxParticipantsNum = Number(maxParticipantsRaw);
+    if (maxParticipantsRaw === '' || !Number.isInteger(maxParticipantsNum) || maxParticipantsNum < 0) {
+      renderAlert('허용 가능한 최대 부스 수는 0 이상의 정수로 입력해주세요.');
+      return;
+    }
+
+    // ---- 3) 검증 통과 후에만 이미지 업로드 진행 ----
     await uploadMarketImage();
 
     const payload = {
-      title: document.getElementById('title').value.trim(),
-      eventDate_min: document.getElementById('start-event-date').value,
-      eventDate_max: document.getElementById('end-event-date').value,
-      boothPrice: Number(document.getElementById('booth-price').value) || 0,
+      title: titleVal,
+      eventDate_min: startDateVal,
+      eventDate_max: endDateVal,
+      boothPrice: boothPriceNum,
       description: document.getElementById('description').value.trim(),
-      locationName: document.getElementById('fullAddress').value.trim(),
+      locationName: fullAddressVal,
       region: document.getElementById('region').value || null,
       latitude: document.getElementById('latitude').value || null,
       longitude: document.getElementById('longitude').value || null,
-      maxparticipants: Number(document.getElementById('max-participants').value) || null,
+      maxparticipants: maxParticipantsNum,
       marketImage: document.getElementById('uploadedImagePath').value || null,
     };
 
     console.log('마켓 등록 payload:', payload);
-
-    if (!document.getElementById('title').value.trim() || !document.getElementById('start-event-date').value) {
-      renderAlert('마켓 이름과 개최 일자는 꼭 입력해주세요.');
-      return;
-    }
 
     setButtonLoading(submitBtn, true, '등록 중...', '등록하기');
     try {

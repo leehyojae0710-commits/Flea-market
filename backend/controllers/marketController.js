@@ -59,6 +59,16 @@ export async function createMarket(req, res) {
   if (!title || !eventDate_min || !eventDate_max || !locationName) {
     return res.status(400).json({ success: false, data: null, message: '마켓 이름, 개최 일자, 장소는 필수입니다.' });
   }
+  if (new Date(eventDate_max) < new Date(eventDate_min)) {
+    return res.status(400).json({ success: false, data: null, message: '종료일은 시작일보다 빠를 수 없습니다.' });
+  }
+  if (boothPrice !== undefined && (Number.isNaN(Number(boothPrice)) || Number(boothPrice) < 0)) {
+    return res.status(400).json({ success: false, data: null, message: '부스료는 0 이상의 숫자여야 합니다.' });
+  }
+  if (maxparticipants !== undefined && maxparticipants !== null &&
+      (!Number.isInteger(Number(maxparticipants)) || Number(maxparticipants) < 0)) {
+    return res.status(400).json({ success: false, data: null, message: '최대 부스 수는 0 이상의 정수여야 합니다.' });
+  }
 
   try {
     const [result] = await pool.query(
