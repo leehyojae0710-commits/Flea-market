@@ -447,7 +447,6 @@ export async function processQueueTimeouts(req, res) {
 
 export async function getMyMarket(req, res) {
   const { userId } = req.user;
-  console.log(userId);
   try {
     const [rows] = await pool.query(
       'SELECT * FROM markets WHERE hostId = ? ORDER BY marketId DESC',
