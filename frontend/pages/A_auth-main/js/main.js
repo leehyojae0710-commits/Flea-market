@@ -222,12 +222,25 @@ function handleHostMarketPageClick() {
   });
 }
 
+// [추가] 판매자용 "내 부스 관리" 버튼 - 신청한 부스 목록/수정/취소 페이지로 이동
+function handleSellerBoothClick() {
+  const btn = document.getElementById("nav-sellerbooth-link");
+  if (!btn) return;
+  btn.addEventListener("click", () => {
+    const isLoggedIn = !!sessionStorage.getItem("loggedInUser");
+    window.location.href = isLoggedIn
+      ? "pages/B_host-seller/mybooth.html"
+      : "pages/A_auth-main/login.html";
+  });
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("region-filter")?.addEventListener("change", handleFilterChange);
   document.getElementById("sort-filter")?.addEventListener("change", handleFilterChange);
   initAuthNav();
   handleHostCtaClick();
   handleHostMarketPageClick();
+  handleSellerBoothClick();
 
   // 지역 옵션은 필터가 걸리지 않은 전체 목록 기준으로 한 번만 채웁니다.
   // (필터링된 목록으로 채우면 지역을 고를수록 선택지가 줄어드는 버그가 생깁니다.)
@@ -236,5 +249,3 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   await handleFilterChange();
 });
-
-

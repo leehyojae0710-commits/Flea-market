@@ -1,7 +1,15 @@
 // backend/routes/applicationRoutes.js
 // 담당 D: 부스 신청 / 승인 / 반려
+// [추가] 판매자 본인의 신청 목록 조회(GET /my) / 수정(PATCH) / 취소(DELETE)
 import express from 'express';
-import { applyForBooth, approveSellerApplication, rejectSellerApplication } from '../controllers/applicationController.js';
+import {
+  applyForBooth,
+  getMyApplications,
+  updateMyApplication,
+  deleteMyApplication,
+  approveSellerApplication,
+  rejectSellerApplication,
+} from '../controllers/applicationController.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -66,6 +74,115 @@ const router = express.Router();
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
 router.post('/', authenticateToken, applyForBooth);
+
+/**
+ * @swagger
+ * /applications/my:
+ *   get:
+ *     summary: 내가 신청한 부스 목록 조회 (판매자 본인)
+ *     tags: [Applications]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: 조회 성공
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ApiEnvelope' }
+ *       500:
+ *         description: 서버 오류
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ */
+router.get('/my', authenticateToken, getMyApplications);
+
+/**
+ * @swagger
+ * /applications/{applicationId}:
+ *   patch:
+ *     summary: 내 신청 수정 (대기중 상태만, 신청자 본인만)
+ *     tags: [Applications]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: applicationId
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               boothNumber: { type: string }
+ *               itemName: { type: string }
+ *               productDesc: { type: string }
+ *               itemImage: { type: string }
+ *     responses:
+ *       200:
+ *         description: 수정 성공
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ApiEnvelope' }
+ *       403:
+ *         description: 본인의 신청 건이 아님
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       404:
+ *         description: 존재하지 않는 신청
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       409:
+ *         description: 대기중이 아닌 신청은 수정 불가
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         description: 서버 오류
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *   delete:
+ *     summary: 내 신청 취소 (대기중 상태만, 신청자 본인만)
+ *     tags: [Applications]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: applicationId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 취소 성공
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ApiEnvelope' }
+ *       403:
+ *         description: 본인의 신청 건이 아님
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       404:
+ *         description: 존재하지 않는 신청
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       409:
+ *         description: 대기중이 아닌 신청은 취소 불가
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         description: 서버 오류
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ */
+router.patch('/:applicationId', authenticateToken, updateMyApplication);
+router.delete('/:applicationId', authenticateToken, deleteMyApplication);
 
 /**
  * @swagger
