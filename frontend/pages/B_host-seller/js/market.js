@@ -254,11 +254,11 @@ async function loadMarketDetail() {
 }
 
 function handleBoothSelectClick() {
-  document.querySelectorAll('#booth-select .booth-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const marketId = getMarketIdFromUrl();
-      window.location.href = `booth-apply.html?marketId=${marketId}&booth=${btn.dataset.booth}`;
-    });
+  const btn = document.getElementById('booth-apply-btn');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    const marketId = getMarketIdFromUrl();
+    window.location.href = `booth-apply?marketId=${marketId}`;
   });
 }
 
@@ -280,7 +280,7 @@ function renderApplicationList(applications) {
       <div class="item-card" data-application-id="${a.applicationId}">
         <div class="item-card-top">
           <div>
-            <div class="item-card-title">${a.itemName || '이름 미입력'} · ${a.boothNumber}번 부스</div>
+            <div class="item-card-title">${a.itemName || '이름 미입력'} · ${a.boothNumber}번 부스${a.title ? ` · ${a.title}` : ''}</div>
             <div class="item-card-meta">신청자: ${a.sellerId || '-'}</div>
           </div>
           <span class="status-tag ${STATUS_CLASS[status] || 'pending'}">${STATUS_LABEL[status] || status}</span>
@@ -375,6 +375,14 @@ function prefillBoothApplyForm() {
   if (backLink) {
     backLink.href = `market-detail?marketId=${params.get('marketId') || ''}`;
   }
+
+  // [추가] marketId 없이 이 페이지로 들어온 경우, 폼을 다 채워도 서버에서
+  // "마켓, 부스 번호, 물품명은 필수입니다"로 실패하게 되므로 미리 안내하고 제출을 막습니다.
+  if (!marketIdInput.value) {
+    renderAlert('잘못된 접근이에요. 마켓 상세 페이지에서 "참가 신청" 버튼을 눌러 다시 시도해주세요.');
+    const submitBtn = document.getElementById('booth-apply-submit-btn');
+    if (submitBtn) submitBtn.disabled = true;
+  }
 }
 
 function handleProductImagePreview() {
@@ -393,6 +401,37 @@ function handleProductImagePreview() {
   });
 }
 
+async function uploadItemImage() {
+  const fileInput = document.getElementById('product-image');
+  const file = fileInput?.files?.[0];
+
+  if (!file) return; // 이미지는 선택 사항이라 없으면 그냥 건너뜁니다.
+
+  const boothTitle = document.getElementById('booth-title')?.value.trim() || '';
+
+  const formData = new FormData();
+  // ⚠️ title을 itemImage(파일)보다 먼저 append 해야 서버 multer의
+  //    destination 콜백에서 req.body.title로 부스 이름 폴더를 만들 수 있어요.
+  formData.append('title', boothTitle);
+  formData.append('itemImage', file);
+
+  try {
+    const response = await fetch('http://localhost:5000/api/upload/item-image', {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await response.json();
+
+    if (data.success) {
+      document.getElementById('uploaded-item-image-path').value = data.filePath;
+    } else {
+      renderAlert(data.message || '이미지 업로드에 실패했어요.');
+    }
+  } catch (err) {
+    renderAlert('이미지 업로드 중 서버에 연결할 수 없어요.');
+  }
+}
+
 function handleBoothApplySubmit() {
   const form = document.getElementById('booth-apply-form');
   if (!form) return;
@@ -404,26 +443,35 @@ function handleBoothApplySubmit() {
 
     const payload = {
       marketId: document.getElementById('market-id').value,
-      boothNumber: document.getElementById('booth-number').value,
+      boothNumber: document.getElementById('booth-number').value.trim(),
+      title: document.getElementById('booth-title').value.trim(),
       itemName: document.getElementById('item-name').value.trim(),
       productDesc: document.getElementById('product-desc').value.trim(),
-      // TODO(백엔드 연동 시): 이미지 업로드는 별도 multipart 엔드포인트가 필요해요.
-      // 지금은 파일명만 참고용으로 함께 보냅니다.
-      itemImage: document.getElementById('product-image').files?.[0]?.name || null,
     };
 
+    if (!payload.boothNumber) {
+      renderAlert('부스 번호를 입력해주세요.');
+      return;
+    }
+    if (!payload.title) {
+      renderAlert('부스 이름을 입력해주세요.');
+      return;
+    }
     if (!payload.itemName) {
       renderAlert('판매 물품 이름을 입력해주세요.');
       return;
     }
 
     setButtonLoading(submitBtn, true, '신청 중...', '신청하기');
+    await uploadItemImage();
+    payload.itemImage = document.getElementById('uploaded-item-image-path').value || null;
+
     try {
       const res = await applyForBooth(payload);
       if (res && res.success) {
         renderAlert('부스 신청이 완료됐어요!', 'success');
         setTimeout(() => {
-          window.location.href = `market-detail.html?marketId=${payload.marketId}`;
+          window.location.href = `market-detail?marketId=${payload.marketId}`;
         }, 1000);
       } else {
         renderAlert(res?.message || '신청에 실패했어요. 입력값을 확인해주세요.');
