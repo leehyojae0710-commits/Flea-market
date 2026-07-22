@@ -139,7 +139,7 @@ function renderMarketList(markets) {
           <span class="dday-tag">${ddayLabel(m.eventDate_min)}</span>
         </div>
         <h3>${m.title}</h3>
-        <p class="market-meta">${m.eventDate_min} ~ ${m.eventDate_max} · ${m.locationName || ""}</p>
+        <p class="market-meta">${new Date(m.eventDate_min).toLocaleDateString()} ~ ${new Date(m.eventDate_max).toLocaleDateString()} · ${m.locationName || ""}</p>
         <div class="card-bottom">
           <span class="price-tag ${Number(m.boothPrice) === 0 ? "free" : ""}">${formatPrice(m.boothPrice)}</span>
           <span class="card-arrow">자세히 보기 →</span>
