@@ -10,6 +10,7 @@ import {
   approveSellerApplication,
   rejectSellerApplication,
 } from '../controllers/applicationController.js';
+import { cancelApplication } from '../controllers/dbdeleteController.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 
 const router = express.Router();

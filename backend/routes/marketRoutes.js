@@ -17,6 +17,7 @@ import {
   processQueueTimeouts,
   getMyMarket,
 } from '../controllers/marketController.js';
+import { deleteMarket } from '../controllers/dbdeleteController.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 import { requireHost } from '../middleware/hostOnlyMiddleware.js';
 import { validateMarketInput } from '../middleware/marketValidationMiddleware.js';
@@ -207,7 +208,7 @@ router.post('/', authenticateToken, requireHost, validateMarketInput, createMark
  */
 router.get('/:marketId', getMarketDetail);
 router.patch('/:marketId', authenticateToken, updateMarketStatus);
-
+router.delete('/:marketId', authenticateToken, deleteMarket);
 /**
  * @swagger
  * /markets/{marketId}/location:

@@ -12,6 +12,7 @@
         rel="stylesheet" />
     <link rel="stylesheet" href="../../common/css/style.css" />
     <link rel="stylesheet" href="css/host-seller.css" />
+    <script src = "js/marketdate.js"></script>
     <script src="../../common/js/api.js"></script>
     <script>
         async function getMyMarkets() {
@@ -45,6 +46,7 @@
       <li class="my-market-item" data-market-id="${market.marketId}">
         <div class="my-market-item-top">
           <span class="my-market-item-title">${market.title}</span>
+          <button type="button" class="btn btn-danger btn-sm" id= "market-delete-btn">삭제하기</button>
         </div>
         <div class="my-market-item-meta">
           ${formatDate(market.eventDate_min)} ~ ${formatDate(market.eventDate_max)}
