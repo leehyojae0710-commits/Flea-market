@@ -53,8 +53,8 @@ export async function getMarketDetail(req, res) {
 // POST /api/markets (로그인 필요, 주최자)
 export async function createMarket(req, res) {
   const { userId } = req.user;
-  const { title, description, marketImage, locationName, region, latitude, longitude, eventDate_min, eventDate_max, boothPrice, isExpired, maxparticipants } = req.body;
-
+  const { title, description, marketImage, locationName, region, latitude, longitude, eventDate_min, eventDate_max, boothPrice, isExpired, maxparticipants, recruitmentDate_min, recruitmentDate_max } = req.body;
+  console.log(req.body);
 
   if (!title || !eventDate_min || !eventDate_max || !locationName) {
     return res.status(400).json({ success: false, data: null, message: '마켓 이름, 개최 일자, 장소는 필수입니다.' });
@@ -62,19 +62,23 @@ export async function createMarket(req, res) {
   if (new Date(eventDate_max) < new Date(eventDate_min)) {
     return res.status(400).json({ success: false, data: null, message: '종료일은 시작일보다 빠를 수 없습니다.' });
   }
+  if(new Date(eventDate_max) < new Date(recruitmentDate_min))
+  {
+    return res.status(400).json({ success: false, data: null, message: '모집일은 개최일보다 빠를 수 없습니다.' });
+  }
   if (boothPrice !== undefined && (Number.isNaN(Number(boothPrice)) || Number(boothPrice) < 0)) {
     return res.status(400).json({ success: false, data: null, message: '부스료는 0 이상의 숫자여야 합니다.' });
   }
   if (maxparticipants !== undefined && maxparticipants !== null &&
-      (!Number.isInteger(Number(maxparticipants)) || Number(maxparticipants) < 0)) {
+    (!Number.isInteger(Number(maxparticipants)) || Number(maxparticipants) < 0)) {
     return res.status(400).json({ success: false, data: null, message: '최대 부스 수는 0 이상의 정수여야 합니다.' });
   }
 
   try {
     const [result] = await pool.query(
-      `INSERT INTO markets (hostId, title, description, marketImage, locationName, region, latitude, longitude, eventDate_min, eventDate_max, boothPrice, isExpired, maxparticipants)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [userId, title, description || '', marketImage || null, locationName, region || null, latitude || 0, longitude || 0, eventDate_min, eventDate_max, boothPrice || 0, isExpired || 0, maxparticipants || 1]
+      `INSERT INTO markets (hostId, title, description, marketImage, locationName, region, latitude, longitude, eventDate_min, eventDate_max, boothPrice, isExpired, maxparticipants,recruitmentDate_min,recruitmentDate_max)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?)`,
+      [userId, title, description || '', marketImage || null, locationName, region || null, latitude || 0, longitude || 0, eventDate_min, eventDate_max, boothPrice || 0, isExpired || 0, maxparticipants || 1, recruitmentDate_min, recruitmentDate_max]
     );
 
     console.log('req.body 전체:', req.body);

@@ -10,7 +10,7 @@ export async function getMySchedule(req, res) {
 
   try {
     const [hosting] = await pool.query(
-      `SELECT marketId, title, eventDate, locationName, isExpired, 'host' AS role
+      `SELECT marketId, title, eventDate_min,eventDate_max, locationName, isExpired, 'host' AS role
        FROM markets WHERE hostId = ? ORDER BY eventDate ASC`,
       [userId]
     );

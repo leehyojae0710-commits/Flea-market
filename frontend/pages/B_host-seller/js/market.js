@@ -93,8 +93,8 @@ function handleMarketCreateSubmit() {
     const titleVal = document.getElementById('title').value.trim();
     const startEventDateVal = document.getElementById('start-event-date').value;
     const endEventDateVal = document.getElementById('end-event-date').value;
-    const startRecruitmentDateVal=document.getElementById('recruitmentDate_min').value;
-    const endRecruitmentDateVal=document.getElementById('recruitmentDate_max').value;
+    const startRecruitmentDateVal = document.getElementById('recruitmentDate_min').value;
+    const endRecruitmentDateVal = document.getElementById('recruitmentDate_max').value;
     const boothPriceRaw = document.getElementById('booth-price').value;
     const maxParticipantsRaw = document.getElementById('max-participants').value;
     const fullAddressVal = document.getElementById('fullAddress').value.trim();
@@ -108,8 +108,16 @@ function handleMarketCreateSubmit() {
       renderAlert('개최 일자를 모두 입력해주세요.');
       return;
     }
+    if (!startRecruitmentDateVal || !endRecruitmentDateVal) {
+      renderAlert('개최 일자를 모두 입력해주세요.');
+      return;
+    }
     if (new Date(endEventDateVal) < new Date(startEventDateVal)) {
       renderAlert('종료일은 시작일보다 빠를 수 없어요.');
+      return;
+    }
+    if (new Date(endEventDateVal) < new Date(startRecruitmentDateVal)) {
+      renderAlert('모집 기간은 개최기간보다 빠를 수 없어요.');
       return;
     }
     if (!fullAddressVal) {
@@ -134,6 +142,8 @@ function handleMarketCreateSubmit() {
       title: titleVal,
       eventDate_min: startEventDateVal,
       eventDate_max: endEventDateVal,
+      recruitmentDate_min: startRecruitmentDateVal,
+      recruitmentDate_max: endRecruitmentDateVal,
       boothPrice: boothPriceNum,
       description: document.getElementById('description').value.trim(),
       locationName: fullAddressVal,
@@ -195,16 +205,16 @@ async function uploadMarketImage() {
   }
 }
 function initDateInputs() {
-document.querySelectorAll('input[type="date"]').forEach((input) => {
-  input.addEventListener('keydown', (e) => {
-    e.preventDefault();
-  });
-  input.addEventListener('click', (e) => {
-    if (input.showPicker) {
-      input.showPicker();
-    }
-  });
-})
+  document.querySelectorAll('input[type="date"]').forEach((input) => {
+    input.addEventListener('keydown', (e) => {
+      e.preventDefault();
+    });
+    input.addEventListener('click', (e) => {
+      if (input.showPicker) {
+        input.showPicker();
+      }
+    });
+  })
 }
 // async function createMarketWithImage(formData) {
 //   const token = sessionStorage.getItem('token');
