@@ -498,7 +498,11 @@ function renderCommentList(comments) {
   }
 
   wrap.innerHTML = comments
-    .map((c) => `<div class="comment-item">${c.content}</div>`)
+    .map((c) => `
+      <div class="comment-item">
+        <div class="comment-nickname">${c.nickname || '알 수 없음'}</div>
+        <div class="comment-content">${c.content}</div>
+      </div>`)
     .join('');
 }
 

@@ -12,3 +12,10 @@ function isValidEmail(email) {
 function isValidPhone(phone) {
   return PHONE_REGEX.test((phone || '').trim());
 }
+
+// 한글/영문/숫자 2~12자 (공백 불가)
+const NICKNAME_REGEX = /^[가-힣a-zA-Z0-9]{2,12}$/;
+
+function isValidNickname(nickname) {
+  return NICKNAME_REGEX.test((nickname || '').trim());
+}
