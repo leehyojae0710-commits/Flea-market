@@ -37,7 +37,9 @@ const STATUS_CLASS = { Pending: 'pending', Approved: 'approved', Rejected: 'reje
 
 // ---------- 상태 ----------
 
+let allApplications = [];
 let myApplications = [];
+let statusFilter = '';
 let expandedId = null; // 상세정보가 펼쳐진 신청 id
 let editingId = null;  // 수정 폼이 열린 신청 id
 
@@ -46,14 +48,24 @@ let editingId = null;  // 수정 폼이 열린 신청 id
 function renderBoothList() {
   const wrap = document.getElementById('booth-list');
   const emptyState = document.getElementById('empty-state');
+  const countEl = document.getElementById('result-count');
   if (!wrap) return;
+
+  if (countEl) {
+    countEl.textContent = allApplications.length === 0 ? '' : `${myApplications.length}건`;
+  }
 
   if (!myApplications || myApplications.length === 0) {
     wrap.innerHTML = '';
-    emptyState.hidden = false;
+    if (emptyState) {
+      emptyState.hidden = false;
+      emptyState.textContent = allApplications.length === 0
+        ? '아직 신청한 부스가 없어요.'
+        : '해당 상태의 신청이 없어요.';
+    }
     return;
   }
-  emptyState.hidden = true;
+  if (emptyState) emptyState.hidden = true;
 
   wrap.innerHTML = myApplications.map((a) => renderBoothCard(a)).join('');
 
@@ -209,6 +221,22 @@ async function handleDeleteClick(id) {
   }
 }
 
+// ---------- 필터 ----------
+
+function applyStatusFilter() {
+  myApplications = statusFilter
+    ? allApplications.filter((a) => (a.status || 'Pending') === statusFilter)
+    : allApplications;
+  renderBoothList();
+}
+
+function handleFilterChange() {
+  statusFilter = document.getElementById('status-filter')?.value || '';
+  expandedId = null;
+  editingId = null;
+  applyStatusFilter();
+}
+
 // ---------- 초기 로드 ----------
 
 async function loadMyBoothList() {
@@ -218,8 +246,8 @@ async function loadMyBoothList() {
   try {
     const res = await getMyBoothList();
     if (res && res.success) {
-      myApplications = res.data || [];
-      renderBoothList();
+      allApplications = res.data || [];
+      applyStatusFilter();
     } else {
       wrap.innerHTML = '<p class="list-empty">부스 목록을 불러오지 못했어요.</p>';
     }
@@ -234,5 +262,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.location.href = '../A_auth-main/login.html';
     return;
   }
+  document.getElementById('status-filter')?.addEventListener('change', handleFilterChange);
   loadMyBoothList();
 });

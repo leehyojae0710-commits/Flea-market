@@ -490,3 +490,41 @@ body {
   color: var(--ink-soft);
   margin-top: 4px;
 }
+
+/* ---------- 내 부스 관리: 상태 필터 (index.html의 filter-strip과 동일한 스타일) ---------- */
+.filter-strip {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.filter-field {
+  font-family: "Inter", sans-serif;
+  font-size: 12px;
+  color: var(--ink-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filter-field select {
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--paper);
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  min-width: 140px;
+  cursor: pointer;
+}
+
+.result-count {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-left: auto;
+  align-self: center;
+}
