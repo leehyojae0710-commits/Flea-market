@@ -31,6 +31,7 @@ const router = express.Router();
  *               targetType: { type: string, example: market }
  *               targetId: { type: integer }
  *               content: { type: string }
+ *               parentId: { type: integer, nullable: true, description: '대댓글일 경우 부모 댓글의 commentId' }
  *     responses:
  *       201:
  *         description: 등록 성공

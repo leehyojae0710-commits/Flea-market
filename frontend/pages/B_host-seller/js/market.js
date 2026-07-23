@@ -488,6 +488,32 @@ function handleBoothApplySubmit() {
 
 // ---------- 댓글 ----------
 
+function buildCommentTree(comments) {
+  const byId = new Map();
+  comments.forEach((c) => byId.set(c.commentId, { ...c, replies: [] }));
+
+  const roots = [];
+  byId.forEach((c) => {
+    if (c.parentId && byId.has(c.parentId)) {
+      byId.get(c.parentId).replies.push(c);
+    } else {
+      roots.push(c);
+    }
+  });
+  return roots;
+}
+
+function renderCommentNode(c, isReply) {
+  return `
+    <div class="comment-item${isReply ? ' comment-item-reply' : ''}" data-comment-id="${c.commentId}">
+      <div class="comment-nickname">${c.nickname || '알 수 없음'}</div>
+      <div class="comment-content">${c.content}</div>
+      ${!isReply ? `<button type="button" class="comment-reply-btn" data-comment-id="${c.commentId}">답글달기</button>` : ''}
+      <div class="comment-reply-form-slot" data-slot-for="${c.commentId}"></div>
+      ${(c.replies || []).map((r) => renderCommentNode(r, true)).join('')}
+    </div>`;
+}
+
 function renderCommentList(comments) {
   const wrap = document.getElementById('comment-list');
   if (!wrap) return;
@@ -497,9 +523,70 @@ function renderCommentList(comments) {
     return;
   }
 
-  wrap.innerHTML = comments
-    .map((c) => `<div class="comment-item">${c.content}</div>`)
-    .join('');
+  const tree = buildCommentTree(comments);
+  wrap.innerHTML = tree.map((c) => renderCommentNode(c, false)).join('');
+}
+
+function renderReplyForm(parentId) {
+  return `
+    <form class="comment-reply-form" data-parent-id="${parentId}">
+      <div class="form-field">
+        <input type="text" class="form-input comment-reply-input" placeholder="답글을 입력하세요" required />
+      </div>
+      <button type="submit" class="btn btn-outline btn-sm">답글 등록</button>
+      <button type="button" class="btn btn-outline btn-sm comment-reply-cancel">취소</button>
+    </form>`;
+}
+
+function handleCommentReplyClick() {
+  const wrap = document.getElementById('comment-list');
+  if (!wrap) return;
+
+  wrap.addEventListener('click', (e) => {
+    const replyBtn = e.target.closest('.comment-reply-btn');
+    if (replyBtn) {
+      const parentId = replyBtn.dataset.commentId;
+      const slot = wrap.querySelector(`.comment-reply-form-slot[data-slot-for="${parentId}"]`);
+      if (slot) {
+        slot.innerHTML = slot.innerHTML ? '' : renderReplyForm(parentId);
+      }
+      return;
+    }
+
+    const cancelBtn = e.target.closest('.comment-reply-cancel');
+    if (cancelBtn) {
+      const slot = cancelBtn.closest('.comment-reply-form-slot');
+      if (slot) slot.innerHTML = '';
+    }
+  });
+
+  wrap.addEventListener('submit', async (e) => {
+    const form = e.target.closest('.comment-reply-form');
+    if (!form) return;
+    e.preventDefault();
+    hideAlert();
+
+    const input = form.querySelector('.comment-reply-input');
+    const content = input.value.trim();
+    if (!content) return;
+    const parentId = form.dataset.parentId;
+
+    try {
+      const res = await createComment({
+        targetType: 'market',
+        targetId: getMarketIdFromUrl(),
+        content,
+        parentId,
+      });
+      if (res && res.success) {
+        await loadCommentList();
+      } else {
+        renderAlert(res?.message || '답글 등록에 실패했어요.');
+      }
+    } catch (err) {
+      renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
+    }
+  });
 }
 
 async function loadCommentList() {
@@ -554,6 +641,7 @@ document.addEventListener('DOMContentLoaded', () => {
   handleCloseMarketClick();
   loadCommentList();
   handleCommentSubmit();
+  handleCommentReplyClick();
   initDateInputs();
 
   prefillBoothApplyForm();

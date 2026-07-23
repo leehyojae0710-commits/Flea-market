@@ -26,6 +26,19 @@
             <h1>내 부스 관리</h1>
             <p class="panel-sub">내가 신청한 부스를 확인하고 수정·취소할 수 있어요.</p>
 
+            <div class="filter-strip">
+                <label class="filter-field">
+                    상태
+                    <select id="status-filter">
+                        <option value="">전체</option>
+                        <option value="Pending">대기중</option>
+                        <option value="Approved">승인됨</option>
+                        <option value="Rejected">반려됨</option>
+                    </select>
+                </label>
+                <span id="result-count" class="result-count"></span>
+            </div>
+
             <div id="alert-box" class="alert alert-error" role="alert"></div>
 
             <div id="booth-list-container">
@@ -37,7 +50,7 @@
     </div>
 
     <script src="../../common/js/api.js?v=2"></script>
-    <script src="js/mybooth.js?v=2"></script>
+    <script src="js/mybooth.js?v=3"></script>
 </body>
 
 </html>

@@ -282,6 +282,10 @@ body {
   margin: 0 0 14px;
 }
 
+.market-meta.tight {
+  margin-bottom: 4px;
+}
+
 .card-bottom {
   display: flex;
   justify-content: space-between;
