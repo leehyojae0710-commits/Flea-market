@@ -50,6 +50,14 @@
             <input type="date" id="end-event-date" class="form-input date-input" required />
           </div>
         </div>
+        <div class="form-field">
+          <label for="event-date">모집 기간</label>
+          <div class="date-row">
+            <input type="date" id="recruitmentDate_min" class="form-input date-input" required />
+            <span class="date-separator">~</span>
+            <input type="date" id="recruitmentDate_max" class="form-input date-input" required />
+          </div>
+        </div>
 
         <div class="form-field">
           <label for="booth-price">부스료 (원)</label>
@@ -70,15 +78,6 @@
         <!-- <button type="button" id="image-upload-btn" class="form-input" style="margin-bottom: 15px;">사진 등록하기</button> -->
         <div id="image-upload-status"></div>
         <input type="hidden" id="uploadedImagePath" name="uploadedImagePath" />
-        <!-- 카테고리 필요하면 지워서 수정 -->
-        <!-- <div class="form-field">
-          <label for="category">카테고리</label>
-          <select name="category" id="category" class="form-input">
-            <option value="morning">Morning</option>
-            <option value="afternoon">Afternoon</option>
-            <option value="night">Night</option>
-          </select>
-        </div> -->
 
         <div class="form-field">
           <label for="description">상세 설명</label>

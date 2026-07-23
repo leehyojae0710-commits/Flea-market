@@ -91,8 +91,10 @@ function handleMarketCreateSubmit() {
 
     // ---- 1) 원본 입력값 먼저 읽기 (검증은 가공 전 원본 문자열로) ----
     const titleVal = document.getElementById('title').value.trim();
-    const startDateVal = document.getElementById('start-event-date').value;
-    const endDateVal = document.getElementById('end-event-date').value;
+    const startEventDateVal = document.getElementById('start-event-date').value;
+    const endEventDateVal = document.getElementById('end-event-date').value;
+    const startRecruitmentDateVal=document.getElementById('recruitmentDate_min').value;
+    const endRecruitmentDateVal=document.getElementById('recruitmentDate_max').value;
     const boothPriceRaw = document.getElementById('booth-price').value;
     const maxParticipantsRaw = document.getElementById('max-participants').value;
     const fullAddressVal = document.getElementById('fullAddress').value.trim();
@@ -102,11 +104,11 @@ function handleMarketCreateSubmit() {
       renderAlert('마켓 이름을 입력해주세요.');
       return;
     }
-    if (!startDateVal || !endDateVal) {
+    if (!startEventDateVal || !endEventDateVal) {
       renderAlert('개최 일자를 모두 입력해주세요.');
       return;
     }
-    if (new Date(endDateVal) < new Date(startDateVal)) {
+    if (new Date(endEventDateVal) < new Date(startEventDateVal)) {
       renderAlert('종료일은 시작일보다 빠를 수 없어요.');
       return;
     }
@@ -130,8 +132,8 @@ function handleMarketCreateSubmit() {
 
     const payload = {
       title: titleVal,
-      eventDate_min: startDateVal,
-      eventDate_max: endDateVal,
+      eventDate_min: startEventDateVal,
+      eventDate_max: endEventDateVal,
       boothPrice: boothPriceNum,
       description: document.getElementById('description').value.trim(),
       locationName: fullAddressVal,

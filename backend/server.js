@@ -6,6 +6,7 @@ import swaggerUi from 'swagger-ui-express';
 import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import marketRoutes from './routes/marketRoutes.js';
+import mymarketRoutes from './routes/myMarketRoutes.js';
 import applicationRoutes from './routes/applicationRoutes.js';
 import payRoutes from './routes/payRoutes.js';
 import commentRoutes from './routes/commentRoutes.js';
@@ -25,6 +26,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/markets', marketRoutes);
+app.use('/api/markets', mymarketRoutes)
 app.use('/api/applications', applicationRoutes);
 app.use('/api/payments', payRoutes);
 app.use('/api/comments', commentRoutes);

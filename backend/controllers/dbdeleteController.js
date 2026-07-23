@@ -5,7 +5,7 @@ export async function deleteMarket(req, res) {
   const { marketId } = req.params;
 
   try {
-    const result = await deleteRowById('markets', marketId);
+    const result = await dbdelete('markets', marketId);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ success: false, message: '존재하지 않는 마켓입니다.' });
@@ -23,7 +23,7 @@ export async function cancelApplication(req, res) {
   const { applicationId } = req.params;
 
   try {
-    const result = await deleteRowById('applications', applicationId);
+    const result = await dbdelete('applications', applicationId);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ success: false, message: '존재하지 않는 신청입니다.' });

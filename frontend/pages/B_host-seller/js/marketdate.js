@@ -5,19 +5,35 @@ let month = String(tomorrow.getMonth() + 1).padStart(2, '0');
 let day = String(tomorrow.getDate()).padStart(2, '0');
 let minDate = `${year}-${month}-${day}`;
 
-const startDateInput = document.getElementById('start-event-date');
-const endDateInput = document.getElementById('end-event-date');
+const startEventDateInput = document.getElementById('start-event-date');
+const endEventDateInput = document.getElementById('end-event-date');
+const startRecruitmentDateVal = document.getElementById('recruitmentDate_min').value;
+const endRecruitmentDateVal = document.getElementById('recruitmentDate_max').value;
 
-startDateInput.setAttribute('min', minDate);
-endDateInput.setAttribute('min', minDate);
+startEventDateInput.setAttribute('eventMin', minDate);
+endEventDateInput.setAttribute('eventMin', minDate);
 
-startDateInput.addEventListener('change', () => {
-    const selectedStart = startDateInput.value;
+startRecruitmentDateVal.setAttribute('recruitmentMin',minDate);
+endRecruitmentDateVal.setAttribute('recruitmentMin',minDate);
+
+startEventDateInput.addEventListener('change', () => {
+    const selectedStart = startEventDateInput.value;
 
     if (selectedStart) {
-        endDateInput.setAttribute('min', selectedStart);
-        if (endDateInput.value && endDateInput.value < selectedStart) {
-            endDateInput.value = selectedStart;
+        endEventDateInput.setAttribute('eventmin', selectedStart);
+        if (endEventDateInput.value && endEventDateInput.value < selectedStart) {
+            endEventDateInput.value = selectedStart;
+        }
+    }
+})
+
+startRecruitmentDateVal.addEventListener('change', () => {
+    const selectedStart= startRecruitmentDateVal.value;
+
+    if(selectedStart){
+        endRecruitmentDateVal.setAttribute('recruitmentMin',selectedStart);
+        if(endRecruitmentDateVal.value && endRecruitmentDateVal.value < selectedStart){
+            endRecruitmentDateVal.value =selectedStart;
         }
     }
 })

@@ -14,50 +14,7 @@
     <link rel="stylesheet" href="css/host-seller.css" />
     <script src="../../common/js/api.js"></script>
     <!-- <script src="../../common/js/api.js?v=2"></script> -->
-    <script>
-        async function getMyMarkets() {
-            return callApi('/markets/mine');
-        }
-
-        function formatDate(dateString) {
-            if (!dateString) return '';
-            const d = new Date(dateString);
-            const y = d.getFullYear();
-            const m = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            return `${y}-${m}-${day}`;
-        }
-
-        async function loadMyMarkets() {
-            const listEl = document.getElementById('market-list');
-            const emptyEl = document.getElementById('empty-state');
-
-            const res = await getMyMarkets();
-
-            if (!res.success || !Array.isArray(res.data) || res.data.length === 0) {
-                listEl.innerHTML = '';
-                emptyEl.hidden = false;
-                return;
-            }
-
-            emptyEl.hidden = true;
-
-            listEl.innerHTML = res.data.map(market => `
-      <li class="my-market-item" data-market-id="${market.marketId}">
-        <div class="my-market-item-top">
-          <span class="my-market-item-title">${market.title}</span>
-          <button type="button" class="btn btn-danger btn-sm" id= "market-delete-btn">삭제하기</button>
-        </div>
-        <div class="my-market-item-meta">
-          ${formatDate(market.eventDate_min)} ~ ${formatDate(market.eventDate_max)}
-        </div>
-        <div class="my-market-item-meta">${market.locationName || ''}</div>
-      </li>
-    `).join('');
-        }
-
-        document.addEventListener('DOMContentLoaded', loadMyMarkets);
-    </script>
+    <script src="js/marketdelete.js"></script>
 </head>
 
 <body>
