@@ -94,7 +94,14 @@ export async function createMarket(req, res) {
 export async function updateMarketStatus(req, res) {
   const { userId } = req.user;
   const { marketId } = req.params;
-  const { isExpired, title, description } = req.body;
+  const {
+    isExpired, title, description,
+    eventDate_min, eventDate_max,
+    recruitmentDate_min, recruitmentDate_max,
+    boothPrice, locationName, region,
+    latitude, longitude, maxParticipants,
+    marketImage
+  } = req.body;
 
   try {
     const [rows] = await pool.query('SELECT hostId FROM markets WHERE marketId = ?', [marketId]);
@@ -107,9 +114,21 @@ export async function updateMarketStatus(req, res) {
 
     const fields = [];
     const values = [];
+
     if (isExpired !== undefined) { fields.push('isExpired = ?'); values.push(isExpired ? 1 : 0); }
     if (title) { fields.push('title = ?'); values.push(title); }
     if (description) { fields.push('description = ?'); values.push(description); }
+    if (eventDate_min) { fields.push('eventDate_min = ?'); values.push(eventDate_min); }
+    if (eventDate_max) { fields.push('eventDate_max = ?'); values.push(eventDate_max); }
+    if (recruitmentDate_min) { fields.push('recruitmentDate_min = ?'); values.push(recruitmentDate_min); }
+    if (recruitmentDate_max) { fields.push('recruitmentDate_max = ?'); values.push(recruitmentDate_max); }
+    if (boothPrice !== undefined) { fields.push('boothPrice = ?'); values.push(boothPrice); }
+    if (locationName) { fields.push('locationName = ?'); values.push(locationName); }
+    if (region) { fields.push('region = ?'); values.push(region); }
+    if (latitude !== undefined) { fields.push('latitude = ?'); values.push(latitude); }
+    if (longitude !== undefined) { fields.push('longitude = ?'); values.push(longitude); }
+    if (maxParticipants !== undefined) { fields.push('maxParticipants = ?'); values.push(maxParticipants); }
+    if (marketImage) { fields.push('marketImage = ?'); values.push(marketImage); }
 
     if (fields.length === 0) {
       return res.status(400).json({ success: false, data: null, message: '수정할 내용이 없습니다.' });

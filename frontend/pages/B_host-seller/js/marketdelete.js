@@ -21,6 +21,7 @@ async function clickdelet(selectedMarketId) {
   }
 }
 
+
 function formatDate(dateString) {
   if (!dateString) return '';
   const d = new Date(dateString);
@@ -48,7 +49,10 @@ async function loadMyMarkets() {
       <li class="my-market-item" data-market-id="${market.marketId}">
         <div class="my-market-item-top">
           <span class="my-market-item-title">${market.title}</span>
+          <div class="my-market-item-actions">
           <button type="button" class="btn btn-danger btn-sm" onclick="clickdelet(${market.marketId})">삭제하기</button>
+          <a href = "../B_host-seller/correctionMarket?marketId=${market.marketId}" class="btn btn-danger btn-sm">수정하기</a>
+          </div>
         </div>
         <div class="my-market-item-meta">
           ${formatDate(market.eventDate_min)} ~ ${formatDate(market.eventDate_max)}

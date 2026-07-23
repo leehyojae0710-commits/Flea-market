@@ -60,6 +60,5 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     document.getElementById('detailAddress').addEventListener('input', updateFullAddress);
-    handleMarketCreateSubmit();
   });
 });

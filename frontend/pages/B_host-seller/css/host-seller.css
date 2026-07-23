@@ -490,3 +490,11 @@ body {
   color: var(--ink-soft);
   margin-top: 4px;
 }
+
+a.btn {
+  display: inline-block;
+  text-decoration: none;
+  text-align: center;
+  line-height: normal;
+  box-sizing: border-box;
+}
