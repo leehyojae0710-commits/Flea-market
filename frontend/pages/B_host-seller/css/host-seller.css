@@ -394,6 +394,39 @@ body {
   word-break: break-word;
 }
 
+.comment-item-reply {
+  margin-left: 22px;
+  margin-top: 8px;
+  padding-top: 8px;
+  padding-bottom: 0;
+  border-bottom: none;
+  border-left: 2px solid #ece1cd;
+  padding-left: 12px;
+}
+
+.comment-reply-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-top: 4px;
+  font-family: "Inter", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+  text-decoration: underline;
+}
+.comment-reply-btn:hover { color: var(--ink); }
+
+.comment-reply-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.comment-reply-form .form-field { flex: 1; margin-bottom: 0; }
+.comment-reply-form .comment-reply-input { font-size: 13px; padding: 6px 10px; }
+
 .section-divider {
   border: none;
   border-top: 1px dashed #d8cbb5;
