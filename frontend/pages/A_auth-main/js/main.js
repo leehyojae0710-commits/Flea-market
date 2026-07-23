@@ -140,7 +140,9 @@ function renderMarketList(markets) {
           <span class="dday-tag">${ddayLabel(m.eventDate_min)}</span>
         </div>
         <h3>${m.title}</h3>
-        <p class="market-meta">${new Date(m.eventDate_min).toLocaleDateString()} ~ ${new Date(m.eventDate_max).toLocaleDateString()} · ${m.locationName || ""}</p>
+        <p class="market-meta tight">행사 기간 ${new Date(m.eventDate_min).toLocaleDateString()} ~ ${new Date(m.eventDate_max).toLocaleDateString()}</p>
+        <p class="market-meta tight">${m.locationName || ""}</p>
+        <p class="market-meta">모집 기간 ${new Date(m.recruitmentDate_min).toLocaleDateString()} ~ ${new Date(m.recruitmentDate_max).toLocaleDateString()}</p>
         <div class="card-bottom">
           <span class="price-tag ${Number(m.boothPrice) === 0 ? "free" : ""}">${formatPrice(m.boothPrice)}</span>
           <span class="card-arrow">자세히 보기 →</span>
