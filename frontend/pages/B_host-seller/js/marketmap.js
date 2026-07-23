@@ -1,16 +1,19 @@
-document.addEventListener('DOMContentLoaded', function() {
-  kakao.maps.load(function() {
+document.addEventListener('DOMContentLoaded', function () {
+  kakao.maps.load(function () {
     var mapContainer = document.getElementById('map-container'),
-        mapOption = {
-            center: new kakao.maps.LatLng(37.566826, 126.978656),
-            level: 3
-        };
+      mapOption = {
+        center: new kakao.maps.LatLng(37.566826, 126.978656),
+        level: 3
+      };
 
     var map = new kakao.maps.Map(mapContainer, mapOption);
     var geocoder = new kakao.maps.services.Geocoder();
     var marker = new kakao.maps.Marker({ position: map.getCenter(), map: map });
 
     function updateFullAddress() {
+      if (!document.getElementById('address') || !document.getElementById('detailAddress')) {
+        return;
+      }
       console.log("눌림");
       var address = document.getElementById('address').value;
       var detail = document.getElementById('detailAddress').value;
@@ -19,7 +22,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     let isPostcodeOpen = false;
     const str = document.getElementById('button_hint');
-    window.execDaumPostcode = function() {
+    window.execDaumPostcode = function () {
       if (isPostcodeOpen) {
         str.textContent = "이미 우편번호 찾기 창이 열려 있어요.";
         str.style.color = "red";
@@ -35,7 +38,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
           updateFullAddress();
 
-          geocoder.addressSearch(addr, function(results, status) {
+          geocoder.addressSearch(addr, function (results, status) {
             if (status === kakao.maps.services.Status.OK) {
               var result = results[0];
               var coords = new kakao.maps.LatLng(result.y, result.x);
@@ -52,7 +55,7 @@ document.addEventListener('DOMContentLoaded', function() {
           });
         },
         onclose: () => {
-          str.textContent="";
+          str.textContent = "";
           str.style.color = "black";
           isPostcodeOpen = false;
         }
