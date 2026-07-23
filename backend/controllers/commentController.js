@@ -39,7 +39,11 @@ export async function getCommentList(req, res) {
 
   try {
     const [rows] = await pool.query(
-      'SELECT * FROM comments WHERE targetType = ? AND targetId = ? ORDER BY createdAt ASC',
+      `SELECT c.*, u.nickname
+       FROM comments c
+       JOIN users u ON u.userId = c.userId
+       WHERE c.targetType = ? AND c.targetId = ?
+       ORDER BY c.createdAt ASC`,
       [targetType, targetId]
     );
     return res.status(200).json({ success: true, data: rows, message: '댓글 목록을 조회했습니다.' });

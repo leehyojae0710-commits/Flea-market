@@ -95,12 +95,63 @@ if (changeRoleBtn) {
   changeRoleBtn.addEventListener('click', resetRoleSelection);
 }
 
+/* ---------------------- 회원가입: 닉네임 중복 확인 ---------------------- */
+const nicknameInput = document.getElementById('nickname');
+const checkNicknameBtn = document.getElementById('check-nickname-btn');
+const nicknameCheckMsg = document.getElementById('nickname-check-msg');
+let isNicknameChecked = false; // 마지막으로 확인한 닉네임이 사용 가능한 상태인지
+
+function setNicknameCheckMsg(message, ok) {
+  if (!nicknameCheckMsg) return;
+  nicknameCheckMsg.textContent = message;
+  nicknameCheckMsg.classList.remove('ok', 'error');
+  if (message) nicknameCheckMsg.classList.add(ok ? 'ok' : 'error');
+}
+
+if (checkNicknameBtn) {
+  checkNicknameBtn.addEventListener('click', async () => {
+    const nickname = nicknameInput ? nicknameInput.value.trim() : '';
+
+    if (!isValidNickname(nickname)) {
+      isNicknameChecked = false;
+      setNicknameCheckMsg('닉네임은 한글/영문/숫자 2~12자로 입력해주세요.', false);
+      return;
+    }
+
+    checkNicknameBtn.disabled = true;
+    try {
+      const result = await callApi(`/auth/check-nickname?nickname=${encodeURIComponent(nickname)}`);
+      if (result.success && result.data?.available) {
+        isNicknameChecked = true;
+        setNicknameCheckMsg('사용할 수 있는 닉네임이에요.', true);
+      } else {
+        isNicknameChecked = false;
+        setNicknameCheckMsg(result.message || '이미 사용 중인 닉네임이에요.', false);
+      }
+    } catch (err) {
+      isNicknameChecked = false;
+      setNicknameCheckMsg('서버에 연결할 수 없습니다.', false);
+    } finally {
+      checkNicknameBtn.disabled = false;
+    }
+  });
+}
+
+// 닉네임을 다시 수정하면 이전 중복 확인 결과는 무효로 처리 (확인 안 한 값으로 가입되는 것 방지)
+if (nicknameInput) {
+  nicknameInput.addEventListener('input', () => {
+    isNicknameChecked = false;
+    setNicknameCheckMsg('', false);
+  });
+}
+
 /* ---------------------- 회원가입: 제출 ---------------------- */
 if (registerForm) {
   registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const role = selectedRoleInput ? selectedRoleInput.value : '';
+    const nickname = nicknameInput ? nicknameInput.value.trim() : '';
     const email = document.getElementById('email')?.value.trim();
     const password = document.getElementById('password')?.value;
     const phone = document.getElementById('phone')?.value.trim();
@@ -110,8 +161,16 @@ if (registerForm) {
       showAlert('가입 역할을 선택해주세요.');
       return;
     }
-    if (!email || !password || !phone || !region) {
+    if (!nickname || !email || !password || !phone || !region) {
       showAlert('모든 항목을 입력해주세요.');
+      return;
+    }
+    if (!isValidNickname(nickname)) {
+      showAlert('닉네임은 한글/영문/숫자 2~12자로 입력해주세요.');
+      return;
+    }
+    if (!isNicknameChecked) {
+      showAlert('닉네임 중복 확인을 먼저 해주세요.');
       return;
     }
     if (!isValidEmail(email)) {
@@ -134,7 +193,7 @@ if (registerForm) {
     try {
       const result = await callApi('/auth/register', {
         method: 'POST',
-        body: { userType, email, password, phone, region },
+        body: { userType, email, password, phone, region, nickname },
       });
 
       if (result.success) {

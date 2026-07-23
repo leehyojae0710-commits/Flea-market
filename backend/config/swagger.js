@@ -137,6 +137,7 @@ const options = {
             targetType: { type: 'string', example: 'market' },
             targetId: { type: 'integer' },
             userId: { type: 'integer' },
+            nickname: { type: 'string' },
             content: { type: 'string' },
             createdAt: { type: 'string', format: 'date-time' },
           },

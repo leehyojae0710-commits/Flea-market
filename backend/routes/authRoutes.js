@@ -19,6 +19,7 @@ function publicUser(row) {
     email: row.email,
     phone: row.phone,
     region: row.region,
+    nickname: row.nickname,
   };
 }
 
@@ -78,9 +79,9 @@ function publicUser(row) {
  */
 // 1. 회원가입 API
 router.post('/register', async (req, res) => {
-  const { userType, email, password, phone, region } = req.body;
+  const { userType, email, password, phone, region, nickname } = req.body;
 
-  if (userType === undefined || !email || !password || !phone || !region) {
+  if (userType === undefined || !email || !password || !phone || !region || !nickname) {
     return res.status(400).json({ success: false, message: '필수 항목이 누락되었습니다.' });
   }
 
@@ -90,12 +91,17 @@ router.post('/register', async (req, res) => {
       return res.status(409).json({ success: false, message: '이미 가입된 이메일입니다.' });
     }
 
+    const [existingNickname] = await pool.query('SELECT userId FROM users WHERE nickname = ?', [nickname]);
+    if (existingNickname.length > 0) {
+      return res.status(409).json({ success: false, message: '이미 사용 중인 닉네임입니다.' });
+    }
+
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
     const [result] = await pool.query(
-      `INSERT INTO users (userType, password, phone, email, region)
-       VALUES (?, ?, ?, ?, ?)`,
-      [userType, hashedPassword, phone, email, region]
+      `INSERT INTO users (userType, password, phone, email, region, nickname)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [userType, hashedPassword, phone, email, region, nickname]
     );
 
     const userId = result.insertId;
@@ -104,12 +110,70 @@ router.post('/register', async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      data: { token, user: { userId, userType: Number(userType), email, phone, region } },
+      data: { token, user: { userId, userType: Number(userType), email, phone, region, nickname } },
       message: '회원가입이 완료되었습니다.',
     });
   } catch (error) {
     console.error('회원가입 오류:', error.message);
     return res.status(500).json({ success: false, message: '서버 오류로 회원가입에 실패했습니다.' });
+  }
+});
+
+/**
+ * @swagger
+ * /auth/check-nickname:
+ *   get:
+ *     summary: 닉네임 중복 확인
+ *     tags: [Auth]
+ *     security: []
+ *     parameters:
+ *       - in: query
+ *         name: nickname
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: 확인 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiEnvelope'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         available: { type: boolean }
+ *       400:
+ *         description: nickname 쿼리 파라미터 누락
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         description: 서버 오류
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ */
+router.get('/check-nickname', async (req, res) => {
+  const nickname = (req.query.nickname || '').trim();
+
+  if (!nickname) {
+    return res.status(400).json({ success: false, data: null, message: 'nickname 쿼리 파라미터는 필수입니다.' });
+  }
+
+  try {
+    const [rows] = await pool.query('SELECT userId FROM users WHERE nickname = ?', [nickname]);
+    const available = rows.length === 0;
+    return res.status(200).json({
+      success: true,
+      data: { available },
+      message: available ? '사용할 수 있는 닉네임입니다.' : '이미 사용 중인 닉네임입니다.',
+    });
+  } catch (error) {
+    console.error('닉네임 중복 확인 오류:', error.message);
+    return res.status(500).json({ success: false, data: null, message: '서버 오류로 닉네임 확인에 실패했습니다.' });
   }
 });
 

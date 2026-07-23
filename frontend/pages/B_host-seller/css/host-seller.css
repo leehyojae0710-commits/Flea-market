@@ -379,6 +379,21 @@ body {
 }
 .comment-item:last-child { border-bottom: none; }
 
+.comment-nickname {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+}
+
+.comment-content {
+  font-size: 13.5px;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .section-divider {
   border: none;
   border-top: 1px dashed #d8cbb5;
