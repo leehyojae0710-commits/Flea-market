@@ -133,11 +133,14 @@ CREATE TABLE IF NOT EXISTS `comments` (
   `targetId` int NOT NULL,
   `userId` BIGINT UNSIGNED NOT NULL COMMENT '작성자',
   `content` varchar(500) NOT NULL,
+  `parentId` int NULL COMMENT '대댓글이면 부모 댓글의 commentId, 최상위 댓글이면 NULL',
   `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`commentId`),
   KEY `userId` (`userId`),
   KEY `target` (`targetType`,`targetId`),
-  CONSTRAINT `comments_ibfk_1` FOREIGN KEY (`userId`) REFERENCES `users` (`userId`) ON DELETE CASCADE
+  KEY `parentId` (`parentId`),
+  CONSTRAINT `comments_ibfk_1` FOREIGN KEY (`userId`) REFERENCES `users` (`userId`) ON DELETE CASCADE,
+  CONSTRAINT `comments_ibfk_2` FOREIGN KEY (`parentId`) REFERENCES `comments` (`commentId`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS `payments` (
