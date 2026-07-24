@@ -151,55 +151,109 @@ body.profile-body {
   .profile-stats-row { grid-template-columns: 1fr; }
 }
 
-/* [추가] 좌측 성공율 차트 레이아웃 */
-.profile-layout {
+/* ===== 주최행사 성공율 ===== */
+.success-rate-card {
   display: flex;
-  align-items: flex-start;
-  gap: 32px;
-}
-.profile-layout > .panel {
-  flex: 1 1 auto;
-  min-width: 0;          /* 패널 내부 요소 넘침 방지 */
-}
-.profile-side-chart {
-  flex: 0 0 200px;
-  display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 14px;
-  padding-top: 40px;
+  justify-content: space-between;
+  gap: 28px;
+  flex-wrap: wrap;
+  padding: 22px 24px;
+  border: 1px solid #e6dcc9;
+  border-radius: 14px;
+  background: #fffdf7;
 }
-.side-chart-title {
-  background: #2f6b8f; color: #fff;
-  padding: 8px 14px; border-radius: 4px;
-  font-size: 14px; font-weight: 600; white-space: nowrap;
-}
-.side-chart-donut {
-  position: relative; width: 140px; height: 140px; border-radius: 50%;
-  background: conic-gradient(#e5ded2 0 100%);
-  display: flex; align-items: center; justify-content: center;
-}
-.side-chart-donut::after {
-  content: ''; position: absolute; inset: 30px;
-  background: #f5f5f5;   /* ← 페이지 배경색과 반드시 일치시킬 것 */
-  border-radius: 50%;
-}
-.side-chart-center {
-  position: relative; z-index: 1;
-  font-size: 26px; font-weight: 700; color: #2f6b8f;
-}
-.side-chart-legend { list-style: none; margin: 0; padding: 0; font-size: 13px; width: 100%; }
-.side-chart-legend li {
-  display: flex; align-items: center; gap: 7px;
-  margin-bottom: 7px; color: #6b5f52;
-}
-.side-chart-legend b { margin-left: auto; color: #3d3227; }
-.side-chart-legend .lg { width: 10px; height: 10px; border-radius: 3px; flex: 0 0 auto; }
-.lg-ok { background: #2f6b8f; }
-.lg-cancel { background: #cfc6b8; }
 
-/* 좁은 화면에서는 위아래로 */
-@media (max-width: 900px) {
-  .profile-layout { flex-direction: column; align-items: stretch; }
-  .profile-side-chart { flex: none; padding-top: 0; }
+.success-rate-info { flex: 1 1 240px; min-width: 0; }
+
+.success-rate-title {
+  display: inline-block;
+  margin: 0 0 6px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  background: #2f6b8f;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .01em;
+}
+
+.success-rate-desc {
+  margin: 0 0 14px;
+  font-size: 12px;
+  color: #9b8f7e;
+}
+
+.success-rate-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-width: 280px;
+}
+.success-rate-legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  font-size: 13px;
+  color: #6b5f52;
+  border-bottom: 1px dashed #ece3d3;
+}
+.success-rate-legend li:last-child { border-bottom: 0; }
+.success-rate-legend b {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: #3d3227;
+  font-variant-numeric: tabular-nums;
+}
+.success-rate-legend .lg {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: 0 0 auto;
+}
+.lg-ok { background: #2f6b8f; }
+.lg-cancel { background: #d8cfbe; }
+
+.success-rate-note {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: #a1957f;
+}
+
+/* 도넛 */
+.success-rate-donut {
+  position: relative;
+  flex: 0 0 auto;
+  width: 152px;
+  height: 152px;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  background: conic-gradient(#e5ded2 0 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(47, 107, 143, .16);
+}
+.success-rate-donut::after {
+  content: '';
+  position: absolute;
+  inset: 30px;
+  border-radius: 50%;
+  background: #fffdf7;   /* .success-rate-card 배경과 동일 */
+}
+.success-rate-center {
+  position: relative;
+  z-index: 1;
+  font-size: 25px;
+  font-weight: 700;
+  color: #2f6b8f;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .success-rate-card { justify-content: center; text-align: center; }
+  .success-rate-info { flex: 1 1 100%; }
+  .success-rate-legend { margin: 0 auto; }
 }

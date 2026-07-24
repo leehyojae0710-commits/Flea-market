@@ -59,39 +59,40 @@ function renderStats(stats) {
 
   renderSuccessChart(stats);
 }
-/* [추가] 주최행사 성공율 도넛
-   총 행사수 = 진행/예정 + 지난 행사 + 취소
-   성공율 = (총 - 취소) / 총 * 100 */
-   function renderSuccessChart(stats) {
-    const donut = document.getElementById('stat-donut');
-    const rateEl = document.getElementById('stat-donut-rate');
-    if (!donut || !rateEl) return;
-  
-    const up = Number(stats.upcomingCount) || 0;
-    const past = Number(stats.pastCount) || 0;
-    const cancel = Number(stats.cancelledCount) || 0;
-    const total = up + past + cancel;
-  
-    const successEl = document.getElementById('rate-success');
-    const cancelEl = document.getElementById('rate-cancelled');
-  
-    if (total === 0) {
-      rateEl.textContent = '–';
-      donut.style.background = 'conic-gradient(#e5ded2 0 100%)';
-      if (successEl) successEl.textContent = '0 / 0';
-      if (cancelEl) cancelEl.textContent = '0 / 0';
-      return;
-    }
-  
-    const successCount = total - cancel;
-    const successPct = (successCount / total) * 100;
-  
-    donut.style.background =
-      `conic-gradient(#2f6b8f 0 ${successPct}%, #cfc6b8 ${successPct}% 100%)`;
-    rateEl.textContent = `${Math.round(successPct)}%`;
-    if (successEl) successEl.textContent = `${successCount} / ${total}`;
-    if (cancelEl) cancelEl.textContent = `${cancel} / ${total}`;
+/* [수정] 주최행사 성공율 — 종료된 행사(지난+취소)만 모집단 */
+function renderSuccessChart(stats) {
+  const donut = document.getElementById('stat-donut');
+  const rateEl = document.getElementById('stat-donut-rate');
+  if (!donut || !rateEl) return;
+
+  const upcoming = Number(stats.upcomingCount) || 0;
+  const past = Number(stats.pastCount) || 0;
+  const cancel = Number(stats.cancelledCount) || 0;
+
+  const settled = past + cancel;   // 결과가 확정된 행사만
+  const successEl = document.getElementById('rate-success');
+  const cancelEl = document.getElementById('rate-cancelled');
+  const pendingEl = document.getElementById('rate-pending');
+
+  if (pendingEl) {
+    pendingEl.textContent = upcoming > 0 ? `진행 중 ${upcoming}건은 집계 예정` : '';
   }
+
+  if (settled === 0) {
+    rateEl.textContent = '–';
+    donut.style.background = 'conic-gradient(#e5ded2 0 100%)';
+    if (successEl) successEl.textContent = '0 / 0';
+    if (cancelEl) cancelEl.textContent = '0 / 0';
+    return;
+  }
+
+  const successPct = (past / settled) * 100;
+  donut.style.background =
+    `conic-gradient(#2f6b8f 0 ${successPct}%, #cfc6b8 ${successPct}% 100%)`;
+  rateEl.textContent = `${successPct.toFixed(1)}%`;
+  if (successEl) successEl.textContent = `${past} / ${settled}`;
+  if (cancelEl) cancelEl.textContent = `${cancel} / ${settled}`;
+}
 /* ---------------------- 초기 로드 ---------------------- */
 async function loadProfile() {
   try {
