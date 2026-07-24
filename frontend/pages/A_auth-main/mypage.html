@@ -1,74 +1,76 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>마이페이지 - 플리마켓</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="../../common/css/style.css" />
-  <link rel="stylesheet" href="css/auth.css" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>마이페이지 - 플리마켓</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="../../common/css/style.css" />
+    <!-- 페이지 폭이 넓은 .page-wrap/.nav/.panel 레이아웃은 B_host-seller 쪽에 이미 있어 그대로 가져다 씁니다. -->
+    <link rel="stylesheet" href="../B_host-seller/css/host-seller.css" />
+    <link rel="stylesheet" href="css/auth.css" />
+    <link rel="stylesheet" href="css/profile.css" />
 </head>
-<body>
-  <div class="auth-wrap">
-    <a href="../../index.html" class="auth-brand">
-      <span class="pin-dot" aria-hidden="true"></span>플리마켓
-    </a>
 
-    <div class="auth-card">
-      <span class="pin" aria-hidden="true"></span>
-      <h1>마이페이지</h1>
-      <p class="auth-sub">내 정보를 관리할 수 있어요.</p>
+<body class="profile-body">
+    <div class="page-wrap">
+        <header class="nav">
+            <a href="../../index.html" class="brand"><span class="pin-dot" aria-hidden="true"></span>플리마켓</a>
+            <a href="profile-edit.html" class="link-ghost">내 정보 수정</a>
+        </header>
 
-      <div id="alert-box" class="alert alert-error" role="alert"></div>
+        <div class="panel">
+            <span class="pin" aria-hidden="true"></span>
 
-      <div class="section-title">내 정보 수정</div>
-      <form id="profile-form" novalidate>
-        <div class="form-field">
-          <label for="phone">전화번호</label>
-          <input type="text" id="phone" class="form-input" placeholder="010-1234-5678" autocomplete="tel" pattern="01[0-9]-[0-9]{3,4}-[0-9]{4}" title="010-0000-0000 형식으로 입력해주세요" />
+            <div id="alert-box" class="alert alert-error" role="alert"></div>
+
+            <div class="profile-top">
+                <div id="profile-avatar" class="profile-avatar">프로필<br />사진란</div>
+                <div class="profile-top-info">
+                    <div id="profile-title-badge" class="profile-title-badge">불러오는 중...</div>
+                    <p id="profile-intro" class="profile-intro"></p>
+                </div>
+            </div>
+
+            <hr class="section-divider" />
+
+            <div class="profile-section">
+                <div class="profile-section-label">소개글</div>
+                <div class="profile-bio-row">
+                    <p id="profile-bio-text" class="profile-bio-text">등록된 소개글이 없어요.</p>
+                    <div id="profile-bio-image" class="profile-bio-image">소개 이미지</div>
+                </div>
+            </div>
+
+            <div class="profile-section">
+                <div class="profile-section-label">행사 현황</div>
+                <div class="profile-stats-row">
+                    <div class="profile-stat">
+                        <span id="stat-upcoming" class="profile-stat-num">-</span>
+                        <span class="profile-stat-label">진행 중 / 예정</span>
+                    </div>
+                    <div class="profile-stat">
+                        <span id="stat-past" class="profile-stat-num">-</span>
+                        <span class="profile-stat-label">지난 행사</span>
+                    </div>
+                    <div class="profile-stat">
+                        <span id="stat-cancelled" class="profile-stat-num">-</span>
+                        <span class="profile-stat-label">취소 이력</span>
+                    </div>
+                </div>
+            </div>
+
+            <a href="../../index.html" class="back-link">← 마켓 목록으로</a>
         </div>
-        <div class="form-field">
-          <label for="region">거주 지역</label>
-          <input type="text" id="region" class="form-input" placeholder="예: 서울 마포구" />
-        </div>
-        <button type="submit" id="profile-submit-btn" class="btn btn-primary btn-block">정보 수정</button>
-      </form>
-
-      <hr class="section-divider" />
-
-      <div class="section-title">비밀번호 변경</div>
-      <form id="password-form" novalidate>
-        <div class="form-field">
-          <label for="current-password">현재 비밀번호</label>
-          <input type="password" id="current-password" class="form-input" placeholder="현재 비밀번호" autocomplete="current-password" />
-        </div>
-        <div class="form-field">
-          <label for="new-password">새 비밀번호</label>
-          <input type="password" id="new-password" class="form-input" placeholder="8자 이상" autocomplete="new-password" minlength="8" />
-        </div>
-        <div class="form-field">
-          <label for="new-password-confirm">새 비밀번호 확인</label>
-          <input type="password" id="new-password-confirm" class="form-input" placeholder="새 비밀번호 다시 입력" autocomplete="new-password" minlength="8" />
-        </div>
-        <button type="submit" id="password-submit-btn" class="btn btn-primary btn-block">비밀번호 변경</button>
-      </form>
-
-      <hr class="section-divider" />
-
-      <div class="section-title">계정 관리</div>
-      <div class="mypage-actions">
-        <button type="button" id="logout-btn" class="btn btn-outline">로그아웃</button>
-        <button type="button" id="delete-account-btn" class="btn btn-danger">회원 탈퇴</button>
-      </div>
     </div>
 
-    <a href="../../index.html" class="back-home">← 마켓 목록으로</a>
-  </div>
-
-  <script src="../../common/js/api.js?v=2"></script>
-  <script src="../../common/js/validators.js?v=2"></script>
-  <script src="js/mypage.js?v=2"></script>
+    <script src="../../common/js/api.js?v=2"></script>
+    <script src="js/mypage.js?v=3"></script>
 </body>
+
 </html>

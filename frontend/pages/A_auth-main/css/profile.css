@@ -1,0 +1,152 @@
+/* 마이페이지 "프로필 보기" 화면 전용 스타일
+   .nav / .panel / .pin 등 공통 레이아웃은 host-seller.css를 그대로 재사용하고,
+   여기서는 프로필 화면에만 필요한 요소(아바타, 뱃지, 소개, 행사 현황 통계)만 추가합니다. */
+
+/* auth.css가 body에 flex 중앙정렬을 걸어두므로, 이 페이지는 host-seller.css와 같은
+   폭 넓은 레이아웃을 쓰도록 마지막에 덮어씁니다. */
+body.profile-body {
+  display: block;
+  padding: 0;
+}
+
+.profile-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 6px;
+}
+
+.profile-avatar {
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: var(--sage);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-top-info {
+  flex: 1;
+  padding-top: 6px;
+  min-width: 0;
+}
+
+.profile-title-badge {
+  display: inline-block;
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.profile-intro {
+  font-family: "Inter", sans-serif;
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  margin: 12px 0 0;
+}
+
+.profile-section {
+  margin: 22px 0;
+}
+
+.profile-section-label {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
+  margin-bottom: 10px;
+}
+
+.profile-bio-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.profile-bio-text {
+  flex: 1;
+  min-width: 0;
+  font-family: "Inter", sans-serif;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink);
+  white-space: pre-line;
+  margin: 0;
+}
+
+.profile-bio-image {
+  width: 200px;
+  height: 130px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--sage-bg);
+  color: var(--sage-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11.5px;
+}
+
+.profile-bio-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.profile-stat {
+  background: #fff;
+  border: 1.5px solid #ece1cd;
+  border-radius: 9px;
+  padding: 14px 8px;
+  text-align: center;
+}
+
+.profile-stat-num {
+  display: block;
+  font-family: "Archivo Black", sans-serif;
+  font-size: 22px;
+  color: var(--mustard-text);
+}
+
+.profile-stat-label {
+  display: block;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px;
+  color: var(--ink-soft);
+  margin-top: 4px;
+}
+
+@media (max-width: 480px) {
+  .profile-top { flex-direction: column; align-items: center; text-align: center; }
+  .profile-bio-row { flex-direction: column; }
+  .profile-bio-image { width: 100%; }
+  .profile-stats-row { grid-template-columns: 1fr; }
+}

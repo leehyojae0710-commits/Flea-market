@@ -14,8 +14,10 @@ import scheduleRoutes from './routes/scheduleRoutes.js';
 import checkinRoutes from './routes/checkinRoutes.js';
 import pool from './config/db.js'; // DB 데이터를 가져오기 위해 연결 풀을 불러옵니다.
 import swaggerSpec from './config/swagger.js';
-import upload, { uploadItemImage } from './middleware/multer.js';
+import upload, { uploadItemImage, uploadProfileImage } from './middleware/multer.js';
 import myMarketRoutes from './routes/myMarketRoutes.js';
+import profileRoutes from './routes/profileRoutes.js';
+import { authenticateToken } from './middleware/authMiddleware.js';
 dotenv.config();
 
 const app = express();
@@ -25,6 +27,7 @@ app.use(cors()); // 프론트(5500 등 다른 포트)에서 오는 요청 허용
 app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/users', profileRoutes);
 app.use('/api/markets', marketRoutes);
 app.use('/api/markets', mymarketRoutes)
 app.use('/api/applications', applicationRoutes);
@@ -35,6 +38,7 @@ app.use('/api/checkins', checkinRoutes);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec)); // http://localhost:5000/api-docs
 app.use('/api/uploads', express.static('Z:/markets/'));
 app.use('/api/uploads', express.static('Z:/seller/'));
+app.use('/api/uploads', express.static('Z:/profile/'));
 app.use('/api/my-markets', myMarketRoutes);
 // 🌐 http://localhost:5000 접속 시 DB 데이터를 HTML 표로 보여주는 라우터
 app.get('/', async (req, res) => {
@@ -106,7 +110,7 @@ app.get('/', async (req, res) => {
                     <td>${m.locationName}</td>
                     <td>${m.latitude}, ${m.longitude}</td>
                     <td>${new Date(m.eventDate_min).toLocaleDateString()} ~ ${new Date(m.eventDate_max).toLocaleDateString()}</td>
-                    <td>${m.isExpired ? '❌ 마감' : '✅ 모집중'}</td>
+                    <td>${m.isExpired === 2 ? '🗑️ 삭제됨' : (m.isExpired ? '❌ 마감' : '✅ 모집중')}</td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -175,6 +179,25 @@ app.post('/api/upload/item-image', uploadItemImage.single('itemImage'), (req, re
   }
   const folder = req.uploadedItemFolder || 'untitled';
   const filePath = `/uploads/${encodeURIComponent(folder)}/${req.file.filename}`;
+  res.json({ success: true, filePath });
+});
+
+// [추가] 마이페이지 프로필 사진 업로드
+// item-image와 달리 폴더가 "제목"이 아니라 로그인한 사용자 userId라서 로그인이 필요합니다.
+app.post('/api/upload/profile-image', authenticateToken, uploadProfileImage.single('profileImage'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: '업로드할 이미지가 없습니다.' });
+  }
+  const filePath = `/uploads/${req.user.userId}/${req.file.filename}`;
+  res.json({ success: true, filePath });
+});
+
+// [추가] 마이페이지 소개 이미지 업로드 (프로필 사진과 같은 저장소를 공유합니다)
+app.post('/api/upload/bio-image', authenticateToken, uploadProfileImage.single('bioImage'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: '업로드할 이미지가 없습니다.' });
+  }
+  const filePath = `/uploads/${req.user.userId}/${req.file.filename}`;
   res.json({ success: true, filePath });
 });
 
