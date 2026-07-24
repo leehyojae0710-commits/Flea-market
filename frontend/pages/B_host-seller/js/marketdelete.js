@@ -47,17 +47,19 @@ async function loadMyMarkets() {
 
   listEl.innerHTML = res.data.map(market => `
       <li class="my-market-item" data-market-id="${market.marketId}">
+      <div onclick="location.href='market-detail?marketId=${market.marketId}';">
         <div class="my-market-item-top">
           <span class="my-market-item-title">${market.title}</span>
           <div class="my-market-item-actions">
-          <button type="button" class="btn btn-danger btn-sm" onclick="clickdelet(${market.marketId})">삭제하기</button>
-          <a href = "../B_host-seller/correctionMarket?marketId=${market.marketId}" class="btn btn-danger btn-sm">수정하기</a>
+          <button type="button" class="btn btn-danger btn-sm" onclick="event.stopPropagation(); clickdelet(${market.marketId})">삭제하기</button>
+          <a href = "../B_host-seller/correctionMarket?marketId=${market.marketId}" class="btn btn-danger btn-sm" onclick="event.stopPropagation();">수정하기</a>
           </div>
         </div>
         <div class="my-market-item-meta">
           ${formatDate(market.eventDate_min)} ~ ${formatDate(market.eventDate_max)}
         </div>
         <div class="my-market-item-meta">${market.locationName || ''}</div>
+        </div>
       </li>
     `).join('');
 }
