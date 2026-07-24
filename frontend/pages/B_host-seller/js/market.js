@@ -82,6 +82,7 @@ function handleMarketCreateSubmit() {
   console.log('등록 시작');
   const form = document.getElementById('market-create-form');
   if (!form) return;
+  console.log('등록 중');
   const submitBtn = document.getElementById('market-create-submit-btn');
 
   form.addEventListener('submit', async (e) => {

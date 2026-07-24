@@ -62,8 +62,7 @@ export async function createMarket(req, res) {
   if (new Date(eventDate_max) < new Date(eventDate_min)) {
     return res.status(400).json({ success: false, data: null, message: '종료일은 시작일보다 빠를 수 없습니다.' });
   }
-  if(new Date(eventDate_max) < new Date(recruitmentDate_min))
-  {
+  if (new Date(eventDate_max) < new Date(recruitmentDate_min)) {
     return res.status(400).json({ success: false, data: null, message: '모집일은 개최일보다 빠를 수 없습니다.' });
   }
   if (boothPrice !== undefined && (Number.isNaN(Number(boothPrice)) || Number(boothPrice) < 0)) {
@@ -185,16 +184,22 @@ export async function getApplicationsByMarket(req, res) {
   const { marketId } = req.params;
 
   try {
+    const [myData] = await pool.query('SELECT userType FROM users WHERE userId = ?', [userId]);
     const [marketRows] = await pool.query('SELECT hostId FROM markets WHERE marketId = ?', [marketId]);
-    if (marketRows.length === 0) {
-      return res.status(404).json({ success: false, data: null, message: '해당 마켓을 찾을 수 없습니다.' });
+    if (myData.length === 0) {
+      return res.status(404).json({ success: false, data: null, message: '해당 유저 정보를 찾을 수 없습니다.' });
     }
-    if (Number(marketRows[0].hostId) !== Number(userId)) {
-      return res.status(403).json({ success: false, data: null, message: '본인이 등록한 마켓의 신청 목록만 조회할 수 있습니다.' });
-    }
+    if (myData[0] === 1) {
+      if (marketRows.length === 0) {
+        return res.status(404).json({ success: false, data: null, message: '해당 마켓을 찾을 수 없습니다.' });
+      }
+      if (Number(marketRows[0].hostId) !== Number(userId)) {
+        return res.status(403).json({ success: false, data: null, message: '본인이 등록한 마켓의 신청 목록만 조회할 수 있습니다.' });
+      }
 
-    const [rows] = await pool.query('SELECT * FROM applications WHERE marketId = ? ORDER BY applicationId DESC', [marketId]);
-    return res.status(200).json({ success: true, data: rows, message: '신청 목록을 조회했습니다.' });
+      const [rows] = await pool.query('SELECT * FROM applications WHERE marketId = ? ORDER BY applicationId DESC', [marketId]);
+      return res.status(200).json({ success: true, data: rows, message: '신청 목록을 조회했습니다.' });
+    }
   } catch (error) {
     console.error('신청 목록 조회 오류:', error.message);
     return res.status(500).json({ success: false, data: null, message: '서버 오류로 신청 목록 조회에 실패했습니다.' });
