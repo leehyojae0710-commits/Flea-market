@@ -50,9 +50,12 @@ export async function getMyApplications(req, res) {
       `SELECT
          a.applicationId, a.marketId, a.boothNumber, a.title, a.itemName,
          a.productDesc, a.itemImage, a.status,
-         m.title AS marketTitle, m.eventDate_min, m.eventDate_max, m.locationName
+         m.title AS marketTitle, m.eventDate_min, m.eventDate_max, m.locationName,
+         (m.eventDate_max < CURDATE()) AS eventEnded,
+         r.rating AS myRating
        FROM applications a
        JOIN markets m ON m.marketId = a.marketId
+       LEFT JOIN market_reviews r ON r.applicationId = a.applicationId
        WHERE a.sellerId = ?
        ORDER BY a.applicationId DESC`,
       [userId]
@@ -185,11 +188,11 @@ async function updateApplicationStatus(req, res, nextStatus, successMessage) {
 export async function approveSellerApplication(req, res) {
   const { userId } = req.user;
   const { applicationId } = req.params;
-  //const paymentWindowMinutes = Number(req.body?.paymentWindowMinutes) || 1440;
+  const paymentWindowMinutes = Number(req.body?.paymentWindowMinutes) || 1440;
 
   try {
     const [rows] = await pool.query(
-      `SELECT a.applicationId, a.marketId, a.boothNumber, m.hostId, m.boothPrice
+      `SELECT a.applicationId, a.marketId, a.boothNumber, m.hostId
        FROM applications a
        JOIN markets m ON m.marketId = a.marketId
        WHERE a.applicationId = ?`,
@@ -213,17 +216,16 @@ export async function approveSellerApplication(req, res) {
       return res.status(409).json({ success: false, data: null, message: '해당 부스는 이미 다른 신청이 승인되어 있습니다.' });
     }
 
-    //결제 시간 제한
     await pool.query(
-      `UPDATE applications SET status = 'Approved', paymentDueAt = DATE_ADD(NOW(), INTERVAL 1 DAY) WHERE applicationId = ?`,
-      [applicationId]
+      `UPDATE applications SET status = 'Approved', paymentDueAt = DATE_ADD(NOW(), INTERVAL ? MINUTE) WHERE applicationId = ?`,
+      [paymentWindowMinutes, applicationId]
     );
 
     const [updatedRows] = await pool.query('SELECT paymentDueAt FROM applications WHERE applicationId = ?', [applicationId]);
 
     return res.status(200).json({
       success: true,
-      data: { applicationId: Number(applicationId), status: 'Approved', paymentDueAt: updatedRows[0].paymentDueAt,amount: application.boothPrice || 0},
+      data: { applicationId: Number(applicationId), status: 'Approved', paymentDueAt: updatedRows[0].paymentDueAt },
       message: '신청을 승인했습니다.',
     });
   } catch (error) {
@@ -231,28 +233,6 @@ export async function approveSellerApplication(req, res) {
     return res.status(500).json({ success: false, data: null, message: '서버 오류로 신청 처리에 실패했습니다.' });
   }
 }
-
-
-//npm install coolsms-node-sdk --save
-// 문자 발송 로직(유료)
-// export async function sendText(req, res) {
-//   const coolsms = require('coolsms-node-sdk').default;
-
-//   // API Key와 Secret 설정
-//   const messageService = new coolsms('YOUR_API_KEY', 'YOUR_API_SECRET');
-
-//   // 문자 전송 함수
-//   messageService.sendOne({
-//     to: '수신자번호(- 제외)',
-//     from: '발신자번호(- 제외)',
-//     text: '테스트 문자 메시지입니다.'
-//   }).then(res => {
-//     console.log('전송 성공:', res);
-//   }).catch(err => {
-//     console.error('전송 실패:', err);
-//   });
-// }
-
 
 // PATCH /api/applications/:applicationId/reject (로그인 필요, 마켓 주최자)
 export async function rejectSellerApplication(req, res) {
