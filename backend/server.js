@@ -17,6 +17,7 @@ import swaggerSpec from './config/swagger.js';
 import upload, { uploadItemImage, uploadProfileImage } from './middleware/multer.js';
 import myMarketRoutes from './routes/myMarketRoutes.js';
 import profileRoutes from './routes/profileRoutes.js';
+import reviewRoutes from './routes/reviewRoutes.js';
 import { authenticateToken } from './middleware/authMiddleware.js';
 dotenv.config();
 
@@ -35,6 +36,7 @@ app.use('/api/payments', payRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/schedules', scheduleRoutes);
 app.use('/api/checkins', checkinRoutes);
+app.use('/api/reviews', reviewRoutes);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec)); // http://localhost:5000/api-docs
 app.use('/api/uploads', express.static('Z:/markets/'));
 app.use('/api/uploads', express.static('Z:/seller/'));
@@ -110,7 +112,7 @@ app.get('/', async (req, res) => {
                     <td>${m.locationName}</td>
                     <td>${m.latitude}, ${m.longitude}</td>
                     <td>${new Date(m.eventDate_min).toLocaleDateString()} ~ ${new Date(m.eventDate_max).toLocaleDateString()}</td>
-                    <td>${m.isExpired === 2 ? '🗑️ 삭제됨' : (m.isExpired ? '❌ 마감' : '✅ 모집중')}</td>
+                    <td>${m.isExpired ? '❌ 마감' : '✅ 모집중'}</td>
                   </tr>
                 `).join('')}
               </tbody>
