@@ -207,6 +207,7 @@ router.post('/', authenticateToken, requireHost, validateMarketInput, createMark
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
 router.get('/:marketId', getMarketDetail);
+router.get('/closed/:marketId', getMarket);
 router.patch('/:marketId', authenticateToken, updateMarketStatus);
 router.delete('/:marketId', authenticateToken, deleteMarket);
 /**
