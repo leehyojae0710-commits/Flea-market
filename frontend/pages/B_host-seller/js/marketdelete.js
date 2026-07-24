@@ -8,6 +8,9 @@
 async function deleteMarket(marketId) {
   return callApi(`/markets/${marketId}`, { method: 'DELETE' });
 }
+async function marketsClosed(marketId) {
+  return callApi(`/markets/closed/${marketId}`);
+}
 
 async function getMyMarkets() {
   return callApi('/markets/mine');
@@ -83,9 +86,32 @@ function renderMarketList() {
 
 function renderMarketItem(market) {
   const isOpen = !market.isExpired;
-  const statusKey = isOpen ? 'open' : 'closed';
+  const statusKey = isOpen;
+  // const marketUrl = '';
+  // const marketUrl2 ='';
   const id = market.marketId;
   const isExpanded = expandedId === String(id) || expandedId === id;
+  // switch (isOpen) {
+  //   case 0:
+  //     console.log("아아아아아")
+  //     statusKey = 'open';
+  //     marketUrl = `correctionMarket?marketId=${id}`
+  //     marketUrl2='';
+  //     break;
+  //   case 1:
+  //     statusKey = 'closed';
+  //     marketUrl='#';
+  //     marketUrl2='aria-disabled="true" tabindex="-1" title="마감된 마켓은 수정할 수 없어요." onclick="return false;"'
+  //     return;
+  //   case 2:
+  //     statusKey = 'delete';
+  //     marketUrl='#';
+  //     marketUrl2='aria-disabled="true" tabindex="-1" title="마감된 마켓은 수정할 수 없어요." onclick="return false;"'
+  //     return;
+  // }
+  // console.log(isOpen);
+  // console.log(marketUrl);
+  // console.log(marketUrl2);
 
   return `
     <li class="my-market-item" data-market-id="${id}">
@@ -94,13 +120,30 @@ function renderMarketItem(market) {
         <span class="status-tag ${statusKey}">${STATUS_LABEL[statusKey]}</span>
       </div>
       <div class="item-card-actions">
-        <a class="btn btn-outline btn-sm" href="${isOpen ? `correctionMarket?marketId=${id}` : '#'}" ${isOpen ? '' : 'aria-disabled="true" tabindex="-1" title="마감된 마켓은 수정할 수 없어요." onclick="return false;"'}>수정하기</a>
+        <a class="btn btn-outline btn-sm" href="${isOpen ? `correctionMarket?marketId=${id}` : '#'}" ${isOpen ? '':'aria-disabled="true" tabindex="-1" title="마감된 마켓은 수정할 수 없어요." onclick="return false;"'}>수정하기</a>
         <button type="button" class="btn btn-danger btn-sm" data-action="delete" data-id="${id}">삭제하기</button>
       </div>
-
       ${isExpanded ? renderMarketDetail(market) : ''}
     </li>
   `;
+}
+
+function marketClosed(marketid) {
+  const ui = document.querySelector(`[data-market-id="${marketid}"]`);
+  if (!ui) {
+    return;
+  }
+  ui.style.opacity = '0.5';
+  ui.style.pointerEvents = 'none';
+  // try {
+  //   const res = await marketsClosed(marketid);
+  //   if (res && res.success) {
+  //     res.isExpired = 2
+  //   }
+  // }
+  // catch (err) {
+
+  // }
 }
 
 function renderMarketDetail(market) {
@@ -125,21 +168,23 @@ async function handleDeleteClick(marketId) {
   hideAlert();
   if (!marketId) return;
 
-  const confirmed = window.confirm('정말 이 마켓을 삭제하시겠습니까? 삭제 후에는 되돌릴 수 없어요.');
+  const confirmed = window.confirm('정말 이 마켓을 취소하시겠습니까? 삭제 후에는 되돌릴 수 없어요.');
   if (!confirmed) return;
 
-  try {
-    const res = await deleteMarket(marketId);
-    if (res && res.success) {
-      renderAlert('마켓이 삭제되었어요.', 'success');
-      if (expandedId === marketId) expandedId = null;
-      await loadMyMarkets();
-    } else {
-      renderAlert(res?.message || '삭제에 실패했어요.');
-    }
-  } catch (err) {
-    renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
-  }
+  marketClosed(marketId);
+
+  // try {
+  //   const res = await deleteMarket(marketId);
+  //   if (res && res.success) {
+  //     renderAlert('마켓이 삭제되었어요.', 'success');
+  //     if (expandedId === marketId) expandedId = null;
+  //     await loadMyMarkets();
+  //   } else {
+  //     renderAlert(res?.message || '삭제에 실패했어요.');
+  //   }
+  // } catch (err) {
+  //   renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
+  // }
 }
 
 // ---------- 필터 ----------
