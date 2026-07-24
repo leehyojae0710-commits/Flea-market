@@ -184,13 +184,79 @@ body {
   align-self: center;
 }
 
+/* ---------- status tabs (모집중/진행중) ---------- */
+.status-tabs {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.status-tab {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 13.5px;
+  padding: 10px 22px;
+  border-radius: 999px;
+  border: 1px solid #5a4736;
+  background: transparent;
+  color: #cabba7;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.status-tab:hover { border-color: var(--mustard); color: var(--paper); }
+.status-tab.is-active {
+  background: var(--mustard);
+  border-color: var(--mustard);
+  color: var(--mustard-text);
+}
+
 /* ---------- market grid ---------- */
 .market-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 34px 26px;
   padding-top: 12px;
 }
+
+@media (max-width: 900px) {
+  .market-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .market-grid { grid-template-columns: 1fr; }
+}
+
+/* ---------- pagination ---------- */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 32px 0 8px;
+}
+
+.page-btn {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 1px solid #5a4736;
+  background: transparent;
+  color: #cabba7;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.page-btn:hover:not(:disabled) { border-color: var(--mustard); color: var(--paper); }
+.page-btn.is-active {
+  background: var(--mustard);
+  border-color: var(--mustard);
+  color: var(--mustard-text);
+  font-weight: 700;
+}
+.page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.page-btn.page-nav { font-family: "Inter", sans-serif; }
 
 .market-card {
   position: relative;

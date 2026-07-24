@@ -42,6 +42,10 @@ async function getCommentList(targetType, targetId) {
   return callApi(`/comments?targetType=${targetType}&targetId=${targetId}`);
 }
 
+async function deleteCommentApi(commentId) {
+  return callApi(`/comments/${commentId}`, { method: 'DELETE' });
+}
+
 // ---------- 화면 피드백 유틸 ----------
 
 function renderAlert(message, type = 'error') {
@@ -515,9 +519,15 @@ function buildCommentTree(comments) {
 }
 
 function renderCommentNode(c, isReply) {
+  const currentUser = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
+  const isMine = currentUser && currentUser.userId === c.userId;
+
   return `
     <div class="comment-item${isReply ? ' comment-item-reply' : ''}" data-comment-id="${c.commentId}">
-      <div class="comment-nickname">${c.nickname || '알 수 없음'}</div>
+      <div class="comment-item-top">
+        <div class="comment-nickname">${c.nickname || '알 수 없음'}</div>
+        ${isMine ? `<button type="button" class="btn btn-danger btn-sm comment-delete-btn" data-comment-id="${c.commentId}">삭제</button>` : ''}
+      </div>
       <div class="comment-content">${c.content}</div>
       ${!isReply ? `<button type="button" class="comment-reply-btn" data-comment-id="${c.commentId}">답글달기</button>` : ''}
       <div class="comment-reply-form-slot" data-slot-for="${c.commentId}"></div>
@@ -549,6 +559,24 @@ function renderReplyForm(parentId) {
     </form>`;
 }
 
+async function handleCommentDelete(commentId) {
+  if (!commentId) return;
+  const confirmed = confirm('이 댓글을 삭제하시겠습니까? 답글이 달려있다면 함께 삭제됩니다.');
+  if (!confirmed) return;
+
+  hideAlert();
+  try {
+    const res = await deleteCommentApi(commentId);
+    if (res && res.success) {
+      await loadCommentList();
+    } else {
+      renderAlert(res?.message || '댓글 삭제에 실패했어요.');
+    }
+  } catch (err) {
+    renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
+  }
+}
+
 function handleCommentReplyClick() {
   const wrap = document.getElementById('comment-list');
   if (!wrap) return;
@@ -568,6 +596,12 @@ function handleCommentReplyClick() {
     if (cancelBtn) {
       const slot = cancelBtn.closest('.comment-reply-form-slot');
       if (slot) slot.innerHTML = '';
+      return;
+    }
+
+    const deleteBtn = e.target.closest('.comment-delete-btn');
+    if (deleteBtn) {
+      handleCommentDelete(deleteBtn.dataset.commentId);
     }
   });
 
