@@ -58,19 +58,27 @@ function isOngoingNow(m) {
   return min <= today && today <= max;
 }
 
+// [추가] 종료된 행사: 행사 진행 기간(eventDate_max)이 이미 지난 마켓
+function isEndedNow(m) {
+  return isExpiredByDate(m.eventDate_max);
+}
+
 function filterByTab(markets, tab) {
-  return tab === "ongoing" ? markets.filter(isOngoingNow) : markets.filter(isRecruitingNow);
+  if (tab === "ongoing") return markets.filter(isOngoingNow);
+  if (tab === "ended") return markets.filter(isEndedNow);
+  return markets.filter(isRecruitingNow);
 }
 
 // [추가] 탭/페이지네이션 상태
 const PAGE_SIZE = 9; // 3 x 3
-let currentTab = "recruiting"; // 'recruiting' | 'ongoing'
+let currentTab = "recruiting"; // 'recruiting' | 'ongoing' | 'ended'
 let currentPage = 1;
 let lastFetchedMarkets = []; // 지역/정렬만 적용된, 탭 나누기 전의 원본 목록 (탭 전환 시 재요청 방지용)
 let currentTabList = []; // 탭까지 적용된 목록 (페이지네이션 대상)
 
-function ddayLabel(dateStr) {
-  const d = daysUntil(dateStr);
+function ddayLabel(m) {
+  if (isExpiredByDate(m.eventDate_max)) return "종료";
+  const d = daysUntil(m.eventDate_min);
   if (d === 0) return "D-DAY";
   return `D-${d}`;
 }
@@ -100,6 +108,10 @@ async function getMarketList(params = {}) {
   const backendParams = {};
   if (region) backendParams.region = region;
   backendParams.sort = toBackendSort(sort);
+  // [변경] "종료된 행사" 탭도 보여줘야 해서, 마감/진행 여부와 상관없이 항상 전체 목록을 받아옵니다.
+  // (삭제된 마켓(isExpired=2)은 백엔드가 항상 걸러줘서 여기엔 안 내려옵니다.)
+  // 모집중/진행중/종료 구분은 프론트에서 날짜 기준으로 다시 나눕니다(filterByTab).
+  backendParams.includeExpired = "true";
 
   try {
     const query = new URLSearchParams(backendParams).toString();
@@ -115,7 +127,8 @@ async function getMarketList(params = {}) {
 }
 
 function applyFilterSort(markets, { region, sort } = {}) {
-  let list = markets.filter((m) => !m.isExpired && !isExpiredByDate(m.eventDate_max));
+  // 삭제된 마켓만 제외하고, 모집중/진행중/종료 구분은 filterByTab에서 처리합니다.
+  let list = markets.filter((m) => Number(m.isExpired) !== 2);
   //if (region) list = list.filter((m) => m.hostRegion === region);
   if (region) list = list.filter((m) => m.region === region);
   if (sort === "latest") {
@@ -147,16 +160,29 @@ function populateRegionOptions(markets) {
 }
 
 
+// 탭별 결과 개수 / 빈 상태 문구
+const TAB_COUNT_SUFFIX = {
+  recruiting: "개 마켓 모집 중",
+  ongoing: "개 마켓 진행 중",
+  ended: "개 마켓 종료",
+};
+const TAB_EMPTY_MESSAGE = {
+  recruiting: "조건에 맞는 모집 중인 마켓이 없어요. 다른 지역을 선택해 보세요.",
+  ongoing: "조건에 맞는 진행 중인 마켓이 없어요. 다른 지역을 선택해 보세요.",
+  ended: "조건에 맞는 종료된 마켓이 없어요. 다른 지역을 선택해 보세요.",
+};
+
 function renderMarketList(pageMarkets, totalCount) {
   const grid = document.getElementById("market-grid");
   const emptyState = document.getElementById("empty-state");
   const countEl = document.getElementById("result-count");
 
-  countEl.textContent = `${totalCount}개 마켓 진행 예정`;
+  countEl.textContent = `${totalCount}${TAB_COUNT_SUFFIX[currentTab] || "개 마켓 진행 예정"}`;
 
   if (pageMarkets.length === 0) {
     grid.innerHTML = "";
     emptyState.hidden = false;
+    emptyState.textContent = TAB_EMPTY_MESSAGE[currentTab] || "조건에 맞는 열려 있는 마켓이 없어요. 다른 지역을 선택해 보세요.";
     return;
   }
   emptyState.hidden = true;
@@ -170,7 +196,7 @@ function renderMarketList(pageMarkets, totalCount) {
         ${imageSrc ? `<div class="card-image-wrap"><img class="card-image" src="${imageSrc}" alt="${m.title} 대표 이미지" loading="lazy" /></div>` : ""}
         <div class="card-top">
           <span class="category-tag">${m.region || ""}</span>
-          <span class="dday-tag">${ddayLabel(m.eventDate_min)}</span>
+          <span class="dday-tag">${ddayLabel(m)}</span>
         </div>
         <h3>${m.title}</h3>
         <p class="market-meta tight">행사 기간 ${new Date(m.eventDate_min).toLocaleDateString()} ~ ${new Date(m.eventDate_max).toLocaleDateString()}</p>

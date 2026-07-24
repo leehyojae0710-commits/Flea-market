@@ -188,6 +188,7 @@ body {
 .status-tabs {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
   margin-top: 18px;
 }
 
