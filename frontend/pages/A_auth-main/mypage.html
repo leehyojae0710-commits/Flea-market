@@ -49,21 +49,35 @@
 
             <div class="profile-section">
                 <div class="profile-section-label">행사 현황</div>
-                <div class="profile-stats-row">
-                    <div class="profile-stat">
-                        <span id="stat-upcoming" class="profile-stat-num">-</span>
-                        <span class="profile-stat-label">진행 중 / 예정</span>
+
+                <div class="profile-stats-wrap">
+                    <div class="profile-stats-row">
+                        <div class="profile-stat">
+                            <span id="stat-upcoming" class="profile-stat-num">-</span>
+                            <span class="profile-stat-label">진행 중 / 예정</span>
+                        </div>
+                        <div class="profile-stat">
+                            <span id="stat-past" class="profile-stat-num">-</span>
+                            <span class="profile-stat-label">지난 행사</span>
+                        </div>
+                        <div class="profile-stat">
+                            <span id="stat-cancelled" class="profile-stat-num">-</span>
+                            <span class="profile-stat-label">취소 이력</span>
+                        </div>
                     </div>
-                    <div class="profile-stat">
-                        <span id="stat-past" class="profile-stat-num">-</span>
-                        <span class="profile-stat-label">지난 행사</span>
-                    </div>
-                    <div class="profile-stat">
-                        <span id="stat-cancelled" class="profile-stat-num">-</span>
-                        <span class="profile-stat-label">취소 이력</span>
-                    </div>
+
+                    <aside class="profile-side-chart">
+                        <div class="side-chart-title">주최행사 성공율</div>
+                        <div class="side-chart-donut" id="stat-donut">
+                            <span class="side-chart-center" id="stat-donut-rate">-</span>
+                        </div>
+                    </aside>
                 </div>
             </div>
+
+            <a href="../../index.html" class="back-link">← 마켓 목록으로</a>
+        </div>
+    </div>
 
             <a href="../../index.html" class="back-link">← 마켓 목록으로</a>
         </div>

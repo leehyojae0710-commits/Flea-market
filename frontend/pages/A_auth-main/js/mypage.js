@@ -56,8 +56,42 @@ function renderStats(stats) {
   if (upcomingEl) upcomingEl.textContent = stats.upcomingCount ?? 0;
   if (pastEl) pastEl.textContent = stats.pastCount ?? 0;
   if (cancelledEl) cancelledEl.textContent = stats.cancelledCount ?? 0;
-}
 
+  renderSuccessChart(stats);
+}
+/* [추가] 주최행사 성공율 도넛
+   총 행사수 = 진행/예정 + 지난 행사 + 취소
+   성공율 = (총 - 취소) / 총 * 100 */
+   function renderSuccessChart(stats) {
+    const donut = document.getElementById('stat-donut');
+    const rateEl = document.getElementById('stat-donut-rate');
+    if (!donut || !rateEl) return;
+  
+    const up = Number(stats.upcomingCount) || 0;
+    const past = Number(stats.pastCount) || 0;
+    const cancel = Number(stats.cancelledCount) || 0;
+    const total = up + past + cancel;
+  
+    const successEl = document.getElementById('rate-success');
+    const cancelEl = document.getElementById('rate-cancelled');
+  
+    if (total === 0) {
+      rateEl.textContent = '–';
+      donut.style.background = 'conic-gradient(#e5ded2 0 100%)';
+      if (successEl) successEl.textContent = '0 / 0';
+      if (cancelEl) cancelEl.textContent = '0 / 0';
+      return;
+    }
+  
+    const successCount = total - cancel;
+    const successPct = (successCount / total) * 100;
+  
+    donut.style.background =
+      `conic-gradient(#2f6b8f 0 ${successPct}%, #cfc6b8 ${successPct}% 100%)`;
+    rateEl.textContent = `${Math.round(successPct)}%`;
+    if (successEl) successEl.textContent = `${successCount} / ${total}`;
+    if (cancelEl) cancelEl.textContent = `${cancel} / ${total}`;
+  }
 /* ---------------------- 초기 로드 ---------------------- */
 async function loadProfile() {
   try {
