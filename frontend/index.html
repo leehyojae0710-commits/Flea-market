@@ -45,10 +45,17 @@
         </label>
         <span id="result-count" class="result-count"></span>
       </div>
+
+      <div class="status-tabs" role="tablist">
+        <button type="button" class="status-tab is-active" id="tab-recruiting" data-tab="recruiting" role="tab" aria-selected="true">모집 중인 행사</button>
+        <button type="button" class="status-tab" id="tab-ongoing" data-tab="ongoing" role="tab" aria-selected="false">진행 중인 행사</button>
+      </div>
     </section>
 
     <section id="market-grid" class="market-grid" aria-live="polite"></section>
     <p id="empty-state" class="empty-state" hidden>조건에 맞는 열려 있는 마켓이 없어요. 다른 지역을 선택해 보세요.</p>
+    <nav id="pagination" class="pagination" aria-label="마켓 목록 페이지"></nav>
+
 
     <footer class="cta-banner">
       <p>관심 있는 마켓을 놓치지 마세요. 로그인하면 개최 알림을 받아볼 수 있어요.</p>
