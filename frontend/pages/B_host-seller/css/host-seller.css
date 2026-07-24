@@ -262,6 +262,13 @@ body {
   font-size: 12.5px;
 }
 
+/* <a class="btn"> 형태로 만든 '수정' 링크의 비활성 상태 (예: Pending/모집중이 아닐 때) */
+.btn[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 /* ---------- address search / map ---------- */
 .address-row {
   display: flex;
@@ -520,15 +527,6 @@ body {
   border-radius: 9px;
   padding: 14px 16px;
   margin-bottom: 10px;
-  cursor: pointer;
-  transition: border-color 0.15s ease;
-}
-.my-market-item:hover {
-  border-color: var(--mustard);
-}
-.my-market-item.active {
-  border-color: var(--mustard);
-  box-shadow: 0 0 0 1.5px var(--mustard) inset;
 }
 .my-market-item-top {
   display: flex;

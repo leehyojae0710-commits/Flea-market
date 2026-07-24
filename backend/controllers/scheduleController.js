@@ -9,9 +9,10 @@ export async function getMySchedule(req, res) {
   const { userId } = req.user;
 
   try {
+    // isExpired=2(주최자가 삭제함)인 마켓은 일정에서 제외합니다.
     const [hosting] = await pool.query(
       `SELECT marketId, title, eventDate_min,eventDate_max, locationName, isExpired, 'host' AS role
-       FROM markets WHERE hostId = ? ORDER BY eventDate ASC`,
+       FROM markets WHERE hostId = ? AND isExpired <> 2 ORDER BY eventDate ASC`,
       [userId]
     );
 
@@ -19,7 +20,7 @@ export async function getMySchedule(req, res) {
       `SELECT m.marketId, m.title, m.eventDate_min, m.eventDate_max, m.locationName, a.applicationId, a.status, 'seller' AS role
        FROM applications a
        JOIN markets m ON m.marketId = a.marketId
-       WHERE a.sellerId = ? ORDER BY m.eventDate_min ASC`,
+       WHERE a.sellerId = ? AND m.isExpired <> 2 ORDER BY m.eventDate_min ASC`,
       [userId]
     );
 

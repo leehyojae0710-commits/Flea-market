@@ -58,4 +58,34 @@ const itemImageStorage = multer.diskStorage({
 
 export const uploadItemImage = multer({ storage: itemImageStorage });
 
+// [추가] 마이페이지 프로필 사진 / 소개 이미지 업로드용.
+// item-image와 같은 패턴이지만, 폴더를 "부스 이름"이 아니라 로그인한 사용자의 userId로 구분합니다.
+// 예: Z:/profile/12/프사_1784594536570.jpg
+// ⚠️ req.user는 authenticateToken 미들웨어가 먼저 실행되어야 채워집니다.
+//    따라서 라우트에는 반드시 authenticateToken -> uploadProfileImage 순서로 연결해야 합니다.
+const profileImageStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const userId = req.user?.userId;
+        if (!userId) {
+            return cb(new Error('로그인이 필요합니다.'));
+        }
+        const dir = path.join('Z:/profile/', String(userId));
+        fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+        const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+        const ext = path.extname(originalName);
+        if(ext !== '.jpg' && ext !== '.jpeg' && ext !== '.png') {
+            return cb(new Error('.jpg, .jpeg,.png 만 업로드 가능합니다.'));
+        }
+        const nameWithoutExt = path.basename(originalName, ext);
+
+        const uniqueName = `${nameWithoutExt}_${Date.now()}${ext}`;
+        cb(null, uniqueName);
+    }
+});
+
+export const uploadProfileImage = multer({ storage: profileImageStorage });
+
 export default upload;

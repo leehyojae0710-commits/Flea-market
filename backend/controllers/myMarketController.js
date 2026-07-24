@@ -11,7 +11,8 @@ export async function getMyMarkets(req, res) {
   const includeExpired = req.query.includeExpired === 'true';
 
   try {
-    let sql = 'SELECT * FROM markets WHERE hostId = ?';
+    // isExpired=2(주최자가 삭제함)인 마켓은 includeExpired 여부와 상관없이 항상 제외합니다.
+    let sql = 'SELECT * FROM markets WHERE hostId = ? AND isExpired <> 2';
     const values = [userId];
 
     if (!includeExpired) {

@@ -150,7 +150,7 @@ function correctionMarketClick(marketId) {
       if (res && res.success) {
         renderAlert('마켓 정보가 수정됐어요!', 'success');
         setTimeout(() => {
-          window.location.href = '../../index.html';
+          window.location.href = 'mymarketpage.html';
         }, 1000);
       } else {
         renderAlert(res?.message || '수정에 실패했어요. 입력값을 확인해주세요.');

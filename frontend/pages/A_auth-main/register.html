@@ -67,6 +67,15 @@
           <label for="region">거주 지역</label>
           <input type="text" id="region" class="form-input" placeholder="예: 서울 마포구" required />
         </div>
+        <div class="form-field">
+          <label for="intro-text">프로필 한 줄 소개 <span class="field-optional">(선택)</span></label>
+          <input type="text" id="intro-text" class="form-input" placeholder="예: 제주에서 소품을 만들어요." maxlength="150" />
+        </div>
+        <div class="form-field">
+          <label for="profile-image">프로필 사진 <span class="field-optional">(선택)</span></label>
+          <input type="file" id="profile-image" accept=".jpg,.jpeg,.png" />
+          <p class="form-hint">jpg, jpeg, png 파일만 업로드할 수 있어요. 나중에 마이페이지에서 다시 설정할 수 있어요.</p>
+        </div>
         <button type="submit" id="register-submit-btn" class="btn btn-primary btn-block">가입하기</button>
       </form>
 

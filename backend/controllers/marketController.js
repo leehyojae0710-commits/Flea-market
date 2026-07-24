@@ -14,7 +14,8 @@ export async function getMarketList(req, res) {
       FROM markets m
       JOIN users u ON u.userId = m.hostId
     `;
-    const conditions = [];
+    // isExpired=2(주최자가 삭제함)인 마켓은 includeExpired 여부와 상관없이 항상 목록에서 제외합니다.
+    const conditions = ['m.isExpired <> 2'];
     const values = [];
 
     if (!includeExpired) {
@@ -39,7 +40,8 @@ export async function getMarketDetail(req, res) {
   const { marketId } = req.params;
 
   try {
-    const [rows] = await pool.query('SELECT * FROM markets WHERE marketId = ?', [marketId]);
+    // isExpired=2(주최자가 삭제함)인 마켓은 삭제된 것처럼 조회되지 않도록 제외합니다.
+    const [rows] = await pool.query('SELECT * FROM markets WHERE marketId = ? AND isExpired <> 2', [marketId]);
     if (rows.length === 0) {
       return res.status(404).json({ success: false, data: null, message: '해당 마켓을 찾을 수 없습니다.' });
     }
@@ -487,7 +489,7 @@ export async function getMyMarket(req, res) {
   const { userId } = req.user;
   try {
     const [rows] = await pool.query(
-      'SELECT * FROM markets WHERE hostId = ? ORDER BY marketId DESC',
+      'SELECT * FROM markets WHERE hostId = ? AND isExpired <> 2 ORDER BY marketId DESC',
       [userId]
     );
     // 밑에 코드는 참여자 수 까지 가져오는 코드지만 아직 applications db가 완성 되지 않아 보류
