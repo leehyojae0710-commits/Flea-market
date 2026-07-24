@@ -3,6 +3,7 @@ import pool from '../config/db.js';
 const ALLOWED_TABLES = {
     markets: 'marketId',
     applications: 'applicationId',
+    comments: 'commentId',
 }
 export async function dbdelete(tableName,idValue) {
     const idColumn =ALLOWED_TABLES[tableName];
