@@ -9,6 +9,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../../common/css/style.css" />
   <link rel="stylesheet" href="css/host-seller.css" />
+
+  <!-- 📌 포트원 V2 SDK (CDN) -->
+  <script src="https://cdn.portone.io/v2/browser-sdk.js"></script>
 </head>
 <body>
   <div class="page-wrap" style="max-width:420px;">
@@ -19,23 +22,22 @@
     <div class="panel">
       <span class="pin" aria-hidden="true"></span>
       <h1>부스료 결제</h1>
-      <p class="panel-sub">모의 결제입니다. 실제 결제는 이루어지지 않아요.</p>
+      <p class="panel-sub">아래 금액을 확인 후 결제를 진행해주세요.</p>
 
       <div id="alert-box" class="alert alert-error" role="alert"></div>
 
       <div class="payment-card">
-        <p class="account">가상 계좌 · 123-456-789012</p>
         <p class="amount"><span id="amount">0</span>원</p>
-        <p class="form-hint">위 금액을 확인 후 결제를 완료해주세요.</p>
+        <p class="form-hint">결제하기를 누르면 결제창이 열립니다.</p>
       </div>
 
-      <button id="fake-payment-btn" class="btn btn-primary btn-block">결제 완료 처리</button>
+      <button id="pay-btn" class="btn btn-primary btn-block">결제하기</button>
     </div>
 
     <a href="../../index.html" class="back-link">← 마켓 목록으로</a>
   </div>
 
   <script src="../../common/js/api.js?v=2"></script>
-  <script src="js/payment.js?v=2"></script>
+  <script src="js/payment.js?v=3"></script>
 </body>
 </html>

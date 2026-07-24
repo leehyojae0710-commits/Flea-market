@@ -189,7 +189,7 @@ export async function getApplicationsByMarket(req, res) {
     if (myData.length === 0) {
       return res.status(404).json({ success: false, data: null, message: '해당 유저 정보를 찾을 수 없습니다.' });
     }
-    if (myData[0] === 1) {
+    if (myData[0]?.userType === 1) {
       if (marketRows.length === 0) {
         return res.status(404).json({ success: false, data: null, message: '해당 마켓을 찾을 수 없습니다.' });
       }

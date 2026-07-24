@@ -1,7 +1,7 @@
 // backend/routes/payRoutes.js
 // 담당 D: 모의 결제 (실제 PG 연동은 3주 일정상 제외)
 import express from 'express';
-import { processFakePayment } from '../controllers/payController.js';
+import { confirmPayment } from '../controllers/payController.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -69,6 +69,6 @@ const router = express.Router();
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
-router.post('/fake', authenticateToken, processFakePayment);
+router.post('/confirm', authenticateToken, confirmPayment);
 
 export default router;
