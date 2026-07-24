@@ -379,12 +379,24 @@ body {
 }
 .comment-item:last-child { border-bottom: none; }
 
+.comment-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
 .comment-nickname {
   font-family: "Space Grotesk", sans-serif;
   font-weight: 700;
   font-size: 12.5px;
   color: var(--ink-soft);
-  margin-bottom: 4px;
+}
+
+.comment-delete-btn {
+  padding: 3px 10px;
+  font-size: 11.5px;
 }
 
 .comment-content {

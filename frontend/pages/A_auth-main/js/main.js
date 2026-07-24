@@ -36,6 +36,39 @@ function isExpiredByDate(dateStr) {
   return daysUntil(dateStr) < 0;
 }
 
+// [추가] 오늘 기준으로 "모집 중" / "진행 중" 상태를 판정합니다.
+// 모집 중: recruitmentDate_min ~ recruitmentDate_max 사이 (둘 중 하나라도 없으면 모집중 탭에서는 제외)
+// 진행 중: eventDate_min ~ eventDate_max 사이 (행사 당일 포함)
+function isRecruitingNow(m) {
+  if (!m.recruitmentDate_min || !m.recruitmentDate_max) return false;
+  const today = todayMidnight();
+  const min = new Date(m.recruitmentDate_min);
+  const max = new Date(m.recruitmentDate_max);
+  min.setHours(0, 0, 0, 0);
+  max.setHours(0, 0, 0, 0);
+  return min <= today && today <= max;
+}
+
+function isOngoingNow(m) {
+  const today = todayMidnight();
+  const min = new Date(m.eventDate_min);
+  const max = new Date(m.eventDate_max);
+  min.setHours(0, 0, 0, 0);
+  max.setHours(0, 0, 0, 0);
+  return min <= today && today <= max;
+}
+
+function filterByTab(markets, tab) {
+  return tab === "ongoing" ? markets.filter(isOngoingNow) : markets.filter(isRecruitingNow);
+}
+
+// [추가] 탭/페이지네이션 상태
+const PAGE_SIZE = 9; // 3 x 3
+let currentTab = "recruiting"; // 'recruiting' | 'ongoing'
+let currentPage = 1;
+let lastFetchedMarkets = []; // 지역/정렬만 적용된, 탭 나누기 전의 원본 목록 (탭 전환 시 재요청 방지용)
+let currentTabList = []; // 탭까지 적용된 목록 (페이지네이션 대상)
+
 function ddayLabel(dateStr) {
   const d = daysUntil(dateStr);
   if (d === 0) return "D-DAY";
@@ -114,21 +147,21 @@ function populateRegionOptions(markets) {
 }
 
 
-function renderMarketList(markets) {
+function renderMarketList(pageMarkets, totalCount) {
   const grid = document.getElementById("market-grid");
   const emptyState = document.getElementById("empty-state");
   const countEl = document.getElementById("result-count");
 
-  countEl.textContent = `${markets.length}개 마켓 진행 예정`;
+  countEl.textContent = `${totalCount}개 마켓 진행 예정`;
 
-  if (markets.length === 0) {
+  if (pageMarkets.length === 0) {
     grid.innerHTML = "";
     emptyState.hidden = false;
     return;
   }
   emptyState.hidden = true;
 
-  grid.innerHTML = markets
+  grid.innerHTML = pageMarkets
     .map((m) => {
       const imageSrc = getMarketImageSrc(m.marketImage);
       return `
@@ -152,11 +185,88 @@ function renderMarketList(markets) {
     .join("");
 }
 
+// 지역/정렬이 바뀌었을 때: API를 다시 불러오고, 현재 탭 기준으로 다시 나눈 뒤 1페이지부터 보여줍니다.
 async function handleFilterChange() {
   const region = document.getElementById("region-filter").value;
   const sort = document.getElementById("sort-filter").value;
-  const markets = await getMarketList({ region, sort });
-  renderMarketList(markets);
+  lastFetchedMarkets = await getMarketList({ region, sort });
+  applyTabAndRender({ resetPage: true });
+}
+
+// 탭(모집중/진행중)이 바뀌었을 때: 이미 불러온 목록을 재사용하고, 다시 요청하지 않습니다.
+function applyTabAndRender({ resetPage = true } = {}) {
+  currentTabList = filterByTab(lastFetchedMarkets, currentTab);
+  if (resetPage) currentPage = 1;
+  renderCurrentPage();
+}
+
+function renderCurrentPage() {
+  const totalItems = currentTabList.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pageItems = currentTabList.slice(start, start + PAGE_SIZE);
+
+  renderMarketList(pageItems, totalItems);
+  renderPagination(totalPages);
+}
+
+// [추가] 페이지 번호 버튼 렌더링 (이전/다음 + 숫자 버튼)
+function renderPagination(totalPages) {
+  const nav = document.getElementById("pagination");
+  if (!nav) return;
+
+  if (totalPages <= 1) {
+    nav.innerHTML = "";
+    return;
+  }
+
+  const buttons = [];
+  buttons.push(
+    `<button type="button" class="page-btn page-nav" data-page="${currentPage - 1}" ${currentPage === 1 ? "disabled" : ""}>이전</button>`
+  );
+  for (let p = 1; p <= totalPages; p++) {
+    buttons.push(
+      `<button type="button" class="page-btn${p === currentPage ? " is-active" : ""}" data-page="${p}">${p}</button>`
+    );
+  }
+  buttons.push(
+    `<button type="button" class="page-btn page-nav" data-page="${currentPage + 1}" ${currentPage === totalPages ? "disabled" : ""}>다음</button>`
+  );
+
+  nav.innerHTML = buttons.join("");
+}
+
+function handlePaginationClick() {
+  const nav = document.getElementById("pagination");
+  if (!nav) return;
+  nav.addEventListener("click", (e) => {
+    const btn = e.target.closest(".page-btn");
+    if (!btn || btn.disabled) return;
+    const page = Number(btn.dataset.page);
+    if (!page || page === currentPage) return;
+    currentPage = page;
+    renderCurrentPage();
+    document.getElementById("market-grid")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
+function handleStatusTabClick() {
+  const tabs = document.querySelectorAll(".status-tab");
+  tabs.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tab = btn.dataset.tab;
+      if (tab === currentTab) return;
+      currentTab = tab;
+      tabs.forEach((t) => {
+        const isActive = t === btn;
+        t.classList.toggle("is-active", isActive);
+        t.setAttribute("aria-selected", String(isActive));
+      });
+      applyTabAndRender({ resetPage: true });
+    });
+  });
 }
 
 function getLoggedInUser() {
@@ -243,6 +353,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   handleHostCtaClick();
   handleHostMarketPageClick();
   handleSellerBoothClick();
+  handleStatusTabClick();
+  handlePaginationClick();
 
   // 지역 옵션은 필터가 걸리지 않은 전체 목록 기준으로 한 번만 채웁니다.
   // (필터링된 목록으로 채우면 지역을 고를수록 선택지가 줄어드는 버그가 생깁니다.)
