@@ -145,6 +145,56 @@ if (nicknameInput) {
   });
 }
 
+/* ---------------------- 회원가입: 한줄소개/프로필 사진 최초 저장 ---------------------- */
+// profile-edit.js의 uploadProfileRelatedImage와 동일한 패턴(먼저 업로드 -> 경로를 PATCH로 저장)입니다.
+// 둘 다 선택 항목이라, 아무것도 입력 안 했으면 조용히 건너뜁니다.
+async function saveInitialProfile(token, introText, profileImageFile) {
+  if (!introText && !profileImageFile) return;
+
+  let profileImagePath = null;
+
+  if (profileImageFile) {
+    try {
+      const formData = new FormData();
+      formData.append('profileImage', profileImageFile);
+
+      const uploadRes = await fetch(`${API_BASE_URL}/upload/profile-image`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const uploadData = await uploadRes.json();
+      if (uploadData.success) {
+        profileImagePath = uploadData.filePath;
+      } else {
+        console.error('프로필 사진 업로드 실패:', uploadData.message);
+      }
+    } catch (err) {
+      console.error('프로필 사진 업로드 오류:', err);
+    }
+  }
+
+  if (!introText && !profileImagePath) return;
+
+  try {
+    const body = {};
+    if (introText) body.introText = introText;
+    if (profileImagePath) body.profileImage = profileImagePath;
+
+    await fetch(`${API_BASE_URL}/users/me/profile`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    console.error('초기 프로필 저장 오류:', err);
+    // 가입 자체는 이미 성공했으니, 여기서 실패해도 가입 흐름은 막지 않습니다.
+  }
+}
+
 /* ---------------------- 회원가입: 제출 ---------------------- */
 if (registerForm) {
   registerForm.addEventListener('submit', async (e) => {
@@ -156,6 +206,8 @@ if (registerForm) {
     const password = document.getElementById('password')?.value;
     const phone = document.getElementById('phone')?.value.trim();
     const region = document.getElementById('region')?.value.trim();
+    const introText = document.getElementById('intro-text')?.value.trim();
+    const profileImageFile = document.getElementById('profile-image')?.files?.[0] || null;
 
     if (!role) {
       showAlert('가입 역할을 선택해주세요.');
@@ -202,6 +254,10 @@ if (registerForm) {
         if (result.data) {
           sessionStorage.setItem('token', result.data.token);
           sessionStorage.setItem('loggedInUser', JSON.stringify(result.data.user));
+
+          // [추가] 한줄소개/프로필 사진은 회원가입 API가 아니라 기존 프로필 API를 재사용해서 저장합니다.
+          // (프로필 사진 업로드는 로그인 상태가 필요해서, 방금 발급받은 토큰으로 가입 직후에 처리해요.)
+          await saveInitialProfile(result.data.token, introText, profileImageFile);
         }
 
         setTimeout(() => {

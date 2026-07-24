@@ -12,9 +12,6 @@
         rel="stylesheet" />
     <link rel="stylesheet" href="../../common/css/style.css" />
     <link rel="stylesheet" href="css/host-seller.css" />
-    <script src="../../common/js/api.js"></script>
-    <!-- <script src="../../common/js/api.js?v=2"></script> -->
-    <script src="js/marketdelete.js"></script>
 </head>
 
 <body>
@@ -29,6 +26,18 @@
             <h1>내 마켓 관리</h1>
             <p class="panel-sub">주최자로 등록한 마켓을 확인하고 관리할 수 있어요.</p>
 
+            <div class="filter-strip">
+                <label class="filter-field">
+                    상태
+                    <select id="status-filter">
+                        <option value="">전체</option>
+                        <option value="open">모집중</option>
+                        <option value="closed">마감</option>
+                    </select>
+                </label>
+                <span id="result-count" class="result-count"></span>
+            </div>
+
             <div id="alert-box" class="alert alert-error" role="alert"></div>
 
             <div id="market-list-container">
@@ -38,6 +47,9 @@
             <a href="../../index.html" class="back-link">← 마켓 목록으로</a>
         </div>
     </div>
+
+    <script src="../../common/js/api.js?v=2"></script>
+    <script src="js/marketdelete.js?v=2"></script>
 </body>
 
 </html>
