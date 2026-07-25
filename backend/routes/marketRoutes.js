@@ -118,10 +118,15 @@ router.get('/', getMarketList);
 
 router.post('/', authenticateToken, createMarket);
 
-router.get('/mine',authenticateToken, getMyMarket);
+router.get('/mine', authenticateToken, getMyMarket);
 
-
-router.post('/', authenticateToken, requireHost, validateMarketInput, createMarket);
+router.post(
+  '/',
+  authenticateToken,
+  requireHost,
+  validateMarketInput,
+  createMarket,
+);
 
 /**
  * @swagger
@@ -207,9 +212,9 @@ router.post('/', authenticateToken, requireHost, validateMarketInput, createMark
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
 router.get('/:marketId', getMarketDetail);
-router.get('/closed/:marketId', getMarket);
+//router.get('/closed/:marketId', authenticateToken,marketClosed);
 router.patch('/:marketId', authenticateToken, updateMarketStatus);
-router.delete('/:marketId', authenticateToken, deleteMarket);
+router.patch('/closed/:marketId', authenticateToken, deleteMarket);
 /**
  * @swagger
  * /markets/{marketId}/location:
@@ -306,7 +311,11 @@ router.patch('/:marketId/location', authenticateToken, updateMarketLocation);
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
-router.get('/:marketId/applications', authenticateToken, getApplicationsByMarket);
+router.get(
+  '/:marketId/applications',
+  authenticateToken,
+  getApplicationsByMarket,
+);
 
 /**
  * @swagger
@@ -484,7 +493,11 @@ router.get('/:marketId/settlement', authenticateToken, getSettlementSummary);
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
-router.patch('/:marketId/settlement/notify', authenticateToken, notifySettlement);
+router.patch(
+  '/:marketId/settlement/notify',
+  authenticateToken,
+  notifySettlement,
+);
 
 /**
  * @swagger
@@ -530,7 +543,11 @@ router.patch('/:marketId/settlement/notify', authenticateToken, notifySettlement
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
-router.get('/:marketId/booths/:boothNumber/queue', authenticateToken, getBoothQueue);
+router.get(
+  '/:marketId/booths/:boothNumber/queue',
+  authenticateToken,
+  getBoothQueue,
+);
 
 /**
  * @swagger
@@ -587,6 +604,10 @@ router.get('/:marketId/booths/:boothNumber/queue', authenticateToken, getBoothQu
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
-router.post('/:marketId/queue/process-timeouts', authenticateToken, processQueueTimeouts);
+router.post(
+  '/:marketId/queue/process-timeouts',
+  authenticateToken,
+  processQueueTimeouts,
+);
 
 export default router;

@@ -1,29 +1,28 @@
 // 담당 B: 주최자 화면 - 내 마켓 관리
-// 부스 관리(mybooth.js)와 동일한 패턴(로그인 가드, 상태 필터, alert-box, try/catch)을 따릅니다.
-// 삭제하기/수정하기 모두 별도 페이지 이동 방식입니다(마켓 등록/수정 폼이 지도·이미지 등으로 커서
-// 부스처럼 카드 인라인으로 넣기엔 무리가 있다고 판단했습니다).
+// [수정] 토글(펼치기/접기) 시 renderMarketList() 전체 재실행 대신,
+//        해당 카드의 상세 영역만 부분 업데이트하도록 변경 (성능/버벅임 개선)
 
 // ---------- API 호출 ----------
 
 async function deleteMarket(marketId) {
-  return callApi(`/markets/${marketId}`, { method: 'DELETE' });
-}
-async function marketsClosed(marketId) {
-  return callApi(`/markets/closed/${marketId}`);
+  return callApi(`/markets/closed/${marketId}`, { method: 'PATCH' });
 }
 
 async function getMyMarkets() {
   return callApi('/markets/mine');
 }
 
-// ---------- 화면 피드백 유틸 (mybooth.js / market.js와 동일) ----------
+// ---------- 화면 피드백 유틸 ----------
 
 function renderAlert(message, type = 'error') {
   const box = document.getElementById('alert-box');
   if (!box) return;
   box.textContent = message;
   box.classList.remove('alert-error', 'alert-success');
-  box.classList.add(type === 'success' ? 'alert-success' : 'alert-error', 'show');
+  box.classList.add(
+    type === 'success' ? 'alert-success' : 'alert-error',
+    'show',
+  );
 }
 
 function hideAlert() {
@@ -32,7 +31,7 @@ function hideAlert() {
   box.classList.remove('show');
 }
 
-const STATUS_LABEL = { open: '모집중', closed: '마감' };
+const STATUS_LABEL = { open: '모집중', closed: '마감', cancel: '취소됨' };
 
 function formatDate(dateString) {
   if (!dateString) return '';
@@ -43,14 +42,27 @@ function formatDate(dateString) {
   return `${y}-${m}-${day}`;
 }
 
+function getStatusKey(isExpired) {
+  switch (isExpired) {
+    case 0:
+      return 'open';
+    case 1:
+      return 'closed';
+    case 2:
+      return 'cancel';
+    default:
+      return 'open';
+  }
+}
+
 // ---------- 상태 ----------
 
 let allMarkets = [];
 let myMarkets = [];
 let statusFilter = '';
-let expandedId = null; // 상세정보가 펼쳐진 마켓 id (mybooth.js와 동일한 패턴)
+let expandedId = null; // 상세정보가 펼쳐진 마켓 id
 
-// ---------- 렌더링 ----------
+// ---------- 렌더링 (목록 전체) ----------
 
 function renderMarketList() {
   const listEl = document.getElementById('market-list');
@@ -59,22 +71,26 @@ function renderMarketList() {
   if (!listEl) return;
 
   if (countEl) {
-    countEl.textContent = allMarkets.length === 0 ? '' : `${myMarkets.length}건`;
+    countEl.textContent =
+      allMarkets.length === 0 ? '' : `${myMarkets.length}건`;
   }
 
   if (!myMarkets || myMarkets.length === 0) {
     listEl.innerHTML = '';
     if (emptyEl) {
       emptyEl.hidden = false;
-      emptyEl.textContent = allMarkets.length === 0
-        ? '등록한 마켓이 없어요. 마켓을 등록해보세요.'
-        : '해당 상태의 마켓이 없어요.';
+      emptyEl.textContent =
+        allMarkets.length === 0
+          ? '등록한 마켓이 없어요. 마켓을 등록해보세요.'
+          : '해당 상태의 마켓이 없어요.';
     }
     return;
   }
   if (emptyEl) emptyEl.hidden = true;
 
-  listEl.innerHTML = myMarkets.map((market) => renderMarketItem(market)).join('');
+  listEl.innerHTML = myMarkets
+    .map((market) => renderMarketItem(market))
+    .join('');
 
   listEl.querySelectorAll('[data-action="toggle"]').forEach((el) => {
     el.addEventListener('click', () => handleToggleDetail(el.dataset.id));
@@ -84,66 +100,51 @@ function renderMarketList() {
   });
 }
 
+// ---------- 렌더링 (카드 한 장) ----------
+
 function renderMarketItem(market) {
-  const isOpen = !market.isExpired;
-  const statusKey = isOpen;
-  // const marketUrl = '';
-  // const marketUrl2 ='';
+  const isOpen = market.isExpired;
+  const statusKey = getStatusKey(isOpen);
   const id = market.marketId;
   const isExpanded = expandedId === String(id) || expandedId === id;
-  // switch (isOpen) {
-  //   case 0:
-  //     console.log("아아아아아")
-  //     statusKey = 'open';
-  //     marketUrl = `correctionMarket?marketId=${id}`
-  //     marketUrl2='';
-  //     break;
-  //   case 1:
-  //     statusKey = 'closed';
-  //     marketUrl='#';
-  //     marketUrl2='aria-disabled="true" tabindex="-1" title="마감된 마켓은 수정할 수 없어요." onclick="return false;"'
-  //     return;
-  //   case 2:
-  //     statusKey = 'delete';
-  //     marketUrl='#';
-  //     marketUrl2='aria-disabled="true" tabindex="-1" title="마감된 마켓은 수정할 수 없어요." onclick="return false;"'
-  //     return;
-  // }
-  // console.log(isOpen);
-  // console.log(marketUrl);
-  // console.log(marketUrl2);
+
+  let marketUrl = '';
+  let marketUrl2 = '';
+
+  if (statusKey === 'open') {
+    marketUrl = `correctionMarket?marketId=${id}`;
+    marketUrl2 = '';
+  } else if (statusKey === 'closed') {
+    marketUrl = '#';
+    marketUrl2 = `aria-disabled="true" tabindex="-1" title='마감된 마켓은 수정할 수 없어요.' onclick="return false;"`;
+  } else {
+    marketUrl = '#';
+    marketUrl2 = `aria-disabled="true" tabindex="-1" title='취소된 마켓은 수정할 수 없어요.' onclick="return false;"`;
+  }
 
   return `
-    <li class="my-market-item" data-market-id="${id}">
-      <div class="my-market-item-top" data-action="toggle" data-id="${id}" style="cursor:pointer;">
-        <span class="my-market-item-title">${market.title}</span>
-        <span class="status-tag ${statusKey}">${STATUS_LABEL[statusKey]}</span>
-      </div>
-      <div class="item-card-actions">
-        <a class="btn btn-outline btn-sm" href="${isOpen ? `correctionMarket?marketId=${id}` : '#'}" ${isOpen ? '':'aria-disabled="true" tabindex="-1" title="마감된 마켓은 수정할 수 없어요." onclick="return false;"'}>수정하기</a>
-        <button type="button" class="btn btn-danger btn-sm" data-action="delete" data-id="${id}">삭제하기</button>
-      </div>
-      ${isExpanded ? renderMarketDetail(market) : ''}
-    </li>
+<li class="my-market-item"
+    data-market-id="${id}"
+    style="${statusKey === 'cancel' ? 'pointer-events:none; opacity:0.5;' : ''}">
+
+  <div class="my-market-item-top"
+       data-action="toggle"
+       data-id="${id}"
+       style="cursor:pointer;">
+    <span class="my-market-item-title">${market.title}</span>
+    <span class="status-tag ${statusKey}">${STATUS_LABEL[statusKey]}</span>
+  </div>
+
+  <div class="item-card-actions">
+    <a class="btn btn-outline btn-sm" href="${marketUrl} ${marketUrl2}">수정하기</a>
+    <button type="button" class="btn btn-danger btn-sm" data-action="delete" data-id="${id}">취소하기</button>
+    <a class="btn btn-sage btn-sm" href="market-detail?marketId=${id}">보러가기</a>
+  </div>
+
+  <!-- 📌 상세 영역은 별도 컨테이너로 분리, id로 특정해서 부분 업데이트 -->
+  <div class="market-detail-slot" id="market-detail-${id}">${isExpanded ? renderMarketDetail(market) : ''}</div>
+</li>
   `;
-}
-
-function marketClosed(marketid) {
-  const ui = document.querySelector(`[data-market-id="${marketid}"]`);
-  if (!ui) {
-    return;
-  }
-  ui.style.opacity = '0.5';
-  ui.style.pointerEvents = 'none';
-  // try {
-  //   const res = await marketsClosed(marketid);
-  //   if (res && res.success) {
-  //     res.isExpired = 2
-  //   }
-  // }
-  // catch (err) {
-
-  // }
 }
 
 function renderMarketDetail(market) {
@@ -159,41 +160,67 @@ function renderMarketDetail(market) {
 
 // ---------- 이벤트 핸들러 ----------
 
+// 📌 핵심 수정: renderMarketList() 전체 재실행 대신, 해당 슬롯만 innerHTML 교체
 function handleToggleDetail(id) {
-  expandedId = expandedId === id ? null : id;
-  renderMarketList();
+  const prevId = expandedId;
+  const isCollapsing = String(prevId) === String(id);
+
+  expandedId = isCollapsing ? null : id;
+
+  // 이전에 열려있던 카드가 있고, 지금 누른 카드와 다르면 -> 닫아줌
+  if (prevId !== null && String(prevId) !== String(id)) {
+    updateDetailSlot(prevId, false);
+  }
+
+  // 지금 누른 카드는 열림/닫힘 토글
+  updateDetailSlot(id, !isCollapsing);
+}
+
+function updateDetailSlot(id, shouldExpand) {
+  const slot = document.getElementById(`market-detail-${id}`);
+  if (!slot) return;
+
+  if (!shouldExpand) {
+    slot.innerHTML = '';
+    return;
+  }
+
+  const market = myMarkets.find((m) => String(m.marketId) === String(id));
+  if (!market) return;
+
+  slot.innerHTML = renderMarketDetail(market);
 }
 
 async function handleDeleteClick(marketId) {
   hideAlert();
   if (!marketId) return;
 
-  const confirmed = window.confirm('정말 이 마켓을 취소하시겠습니까? 삭제 후에는 되돌릴 수 없어요.');
+  const confirmed = window.confirm(
+    '정말 이 마켓을 취소하시겠습니까? 취소 후에는 되돌릴 수 없어요.',
+  );
   if (!confirmed) return;
 
-  marketClosed(marketId);
-
-  // try {
-  //   const res = await deleteMarket(marketId);
-  //   if (res && res.success) {
-  //     renderAlert('마켓이 삭제되었어요.', 'success');
-  //     if (expandedId === marketId) expandedId = null;
-  //     await loadMyMarkets();
-  //   } else {
-  //     renderAlert(res?.message || '삭제에 실패했어요.');
-  //   }
-  // } catch (err) {
-  //   renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
-  // }
+  try {
+    const res = await deleteMarket(marketId);
+    if (res && res.success) {
+      renderAlert('마켓이 취소되었습니다.', 'success');
+      if (String(expandedId) === String(marketId)) expandedId = null;
+      await loadMyMarkets();
+    } else {
+      renderAlert(res?.message || '취소에 실패했어요.');
+    }
+  } catch (err) {
+    renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
+  }
 }
 
 // ---------- 필터 ----------
 
 function applyStatusFilter() {
   myMarkets = statusFilter
-    ? allMarkets.filter((m) => (m.isExpired ? 'closed' : 'open') === statusFilter)
+    ? allMarkets.filter((m) => getStatusKey(m.isExpired) === statusFilter)
     : allMarkets;
-  renderMarketList();
+  renderMarketList(); // 필터 변경 시에는 목록 자체가 바뀌니 전체 재렌더링이 맞음
 }
 
 function handleFilterChange() {
@@ -214,7 +241,8 @@ async function loadMyMarkets() {
       allMarkets = res.data || [];
       applyStatusFilter();
     } else {
-      listEl.innerHTML = '<p class="list-empty">마켓 목록을 불러오지 못했어요.</p>';
+      listEl.innerHTML =
+        '<p class="list-empty">마켓 목록을 불러오지 못했어요.</p>';
     }
   } catch (err) {
     listEl.innerHTML = '<p class="list-empty">서버에 연결할 수 없어요.</p>';
@@ -227,6 +255,8 @@ document.addEventListener('DOMContentLoaded', () => {
     window.location.href = '../A_auth-main/login.html';
     return;
   }
-  document.getElementById('status-filter')?.addEventListener('change', handleFilterChange);
+  document
+    .getElementById('status-filter')
+    ?.addEventListener('change', handleFilterChange);
   loadMyMarkets();
 });

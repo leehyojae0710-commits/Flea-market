@@ -56,7 +56,7 @@ export async function getMarketDetail(req, res) {
 export async function createMarket(req, res) {
   const { userId } = req.user;
   const { title, description, marketImage, locationName, region, latitude, longitude, eventDate_min, eventDate_max, boothPrice, isExpired, maxparticipants, recruitmentDate_min, recruitmentDate_max } = req.body;
-  console.log(req.body);
+  //console.log(req.body);
 
   if (!title || !eventDate_min || !eventDate_max || !locationName) {
     return res.status(400).json({ success: false, data: null, message: '마켓 이름, 개최 일자, 장소는 필수입니다.' });
@@ -82,7 +82,7 @@ export async function createMarket(req, res) {
       [userId, title, description || '', marketImage || null, locationName, region || null, latitude || 0, longitude || 0, eventDate_min, eventDate_max, boothPrice || 0, isExpired || 0, maxparticipants || 1, recruitmentDate_min, recruitmentDate_max]
     );
 
-    console.log('req.body 전체:', req.body);
+    //console.log('req.body 전체:', req.body);
 
     return res.status(201).json({
       success: true,
@@ -489,7 +489,7 @@ export async function getMyMarket(req, res) {
   const { userId } = req.user;
   try {
     const [rows] = await pool.query(
-      'SELECT * FROM markets WHERE hostId = ? AND isExpired <> 2 ORDER BY marketId DESC',
+      'SELECT * FROM markets WHERE hostId = ? ORDER BY isExpired ASC, updated_at DESC',
       [userId]
     );
     // 밑에 코드는 참여자 수 까지 가져오는 코드지만 아직 applications db가 완성 되지 않아 보류

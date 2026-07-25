@@ -49,8 +49,8 @@ export async function getMyApplications(req, res) {
     const [rows] = await pool.query(
       `SELECT
          a.applicationId, a.marketId, a.boothNumber, a.title, a.itemName,
-         a.productDesc, a.itemImage, a.status,
-         m.title AS marketTitle, m.eventDate_min, m.eventDate_max, m.locationName,
+         a.productDesc, a.itemImage, a.status,a.paymentDueAt,
+         m.title AS marketTitle, m.eventDate_min, m.eventDate_max, m.locationName,m.boothPrice,
          (m.eventDate_max < CURDATE()) AS eventEnded,
          r.rating AS myRating
        FROM applications a
@@ -188,7 +188,6 @@ async function updateApplicationStatus(req, res, nextStatus, successMessage) {
 export async function approveSellerApplication(req, res) {
   const { userId } = req.user;
   const { applicationId } = req.params;
-  const paymentWindowMinutes = Number(req.body?.paymentWindowMinutes) || 1440;
 
   try {
     const [rows] = await pool.query(
@@ -217,8 +216,8 @@ export async function approveSellerApplication(req, res) {
     }
 
     await pool.query(
-      `UPDATE applications SET status = 'Approved', paymentDueAt = DATE_ADD(NOW(), INTERVAL ? MINUTE) WHERE applicationId = ?`,
-      [paymentWindowMinutes, applicationId]
+      `UPDATE applications SET status = 'Approved', paymentDueAt = DATE_ADD(NOW(), INTERVAL 1 DAY) WHERE applicationId = ?`,
+      [ applicationId]
     );
 
     const [updatedRows] = await pool.query('SELECT paymentDueAt FROM applications WHERE applicationId = ?', [applicationId]);

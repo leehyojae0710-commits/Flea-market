@@ -62,7 +62,7 @@ function handlePaymentClick() {
   btn.addEventListener('click', async () => {
     hideAlert();
 
-    const { applicationId, amount, orderName } = getPaymentParamsFromUrl();
+    const { applicationId, amount ,orderName} = getPaymentParamsFromUrl();
 
     if (!applicationId) {
       renderAlert('신청 정보를 찾을 수 없어요. 부스 신청 화면부터 다시 진행해주세요.');
@@ -110,7 +110,7 @@ function handlePaymentClick() {
       // 2) 결제 완료 -> 반드시 서버에 검증 요청 (프론트 응답만으로 완료 처리하지 않음)
       btn.textContent = '결제 확인 중...';
       const res = await confirmPayment(applicationId, paymentId);
-
+      console.log("res")
       if (res && res.success) {
         renderAlert('결제가 완료됐어요!', 'success');
         btn.textContent = '결제 완료됨';

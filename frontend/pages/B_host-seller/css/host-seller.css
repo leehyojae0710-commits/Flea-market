@@ -125,6 +125,7 @@ body {
 
 .status-tag.open { background: var(--sage-bg); color: var(--sage-text); }
 .status-tag.closed { background: #ece1cd; color: var(--ink-soft); }
+.status-tag.cancel {background: #f5a9a9; color: var(--sage-text);}
 
 .market-image {
   width: 100%;
@@ -374,10 +375,13 @@ body {
 .item-card-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 8px;
   margin-top: 10px;
   flex-wrap: wrap;
+}
+.item-card-actions .btn{
+  flex: none;
 }
 
 .action-group {
@@ -679,4 +683,24 @@ a.btn {
   color: var(--ink-soft);
   margin-left: auto;
   align-self: center;
+}
+.action-group {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* 삭제-수정 간격과 동일하게 맞춤 */
+}
+
+.payment-area {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* 결제하기 버튼과 타이머 사이 간격, action-group과 통일 */
+}
+
+.payment-timer {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  line-height: 1; /* 버튼과 높이를 맞추기 위해 줄간격 최소화 */
+  color: var(--coral-text);
+  display: inline-flex;
+  align-items: center;
 }

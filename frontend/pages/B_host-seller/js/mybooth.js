@@ -14,7 +14,10 @@ async function deleteMyBoothApplication(applicationId) {
 
 // [추가] 행사 평가(별점) 등록
 async function submitBoothReview(applicationId, rating) {
-  return callApi('/reviews', { method: 'POST', body: { applicationId: Number(applicationId), rating } });
+  return callApi('/reviews', {
+    method: 'POST',
+    body: { applicationId: Number(applicationId), rating },
+  });
 }
 
 // ---------- 화면 피드백 유틸 ----------
@@ -24,7 +27,10 @@ function renderAlert(message, type = 'error') {
   if (!box) return;
   box.textContent = message;
   box.classList.remove('alert-error', 'alert-success');
-  box.classList.add(type === 'success' ? 'alert-success' : 'alert-error', 'show');
+  box.classList.add(
+    type === 'success' ? 'alert-success' : 'alert-error',
+    'show',
+  );
 }
 
 function hideAlert() {
@@ -33,8 +39,16 @@ function hideAlert() {
   box.classList.remove('show');
 }
 
-const STATUS_LABEL = { Pending: '대기중', Approved: '승인됨', Rejected: '반려됨' };
-const STATUS_CLASS = { Pending: 'pending', Approved: 'approved', Rejected: 'rejected' };
+const STATUS_LABEL = {
+  Pending: '대기중',
+  Approved: '승인됨',
+  Rejected: '반려됨',
+};
+const STATUS_CLASS = {
+  Pending: 'pending',
+  Approved: 'approved',
+  Rejected: 'rejected',
+};
 
 // ---------- 상태 ----------
 
@@ -54,16 +68,18 @@ function renderBoothList() {
   if (!wrap) return;
 
   if (countEl) {
-    countEl.textContent = allApplications.length === 0 ? '' : `${myApplications.length}건`;
+    countEl.textContent =
+      allApplications.length === 0 ? '' : `${myApplications.length}건`;
   }
 
   if (!myApplications || myApplications.length === 0) {
     wrap.innerHTML = '';
     if (emptyState) {
       emptyState.hidden = false;
-      emptyState.textContent = allApplications.length === 0
-        ? '아직 신청한 부스가 없어요.'
-        : '해당 상태의 신청이 없어요.';
+      emptyState.textContent =
+        allApplications.length === 0
+          ? '아직 신청한 부스가 없어요.'
+          : '해당 상태의 신청이 없어요.';
     }
     return;
   }
@@ -81,7 +97,9 @@ function renderBoothList() {
     btn.addEventListener('click', () => handleReviewToggle(btn.dataset.id));
   });
   wrap.querySelectorAll('[data-action="star-pick"]').forEach((btn) => {
-    btn.addEventListener('click', () => handleStarPick(Number(btn.dataset.value)));
+    btn.addEventListener('click', () =>
+      handleStarPick(Number(btn.dataset.value)),
+    );
   });
   wrap.querySelectorAll('[data-action="review-reset"]').forEach((btn) => {
     btn.addEventListener('click', () => handleReviewReset());
@@ -98,8 +116,9 @@ function renderBoothCard(a) {
   const id = a.applicationId;
   const status = a.status || 'Pending';
   const isPending = status === 'Pending';
+  const isApproved = status === 'Approved';
   const isExpanded = expandedId === String(id) || expandedId === id;
-
+  console.log(status);
   return `
     <div class="item-card" data-application-id="${id}">
       <div class="item-card-top">
@@ -110,17 +129,49 @@ function renderBoothCard(a) {
         <span class="status-tag ${STATUS_CLASS[status] || 'pending'}">${STATUS_LABEL[status] || status}</span>
       </div>
 
-      <div class="item-card-actions">
-        <div class="action-group">
-          <a class="btn btn-outline btn-sm" href="${isPending ? `booth-edit?applicationId=${id}` : '#'}" ${isPending ? '' : 'aria-disabled="true" tabindex="-1" title="대기중인 신청만 수정할 수 있어요." onclick="return false;"'}>수정</a>
-          <button type="button" class="btn btn-danger btn-sm" data-action="delete" data-id="${id}" ${isPending ? '' : 'disabled title="대기중인 신청만 취소할 수 있어요."'}>삭제</button>
-        </div>
-        ${status === 'Approved' ? renderReviewTrigger(a) : ''}
+    <div class="item-card-actions">
+      <div class="action-group">
+        <a class="btn btn-outline btn-sm" href="${isPending ? `booth-edit?applicationId=${id}` : '#'}" ${isPending ? '' : 'aria-disabled="true" tabindex="-1" title="대기중인 신청만 수정할 수 있어요." onclick="return false;"'}>수정</a>
+        <button type="button" class="btn btn-danger btn-sm" data-action="delete" data-id="${id}" ${isPending ? '' : 'disabled title="대기중인 신청만 취소할 수 있어요."'}>삭제</button>
+        ${
+          isApproved
+          ? `
+          <span class="payment-area">
+            <a class="btn btn-danger btn-sm" href="payment?applicationId=${id}&amount=${a.boothPrice}&orderName=${a.marketTitle + '부스료'}">
+            결제하기
+            </a>
+            <span class="payment-timer" data-due="${a.paymentDueAt}"></span>
+          </span>
+          `: ''
+          }
       </div>
+      ${status === 'Approved' ? renderReviewTrigger(a) : ''}
+    </div>
 
       ${status === 'Approved' && reviewOpenId === String(id) ? renderReviewForm(id) : ''}
       ${isExpanded ? renderBoothDetail(a) : ''}
     </div>`;
+}
+
+function updateTimers() {
+  document.querySelectorAll('.payment-timer').forEach((timer) => {
+    const due = new Date(timer.dataset.due.replace(' ', 'T'));
+    const now = new Date();
+
+    const diff = due.getTime() - now.getTime();
+
+    if (diff <= 0) {
+      timer.textContent = '결제시간 만료';
+      return;
+    }
+
+    const totalMinutes = Math.floor(diff / 1000 / 60);
+
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    timer.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  });
 }
 
 // ---------- 행사 평가(별점) ----------
@@ -162,9 +213,13 @@ function renderReviewForm(id) {
   return `
     <div class="review-form">
       <div class="star-picker">
-        ${[1, 2, 3, 4, 5].map((n) => `
+        ${[1, 2, 3, 4, 5]
+          .map(
+            (n) => `
           <button type="button" class="star-btn ${n <= reviewDraftRating ? 'filled' : ''}" data-action="star-pick" data-value="${n}" aria-label="${n}점">★</button>
-        `).join('')}
+        `,
+          )
+          .join('')}
       </div>
       <div class="review-form-meta">
         <span>${reviewDraftRating}점</span>
@@ -182,7 +237,9 @@ function renderBoothDetail(a) {
     ? `${new Date(a.eventDate_min).toLocaleDateString()} ~ ${a.eventDate_max ? new Date(a.eventDate_max).toLocaleDateString() : ''}`
     : '-';
   const imageSrc = a.itemImage
-    ? (a.itemImage.startsWith('http') ? a.itemImage : `${API_BASE_URL}${a.itemImage}`)
+    ? a.itemImage.startsWith('http')
+      ? a.itemImage
+      : `${API_BASE_URL}${a.itemImage}`
     : null;
   return `
     <div class="item-card-detail">
@@ -203,7 +260,9 @@ function handleToggleDetail(id) {
 
 async function handleDeleteClick(id) {
   hideAlert();
-  const confirmed = window.confirm('이 부스 신청을 취소할까요? 취소 후에는 되돌릴 수 없어요.');
+  const confirmed = window.confirm(
+    '이 부스 신청을 취소할까요? 취소 후에는 되돌릴 수 없어요.',
+  );
   if (!confirmed) return;
 
   try {
@@ -288,7 +347,8 @@ async function loadMyBoothList() {
       allApplications = res.data || [];
       applyStatusFilter();
     } else {
-      wrap.innerHTML = '<p class="list-empty">부스 목록을 불러오지 못했어요.</p>';
+      wrap.innerHTML =
+        '<p class="list-empty">부스 목록을 불러오지 못했어요.</p>';
     }
   } catch (err) {
     wrap.innerHTML = '<p class="list-empty">서버에 연결할 수 없어요.</p>';
@@ -297,10 +357,13 @@ async function loadMyBoothList() {
 
 document.addEventListener('DOMContentLoaded', () => {
   const isLoggedIn = !!sessionStorage.getItem('loggedInUser');
+  setInterval(updateTimers, 1000);
   if (!isLoggedIn) {
     window.location.href = '../A_auth-main/login.html';
     return;
   }
-  document.getElementById('status-filter')?.addEventListener('change', handleFilterChange);
+  document
+    .getElementById('status-filter')
+    ?.addEventListener('change', handleFilterChange);
   loadMyBoothList();
 });

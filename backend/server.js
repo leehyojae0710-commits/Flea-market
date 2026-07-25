@@ -38,9 +38,15 @@ app.use('/api/schedules', scheduleRoutes);
 app.use('/api/checkins', checkinRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec)); // http://localhost:5000/api-docs
-app.use('/api/uploads', express.static('Z:/markets/'));
-app.use('/api/uploads', express.static('Z:/seller/'));
-app.use('/api/uploads', express.static('Z:/profile/'));
+// app.use('/api/uploads', express.static('Z:/markets/'));
+// app.use('/api/uploads', express.static('Z:/seller/'));
+// app.use('/api/uploads', express.static('Z:/profile/'));
+
+//집 테스트 용
+app.use('/api/uploads', express.static('C:uploads/markets/'));
+app.use('/api/uploads', express.static('C:uploads/seller/'));
+app.use('/api/uploads', express.static('C:uploads/profile/'));
+
 app.use('/api/my-markets', myMarketRoutes);
 // 🌐 http://localhost:5000 접속 시 DB 데이터를 HTML 표로 보여주는 라우터
 app.get('/', async (req, res) => {
