@@ -1,0 +1,70 @@
+/* 1. filter-strip 줄바꿈 허용 설정 */
+.filter-strip {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 2. 검색바를 다음 줄로 내리고 오른쪽 끝으로 붙이기 */
+.filter-strip .search-bar-container {
+  /* 강제로 다음 줄로 보내기 */
+  width: 100%;
+
+  /* 오른쪽 정렬 및 너비 설정 */
+  display: flex !important;
+  justify-content: flex-end;
+  margin-top: 8px; /* 위쪽 요소를과의 간격 */
+}
+
+/* 검색 박스 세부 크기 및 초록색 버튼 설정 */
+.search-input-box {
+  position: relative;
+  width: 320px; /* 원하는 검색창 길이로 조절 가능 */
+  display: flex;
+  align-items: center;
+}
+
+.search-input-box input {
+  width: 100%;
+  height: 40px;
+  padding: 0 32px 0 12px;
+  font-size: 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  outline: none;
+  background-color: #ffffff;
+}
+
+.search-input-box input:focus {
+  border-color: #10b981; /* 초록색 포인트 */
+}
+
+.search-clear-btn {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  color: #a0aec0;
+  cursor: pointer;
+  display: none;
+}
+
+/* 초록색 검색 버튼 */
+.search-submit-btn {
+  height: 40px;
+  padding: 0 18px;
+  margin-left: 8px;
+  background-color: #d68306; /* 초록색 */
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.search-submit-btn:hover {
+  background-color: #059669; /* 진한 초록색 */
+}

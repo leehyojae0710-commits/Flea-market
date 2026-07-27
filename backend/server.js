@@ -19,6 +19,9 @@ import myMarketRoutes from './routes/myMarketRoutes.js';
 import profileRoutes from './routes/profileRoutes.js';
 import reviewRoutes from './routes/reviewRoutes.js';
 import { authenticateToken } from './middleware/authMiddleware.js';
+import searchRoutes from './routes/searchRoutes.js';
+
+
 dotenv.config();
 
 const app = express();
@@ -41,6 +44,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec)); // http://l
 app.use('/api/uploads', express.static('Z:/markets/'));
 app.use('/api/uploads', express.static('Z:/seller/'));
 app.use('/api/uploads', express.static('Z:/profile/'));
+app.use('/api/search', searchRoutes);
 
 app.use('/api/my-markets', myMarketRoutes);
 // 🌐 http://localhost:5000 접속 시 DB 데이터를 HTML 표로 보여주는 라우터
