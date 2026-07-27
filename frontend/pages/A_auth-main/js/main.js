@@ -72,6 +72,111 @@ function formatPrice(price) {
   return n === 0 ? "무료 참가" : `참가비 ${n.toLocaleString()}원`;
 }
 
+/* ============================================================
+   [참가비 변경 표시] - 프론트(localStorage)로 "기존 금액" 보존
+   - 각 마켓의 boothPrice를 처음 볼 때 원가(originalPrice)로 기억.
+   - 이후 boothPrice가 바뀌면 원가와 비교해 기존금액 → 변경금액,
+     변동률(%), 방향(↓ 인하 / ↑ 인상)을 시안처럼 표시.
+   - 원가는 지워지지 않고 계속 유지됨.
+   ============================================================ */
+const FLEA_PRICE_KEY = "flea_original_prices";
+
+function loadOriginalPrices() {
+  try { return JSON.parse(localStorage.getItem(FLEA_PRICE_KEY)) || {}; }
+  catch { return {}; }
+}
+function saveOriginalPrices(map) {
+  try { localStorage.setItem(FLEA_PRICE_KEY, JSON.stringify(map)); } catch { /* 저장 실패 무시 */ }
+}
+
+// 마켓의 "기존 금액"을 반환. 없으면 현재 금액을 원가로 기억한 뒤 반환(원가는 이후 유지).
+function getOriginalPrice(m) {
+  const id = String(m.marketId);
+  const current = Number(m.boothPrice) || 0;
+  const map = loadOriginalPrices();
+  if (map[id] === undefined || map[id] === null) {
+    map[id] = current;          // 최초 관측 시 원가로 확정
+    saveOriginalPrices(map);
+    return current;
+  }
+  return Number(map[id]) || 0;
+}
+
+// (선택) 원가를 강제로 다시 기준값으로 설정하고 싶을 때 사용.
+window.fleaResetOriginalPrice = function (marketId, price) {
+  const map = loadOriginalPrices();
+  map[String(marketId)] = Number(price) || 0;
+  saveOriginalPrices(map);
+};
+
+// 원가 대비 현재가의 변동 정보 계산
+function getPriceChange(m) {
+  const original = getOriginalPrice(m);
+  const current = Number(m.boothPrice) || 0;
+  const diff = current - original;
+  let direction = "same";
+  if (diff < 0) direction = "down";
+  else if (diff > 0) direction = "up";
+  const pct = original > 0 ? Math.round(Math.abs(diff) / original * 100) : 0;
+  return { original, current, diff, direction, pct };
+}
+
+// [참가비 블록] 시안 스타일: 기존 금액 → 변경 금액 + 변동률 배지 + 안내문
+function renderPriceBlock(m) {
+  const { original, current, direction, pct } = getPriceChange(m);
+  const isFree = current === 0;
+
+  // 무료 참가
+  if (isFree) {
+    return `
+      <div class="price-block free">
+        <div class="price-block-title">참가비</div>
+        <div class="price-free-row">
+          <span class="price-free-mark">₩</span>
+          <span class="price-free-text">무료 참가</span>
+        </div>
+        <div class="price-note ok">✔ 참가비가 무료예요!</div>
+      </div>`;
+  }
+
+  // 변동 없음: 기존 = 변경
+  if (direction === "same") {
+    return `
+      <div class="price-block">
+        <div class="price-block-title">참가비</div>
+        <div class="price-row">
+          <span class="price-current">${current.toLocaleString()}원</span>
+        </div>
+      </div>`;
+  }
+
+  // 인하 / 인상
+  const dirClass = direction === "down" ? "down" : "up";
+  const arrow = direction === "down" ? "↓" : "↑";
+  const diffAbs = Math.abs(current - original).toLocaleString();
+  const note = direction === "down"
+    ? `참가비가 ${diffAbs}원 낮아졌어요!`
+    : `참가비가 ${diffAbs}원 올랐어요!`;
+
+  return `
+    <div class="price-block ${dirClass}">
+      <div class="price-block-title">참가비</div>
+      <div class="price-row">
+        <span class="price-old">
+          <s>${original.toLocaleString()}원</s>
+          <em>(기존 금액)</em>
+        </span>
+        <span class="price-arrow-sep">→</span>
+        <span class="price-new">
+          <strong>${current.toLocaleString()}원</strong>
+          <em>(변경 금액)</em>
+        </span>
+        <span class="price-rate ${dirClass}">${arrow} ${pct}%</span>
+      </div>
+      <div class="price-note ${dirClass}">${arrow} ${note}</div>
+    </div>`;
+}
+
 // 부스 신청 현황: 신청 부스 수 / 총 부스 수 와 참여 비율(%)
 function getBoothStats(m) {
   const total = Number(m.maxparticipants ?? m.maxParticipants) || 0;
@@ -303,8 +408,9 @@ function renderMarketList(pageMarkets, totalCount) {
 
           ${renderBoothGauge(m)}
 
+          ${renderPriceBlock(m)}
+
           <div class="card-footer">
-            <span class="price-tag ${Number(m.boothPrice) === 0 ? "free" : ""}">${formatPrice(m.boothPrice)}</span>
             <span class="card-arrow">상세보기 →</span>
           </div>
         </div>

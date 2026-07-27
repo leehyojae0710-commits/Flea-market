@@ -593,3 +593,115 @@ body {
   .nav-links { gap: 10px; }
   .card-meta-grid { grid-template-columns: 1fr; }
 }
+
+/* ============================================================
+   [참가비 변경 표시] 메인 카드 참가비 블록 (시안 스타일)
+   - 기존 금액(취소선) → 변경 금액 + 변동률 배지 + 안내문
+   ============================================================ */
+.price-block {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--paper-2, #eee);
+}
+.price-block-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink, #222);
+  margin-bottom: 8px;
+}
+
+/* 금액 행: 기존 → 변경 → 변동률 */
+.price-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.price-old {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1.15;
+  color: #9aa0a6;
+}
+.price-old s { font-size: 15px; font-weight: 600; }
+.price-old em,
+.price-new em {
+  font-style: normal;
+  font-size: 11px;
+  color: #9aa0a6;
+  margin-top: 2px;
+}
+.price-arrow-sep {
+  font-size: 16px;
+  color: #9aa0a6;
+  font-weight: 700;
+  align-self: center;
+}
+.price-new {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+.price-new strong {
+  font-size: 22px;
+  font-weight: 800;
+}
+.price-block.down .price-new strong { color: #2f6fed; }   /* 인하: 파랑 */
+.price-block.up   .price-new strong { color: #e03131; }   /* 인상: 빨강 */
+
+/* 변동률 배지 */
+.price-rate {
+  margin-left: auto;
+  align-self: center;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+.price-rate.down { color: #2f6fed; background: #eaf1fe; }
+.price-rate.up   { color: #e03131; background: #fdecec; }
+
+/* 변동 없음: 현재가만 */
+.price-current {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--ink, #222);
+}
+
+/* 안내문 */
+.price-note {
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 12px;
+  border-radius: 8px;
+  text-align: center;
+}
+.price-note.down { color: #2f6fed; background: #eaf1fe; }
+.price-note.up   { color: #e03131; background: #fdecec; }
+.price-note.ok   { color: var(--sage-text, #3a7d44); background: var(--sage-bg, #eaf5ec); }
+
+/* 무료 참가 */
+.price-block.free .price-free-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+  padding: 4px 0;
+}
+.price-free-mark {
+  width: 34px; height: 34px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: var(--sage-bg, #eaf5ec);
+  color: var(--sage-text, #3a7d44);
+  font-weight: 800; font-size: 18px;
+}
+.price-free-text {
+  font-size: 22px; font-weight: 800;
+  color: var(--sage-text, #3a7d44);
+}
+
+/* 카드 푸터: 상세보기만 오른쪽 정렬 */
+.card-footer { justify-content: flex-end; }
