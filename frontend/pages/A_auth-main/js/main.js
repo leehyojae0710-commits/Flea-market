@@ -63,15 +63,24 @@ function isEndedNow(m) {
   return isExpiredByDate(m.eventDate_max);
 }
 
+// [추가] 진행 예정 행사: 아직 행사 시작일(eventDate_min) 전인 마켓
+function isUpcomingNow(m) {
+  const today = todayMidnight();
+  const min = new Date(m.eventDate_min);
+  min.setHours(0, 0, 0, 0);
+  return today < min;
+}
+
 function filterByTab(markets, tab) {
   if (tab === "ongoing") return markets.filter(isOngoingNow);
+  if (tab === "upcoming") return markets.filter(isUpcomingNow);
   if (tab === "ended") return markets.filter(isEndedNow);
   return markets.filter(isRecruitingNow);
 }
 
 // [추가] 탭/페이지네이션 상태
 const PAGE_SIZE = 9; // 3 x 3
-let currentTab = "recruiting"; // 'recruiting' | 'ongoing' | 'ended'
+let currentTab = "recruiting"; // 'recruiting' | 'ongoing' | 'upcoming' | 'ended'
 let currentPage = 1;
 let lastFetchedMarkets = []; // 지역/정렬만 적용된, 탭 나누기 전의 원본 목록 (탭 전환 시 재요청 방지용)
 let currentTabList = []; // 탭까지 적용된 목록 (페이지네이션 대상)
@@ -164,11 +173,13 @@ function populateRegionOptions(markets) {
 const TAB_COUNT_SUFFIX = {
   recruiting: "개 마켓 모집 중",
   ongoing: "개 마켓 진행 중",
+  upcoming: "개 마켓 진행 예정",
   ended: "개 마켓 종료",
 };
 const TAB_EMPTY_MESSAGE = {
   recruiting: "조건에 맞는 모집 중인 마켓이 없어요. 다른 지역을 선택해 보세요.",
   ongoing: "조건에 맞는 진행 중인 마켓이 없어요. 다른 지역을 선택해 보세요.",
+  upcoming: "조건에 맞는 진행 예정인 마켓이 없어요. 다른 지역을 선택해 보세요.",
   ended: "조건에 맞는 종료된 마켓이 없어요. 다른 지역을 선택해 보세요.",
 };
 
