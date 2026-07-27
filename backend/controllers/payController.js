@@ -5,13 +5,16 @@ import { verifyPayment } from '../services/paymentService.js';
 // PortOne 결제 완료 후 호출
 export async function confirmPayment(req, res) {
   const { userId } = req.user;
-  const { applicationId, paymentId } = req.body;
+  const { applicationId } = req.body;
+  let { paymentId } = req.body;
 
-  if (!applicationId || !paymentId) {
+  // paymentId는 실제 결제(포트원)가 발생하는 유료 부스에서만 필수.
+  // 부스료 0원인 경우는 아래에서 boothPrice를 확인한 뒤에 필수 여부를 판단한다.
+  if (!applicationId) {
     return res.status(400).json({
       success: false,
       data: null,
-      message: 'applicationId와 paymentId는 필수입니다.',
+      message: 'applicationId는 필수입니다.',
     });
   }
 
@@ -51,28 +54,45 @@ export async function confirmPayment(req, res) {
       });
     }
 
-    // PortOne 결제 검증
-    const payment = await verifyPayment(paymentId);
+    const boothPrice = Number(application.boothPrice || 0);
+    const isFreeBooth = boothPrice === 0;
 
-    // 결제 완료 여부 확인
-    if (payment.status !== 'PAID') {
-      return res.status(400).json({
-        success: false,
-        data: null,
-        message: '결제가 완료되지 않았습니다.',
-      });
+    if (isFreeBooth) {
+      // 부스료 0원: 실제로 결제할 금액이 없으므로 포트원 검증을 건너뛴다.
+      // (paymentId도 없을 수 있음 — 프론트에서 포트원 결제창을 아예 띄우지 않음)
+      paymentId = paymentId || null;
+    } else {
+      if (!paymentId) {
+        return res.status(400).json({
+          success: false,
+          data: null,
+          message: 'paymentId는 필수입니다.',
+        });
+      }
+
+      // PortOne 결제 검증
+      const payment = await verifyPayment(paymentId);
+
+      // 결제 완료 여부 확인
+      if (payment.status !== 'PAID') {
+        return res.status(400).json({
+          success: false,
+          data: null,
+          message: '결제가 완료되지 않았습니다.',
+        });
+      }
+
+      // 금액 검증
+      if (Number(payment.amount.total) !== boothPrice) {
+        return res.status(400).json({
+          success: false,
+          data: null,
+          message: '결제 금액이 일치하지 않습니다.',
+        });
+      }
     }
 
-    // 금액 검증
-    if (Number(payment.amount.total) !== Number(application.boothPrice || 0)) {
-      return res.status(400).json({
-        success: false,
-        data: null,
-        message: '결제 금액이 일치하지 않습니다.',
-      });
-    }
-
-    // 중복 결제 방지
+    // 중복 결제(등록) 방지
     const [paidRows] = await pool.query(
       `SELECT paymentId
       FROM payments
@@ -88,11 +108,11 @@ export async function confirmPayment(req, res) {
       });
     }
 
-    // 결제 저장
+    // 결제 저장 (스키마에 paymentKey 컬럼이 없으므로 포트원 paymentId는 저장하지 않음)
     const [result] = await pool.query(
-      `INSERT INTO payments (applicationId, amount, status, paymentKey)
-       VALUES (?, ?, 'Paid', ?)`,
-      [applicationId, application.boothPrice || 0, paymentId]
+      `INSERT INTO payments (applicationId, amount, status)
+       VALUES (?, ?, 'Paid')`,
+      [applicationId, boothPrice]
     );
 
     // 결제 완료 → 결제 기한 제거
@@ -106,10 +126,10 @@ export async function confirmPayment(req, res) {
       data: {
         paymentId: result.insertId,
         applicationId: Number(applicationId),
-        amount: application.boothPrice || 0,
+        amount: boothPrice,
         status: 'Paid',
       },
-      message: '결제가 완료되었습니다.',
+      message: isFreeBooth ? '무료 부스 등록이 완료되었습니다.' : '결제가 완료되었습니다.',
     });
   } catch (error) {
     console.error('결제 검증 오류:', error.response?.data || error.message);

@@ -48,8 +48,38 @@ function getPaymentParamsFromUrl() {
 
 function prefillPaymentAmount(amount) {
   const amountEl = document.getElementById('amount');
-  if (!amountEl) return;
-  amountEl.textContent = amount.toLocaleString();
+  if (amountEl) amountEl.textContent = amount.toLocaleString();
+
+  // 부스료 0원(무료 부스)이면 안내 문구/버튼 라벨을 결제가 아닌 등록 확정 흐름으로 표시
+  if (amount === 0) {
+    const hintEl = document.querySelector('.form-hint');
+    if (hintEl) hintEl.textContent = '무료 부스입니다. 등록하기를 누르면 신청이 확정돼요.';
+
+    const btn = document.getElementById('pay-btn');
+    if (btn) btn.textContent = '등록하기';
+  }
+}
+
+// 부스료 0원(무료 부스): 포트원 결제창 없이 바로 서버에 등록 확정 요청
+async function handleFreeBoothConfirm(applicationId, btn, originalText) {
+  btn.textContent = '등록 확인 중...';
+
+  try {
+    const res = await confirmPayment(applicationId, null);
+    if (res && res.success) {
+      renderAlert('무료 부스 등록이 완료됐어요!', 'success');
+      btn.textContent = '등록 완료됨';
+    } else {
+      renderAlert(res?.message || '등록 처리에 실패했어요. 고객센터에 문의해주세요.');
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  } catch (err) {
+    console.error('무료 부스 등록 처리 오류:', err);
+    renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
 }
 
 // ============================================
@@ -68,17 +98,28 @@ function handlePaymentClick() {
       renderAlert('신청 정보를 찾을 수 없어요. 부스 신청 화면부터 다시 진행해주세요.');
       return;
     }
-    if (!amount || amount <= 0) {
+    // amount가 음수이거나 숫자가 아닌 경우만 오류로 처리 (0원=무료 부스는 정상 케이스)
+    if (amount == null || Number.isNaN(amount) || amount < 0) {
       renderAlert('결제 금액 정보가 올바르지 않아요.');
-      return;
-    }
-    if (typeof PortOne === 'undefined') {
-      renderAlert('결제 모듈을 불러오지 못했어요. 새로고침 후 다시 시도해주세요.');
       return;
     }
 
     const original = btn.textContent;
     btn.disabled = true;
+
+    // 무료 부스는 포트원 결제 자체를 건너뛰고 바로 서버에 등록 확정 요청
+    if (amount === 0) {
+      await handleFreeBoothConfirm(applicationId, btn, original);
+      return;
+    }
+
+    if (typeof PortOne === 'undefined') {
+      renderAlert('결제 모듈을 불러오지 못했어요. 새로고침 후 다시 시도해주세요.');
+      btn.disabled = false;
+      btn.textContent = original;
+      return;
+    }
+
     btn.textContent = '결제창 여는 중...';
 
     // 결제마다 고유해야 하는 결제 ID (충돌 방지를 위해 applicationId + 타임스탬프 조합)
