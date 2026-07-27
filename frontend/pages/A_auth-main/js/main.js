@@ -1,23 +1,11 @@
 // 담당 A: 첫 화면(마켓 목록) - 로그인 없이 접근 가능한 랜딩 페이지
-// 실제 백엔드가 떠 있으면 GET /api/markets 를 호출하고,
-// 응답이 없으면(백엔드 미실행) 데모용 목데이터로 자동 대체합니다.
-//
-// ⚠️ 실제 백엔드 응답 필드(backend/controllers/marketController.js 기준):
-//    marketId, hostId, title, description, marketImage,
-//    locationName, latitude, longitude, eventDate, isExpired,
-//    boothPrice, hostRegion(= users.region JOIN)
-// 목데이터도 반드시 같은 필드명을 써야 실제 API로 전환했을 때 화면이 안 깨집니다.
-
-// const MOCK_MARKETS = [
-//   { marketId: 1, title: "홍대 골목 빈티지 마켓", hostRegion: "마포구", locationName: "서울 마포구 와우산로", eventDate: "2026-07-19", boothPrice: 30000 },
-//   { marketId: 2, title: "연남동 주말 플리마켓", hostRegion: "마포구", locationName: "서울 마포구 연남동", eventDate: "2026-07-26", boothPrice: 20000 },
-//   { marketId: 3, title: "성수동 브런치 마켓", hostRegion: "성동구", locationName: "서울 성동구 성수동", eventDate: "2026-07-20", boothPrice: 0 },
-//   { marketId: 4, title: "판교 테크밸리 나눔장터", hostRegion: "성남시", locationName: "경기 성남시 분당구", eventDate: "2026-08-02", boothPrice: 10000 },
-//   { marketId: 5, title: "잠실 한강 야시장", hostRegion: "송파구", locationName: "서울 송파구 잠실동", eventDate: "2026-07-25", boothPrice: 40000 },
-//   { marketId: 6, title: "이태원 세계 소품 마켓", hostRegion: "용산구", locationName: "서울 용산구 이태원동", eventDate: "2026-08-09", boothPrice: 25000 },
-//   { marketId: 7, title: "익선동 골동품 벼룩시장", hostRegion: "종로구", locationName: "서울 종로구 익선동", eventDate: "2026-07-12", boothPrice: 15000 },
-//   { marketId: 8, title: "제주 애월 로컬 마켓", hostRegion: "제주시", locationName: "제주 제주시 애월읍", eventDate: "2026-08-16", boothPrice: 0 },
-// ];
+// [리디자인] 첨부 시안 스타일(이미지 카드 + 상태 배지 + 진행률 바) 적용.
+//   ⚠️ 백엔드 응답 필드는 기존 그대로 사용합니다:
+//      marketId, hostId, title, description, marketImage,
+//      locationName, region, latitude, longitude,
+//      eventDate_min, eventDate_max, recruitmentDate_min, recruitmentDate_max,
+//      boothPrice, isExpired, maxparticipants/maxParticipants, appliedBooths
+//   이미지가 있을 때/없을 때 모두 데이터가 소실되거나 레이아웃이 깨지지 않도록 처리합니다.
 
 function todayMidnight() {
   const d = new Date();
@@ -36,58 +24,45 @@ function isExpiredByDate(dateStr) {
   return daysUntil(dateStr) < 0;
 }
 
-// [추가] 오늘 기준으로 "모집 중" / "진행 중" 상태를 판정합니다.
-// 모집 중: recruitmentDate_min ~ recruitmentDate_max 사이 (둘 중 하나라도 없으면 모집중 탭에서는 제외)
-// 진행 중: eventDate_min ~ eventDate_max 사이 (행사 당일 포함)
+// 모집 중: recruitmentDate_min ~ recruitmentDate_max 사이
 function isRecruitingNow(m) {
   if (!m.recruitmentDate_min || !m.recruitmentDate_max) return false;
   const today = todayMidnight();
-  const min = new Date(m.recruitmentDate_min);
-  const max = new Date(m.recruitmentDate_max);
-  min.setHours(0, 0, 0, 0);
-  max.setHours(0, 0, 0, 0);
+  const min = new Date(m.recruitmentDate_min); min.setHours(0, 0, 0, 0);
+  const max = new Date(m.recruitmentDate_max); max.setHours(0, 0, 0, 0);
   return min <= today && today <= max;
 }
 
+// 진행 중: eventDate_min ~ eventDate_max 사이 (행사 당일 포함)
 function isOngoingNow(m) {
   const today = todayMidnight();
-  const min = new Date(m.eventDate_min);
-  const max = new Date(m.eventDate_max);
-  min.setHours(0, 0, 0, 0);
-  max.setHours(0, 0, 0, 0);
+  const min = new Date(m.eventDate_min); min.setHours(0, 0, 0, 0);
+  const max = new Date(m.eventDate_max); max.setHours(0, 0, 0, 0);
   return min <= today && today <= max;
 }
 
-// [추가] 종료된 행사: 행사 진행 기간(eventDate_max)이 이미 지난 마켓
+// 종료된 행사: 행사 진행 기간(eventDate_max)이 이미 지난 마켓
 function isEndedNow(m) {
   return isExpiredByDate(m.eventDate_max);
 }
 
-// [추가] 진행 예정 행사: 아직 행사 시작일(eventDate_min) 전인 마켓
-function isUpcomingNow(m) {
-  const today = todayMidnight();
-  const min = new Date(m.eventDate_min);
-  min.setHours(0, 0, 0, 0);
-  return today < min;
-}
-
 function filterByTab(markets, tab) {
   if (tab === "ongoing") return markets.filter(isOngoingNow);
-  if (tab === "upcoming") return markets.filter(isUpcomingNow);
   if (tab === "ended") return markets.filter(isEndedNow);
   return markets.filter(isRecruitingNow);
 }
 
-// [추가] 탭/페이지네이션 상태
+// [상태/페이지네이션]
 const PAGE_SIZE = 9; // 3 x 3
-let currentTab = "recruiting"; // 'recruiting' | 'ongoing' | 'upcoming' | 'ended'
+let currentTab = "recruiting";
 let currentPage = 1;
-let lastFetchedMarkets = []; // 지역/정렬만 적용된, 탭 나누기 전의 원본 목록 (탭 전환 시 재요청 방지용)
-let currentTabList = []; // 탭까지 적용된 목록 (페이지네이션 대상)
+let lastFetchedMarkets = [];
+let currentTabList = [];
 
 function ddayLabel(m) {
   if (isExpiredByDate(m.eventDate_max)) return "종료";
   const d = daysUntil(m.eventDate_min);
+  if (d < 0) return "종료";
   if (d === 0) return "D-DAY";
   return `D-${d}`;
 }
@@ -97,7 +72,7 @@ function formatPrice(price) {
   return n === 0 ? "무료 참가" : `참가비 ${n.toLocaleString()}원`;
 }
 
-// [추가] 부스 신청 현황: 신청 부스 수 / 총 부스 수 와 참여 비율(%) 계산
+// 부스 신청 현황: 신청 부스 수 / 총 부스 수 와 참여 비율(%)
 function getBoothStats(m) {
   const total = Number(m.maxparticipants ?? m.maxParticipants) || 0;
   const applied = Number(m.appliedBooths) || 0;
@@ -105,23 +80,21 @@ function getBoothStats(m) {
   return { applied, total, pct };
 }
 
-// [추가] 참여율에 따라 색상 단계(여유/보통/마감임박)를 나눕니다.
 function boothLevel(pct) {
-  if (pct >= 80) return "high";   // 마감 임박
-  if (pct >= 50) return "mid";    // 보통
-  return "low";                   // 여유
+  if (pct >= 80) return "high";  // 마감 임박
+  if (pct >= 50) return "mid";   // 보통
+  return "low";                  // 여유
 }
 
-// [추가] 카드 하단에 들어갈 부스 참여율 그래프 HTML
+// [리디자인] 카드 하단 진행률 바 (퍼센트 + 신청/총 부스 수)
 function renderBoothGauge(m) {
   const { applied, total, pct } = getBoothStats(m);
-  if (total === 0) return ""; // 총 부스 수가 없으면 표시하지 않음
+  if (total === 0) return "";
   const level = boothLevel(pct);
   return `
     <div class="booth-gauge" data-level="${level}">
       <div class="booth-gauge-head">
-        <span class="booth-gauge-label">부스 신청 현황</span>
-        <span class="booth-gauge-count"><strong>${applied}</strong> / ${total} 부스</span>
+        <span class="booth-gauge-pct">${pct}%</span>
       </div>
       <div class="booth-gauge-track" role="progressbar"
            aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"
@@ -129,59 +102,120 @@ function renderBoothGauge(m) {
         <div class="booth-gauge-fill" style="width:${pct}%"></div>
       </div>
       <div class="booth-gauge-foot">
-        <span class="booth-gauge-pct">${pct}%</span>
-        <span class="booth-gauge-remain">${pct >= 100 ? "마감" : `잔여 ${total - applied}부스`}</span>
+        <span class="booth-gauge-count"><strong>${applied}</strong> / ${total} 부스 모집</span>
       </div>
     </div>`;
 }
 
-// market-detail-extra.js의 renderMarketImage()와 동일한 규칙:
-// 절대 URL(http로 시작)이면 그대로, 아니면 백엔드 API_BASE_URL을 붙여서 완성합니다.
+// [리디자인] 상태 배지 (모집중 / 마감임박 / 진행중 / 종료) - 참여율과 날짜로 판정
+function renderStatusBadge(m) {
+  if (isEndedNow(m)) {
+    return `<span class="status-badge ended">종료</span>`;
+  }
+  if (isOngoingNow(m)) {
+    return `<span class="status-badge ongoing">진행 중</span>`;
+  }
+  if (isRecruitingNow(m)) {
+    const { pct } = getBoothStats(m);
+    if (pct >= 80) return `<span class="status-badge closing">마감 임박</span>`;
+    return `<span class="status-badge recruiting">모집 중</span>`;
+  }
+  // 어느 상태에도 안 걸리면 배지 생략
+  return "";
+}
+
+// 절대 URL(http로 시작)이면 그대로, 아니면 백엔드 API_BASE_URL을 붙임
 function getMarketImageSrc(marketImage) {
   if (!marketImage) return null;
   return marketImage.startsWith("http") ? marketImage : `${API_BASE_URL}${marketImage}`;
 }
 
-// 화면의 "마감임박순(deadline)" / "최신등록순(latest)" 옵션 값을
-// 백엔드가 이해하는 sort 값(eventDate/latest)으로 변환합니다.
-// (docs/api-routes.md 기준: GET /api/markets?sort=latest|eventDate)
+// 이미지가 없을 때 쓸 대체 배너 (제목 첫 글자를 크게 노출 → 데이터 소실 없이 자연스럽게)
+function renderCardVisual(m, imageSrc) {
+  const safeTitle = (m.title || "플리마켓").replace(/"/g, "&quot;");
+  if (imageSrc) {
+    // onerror: 깨진 이미지 URL일 때 자동으로 대체 배너로 폴백 (충돌/공백 방지)
+    return `
+      <div class="card-image-wrap">
+        <img class="card-image" src="${imageSrc}" alt="${safeTitle} 대표 이미지"
+             loading="lazy"
+             onerror="this.closest('.card-image-wrap').outerHTML = window.__fleaFallback('${safeTitle}');" />
+        ${renderCardBadges(m)}
+      </div>`;
+  }
+  return renderFallbackVisual(m, safeTitle);
+}
+
+function renderFallbackVisual(m, safeTitle) {
+  return `
+    <div class="card-image-fallback">
+      <div class="fb-inner">
+        <span class="fb-emoji">🛍️</span>
+        <span>${(m.region || m.title || "플리마켓")}</span>
+      </div>
+      ${renderCardBadges(m)}
+    </div>`;
+}
+
+// 이미지 로드 실패 시 onerror에서 호출 (배지 없이 순수 배너만 - 인라인 안전용)
+window.__fleaFallback = function (safeTitle) {
+  return `
+    <div class="card-image-fallback">
+      <div class="fb-inner">
+        <span class="fb-emoji">🛍️</span>
+        <span>${safeTitle}</span>
+      </div>
+    </div>`;
+};
+
+function renderCardBadges(m) {
+  return `
+    <div class="card-badges">
+      ${renderStatusBadge(m)}
+      <span class="dday-badge">${ddayLabel(m)}</span>
+    </div>`;
+}
+
+function fmtDate(v) {
+  if (!v) return "-";
+  const d = new Date(v);
+  if (isNaN(d)) return "-";
+  return d.toLocaleDateString();
+}
+
 function toBackendSort(sort) {
   return sort === "latest" ? "latest" : "eventDate";
 }
 
-// 담당 D 백엔드 완성 전(또는 통신 실패 시)에는 목데이터로 자동 대체합니다.
 async function getMarketList(params = {}) {
   const { region, sort } = params;
   const backendParams = {};
   if (region) backendParams.region = region;
   backendParams.sort = toBackendSort(sort);
-  // [변경] "종료된 행사" 탭도 보여줘야 해서, 마감/진행 여부와 상관없이 항상 전체 목록을 받아옵니다.
-  // (삭제된 마켓(isExpired=2)은 백엔드가 항상 걸러줘서 여기엔 안 내려옵니다.)
-  // 모집중/진행중/종료 구분은 프론트에서 날짜 기준으로 다시 나눕니다(filterByTab).
   backendParams.includeExpired = "true";
 
   try {
     const query = new URLSearchParams(backendParams).toString();
     const res = await callApi(`/markets${query ? `?${query}` : ""}`);
     if (res && res.success && Array.isArray(res.data)) {
-      MOCK_MARKETS=res.data; // 목데이터를 실제 응답으로 갱신합니다.
       return res.data;
     }
-    throw new Error("응답 형식이 올바르지 않음 - 목데이터로 대체");
-  } catch (e) {;
-    return applyFilterSort(MOCK_MARKETS, { region, sort });
+    throw new Error("응답 형식이 올바르지 않음");
+  } catch (e) {
+    // 백엔드 미실행/실패 시 빈 목록 (목데이터를 쓰던 기존 동작과 동일하게 안전 처리)
+    return applyFilterSort(Array.isArray(lastFetchedMarkets) ? lastFetchedMarkets : [], { region, sort });
   }
 }
 
 function applyFilterSort(markets, { region, sort } = {}) {
-  // 삭제된 마켓만 제외하고, 모집중/진행중/종료 구분은 filterByTab에서 처리합니다.
   let list = markets.filter((m) => Number(m.isExpired) !== 2);
-  //if (region) list = list.filter((m) => m.hostRegion === region);
   if (region) list = list.filter((m) => m.region === region);
   if (sort === "latest") {
     list = [...list].sort((a, b) => b.marketId - a.marketId);
   } else {
-    list = [...list].sort((a, b) => daysUntil(a.eventDate_min.toLocaleDateString()) - daysUntil(b.eventDate_min.toLocaleDateString()));
+    list = [...list].sort(
+      (a, b) => daysUntil(a.eventDate_min) - daysUntil(b.eventDate_min)
+    );
   }
   return list;
 }
@@ -189,11 +223,8 @@ function applyFilterSort(markets, { region, sort } = {}) {
 function populateRegionOptions(markets) {
   const select = document.getElementById("region-filter");
   if (!select) return;
-
   const currentValue = select.value;
-  // 실제 데이터 기준으로 다시 채워야 하므로, "전체" 옵션만 남기고 초기화합니다.
   select.innerHTML = '<option value="">전체</option>';
-
   const regions = [...new Set(markets.map((m) => m.region).filter(Boolean))].sort();
   regions.forEach((r) => {
     const opt = document.createElement("option");
@@ -201,23 +232,17 @@ function populateRegionOptions(markets) {
     opt.textContent = r;
     select.appendChild(opt);
   });
-
-  // 목록을 다시 채우는 동안 사용자가 고른 지역이 여전히 존재하면 유지합니다.
   if (regions.includes(currentValue)) select.value = currentValue;
 }
 
-
-// 탭별 결과 개수 / 빈 상태 문구
 const TAB_COUNT_SUFFIX = {
   recruiting: "개 마켓 모집 중",
   ongoing: "개 마켓 진행 중",
-  upcoming: "개 마켓 진행 예정",
   ended: "개 마켓 종료",
 };
 const TAB_EMPTY_MESSAGE = {
   recruiting: "조건에 맞는 모집 중인 마켓이 없어요. 다른 지역을 선택해 보세요.",
   ongoing: "조건에 맞는 진행 중인 마켓이 없어요. 다른 지역을 선택해 보세요.",
-  upcoming: "조건에 맞는 진행 예정인 마켓이 없어요. 다른 지역을 선택해 보세요.",
   ended: "조건에 맞는 종료된 마켓이 없어요. 다른 지역을 선택해 보세요.",
 };
 
@@ -226,50 +251,75 @@ function renderMarketList(pageMarkets, totalCount) {
   const emptyState = document.getElementById("empty-state");
   const countEl = document.getElementById("result-count");
 
-  countEl.textContent = `${totalCount}${TAB_COUNT_SUFFIX[currentTab] || "개 마켓 진행 예정"}`;
+  if (countEl) countEl.textContent = `총 ${totalCount}${TAB_COUNT_SUFFIX[currentTab] || "개 마켓"}`;
 
   if (pageMarkets.length === 0) {
     grid.innerHTML = "";
-    emptyState.hidden = false;
-    emptyState.textContent = TAB_EMPTY_MESSAGE[currentTab] || "조건에 맞는 열려 있는 마켓이 없어요. 다른 지역을 선택해 보세요.";
+    if (emptyState) {
+      emptyState.hidden = false;
+      emptyState.textContent =
+        TAB_EMPTY_MESSAGE[currentTab] || "조건에 맞는 마켓이 없어요.";
+    }
     return;
   }
-  emptyState.hidden = true;
+  if (emptyState) emptyState.hidden = true;
 
   grid.innerHTML = pageMarkets
     .map((m) => {
       const imageSrc = getMarketImageSrc(m.marketImage);
+      const regionChip = m.region
+        ? `<span class="chip region">${m.region}</span>`
+        : "";
       return `
       <a class="market-card" href="pages/B_host-seller/market-detail?marketId=${m.marketId}">
         <span class="pin" aria-hidden="true"></span>
-        ${imageSrc ? `<div class="card-image-wrap"><img class="card-image" src="${imageSrc}" alt="${m.title} 대표 이미지" loading="lazy" /></div>` : ""}
-        <div class="card-top">
-          <span class="category-tag">${m.region || ""}</span>
-          <span class="dday-tag">${ddayLabel(m)}</span>
+        ${renderCardVisual(m, imageSrc)}
+        <div class="card-body">
+          <h3>${m.title || "이름 없는 마켓"}</h3>
+          <div class="card-tags">${regionChip}</div>
+
+          <div class="card-meta-grid">
+            <div class="meta-item">
+              <span class="m-ico">📅</span>
+              <span class="m-body">
+                <span class="m-label">행사 기간</span>
+                <span class="m-value">${fmtDate(m.eventDate_min)} ~ ${fmtDate(m.eventDate_max)}</span>
+              </span>
+            </div>
+            <div class="meta-item">
+              <span class="m-ico">🗓️</span>
+              <span class="m-body">
+                <span class="m-label">모집 기간</span>
+                <span class="m-value">${fmtDate(m.recruitmentDate_min)} ~ ${fmtDate(m.recruitmentDate_max)}</span>
+              </span>
+            </div>
+            <div class="meta-item full">
+              <span class="m-ico">📍</span>
+              <span class="m-body">
+                <span class="m-value">${m.locationName || "장소 미정"}</span>
+              </span>
+            </div>
+          </div>
+
+          ${renderBoothGauge(m)}
+
+          <div class="card-footer">
+            <span class="price-tag ${Number(m.boothPrice) === 0 ? "free" : ""}">${formatPrice(m.boothPrice)}</span>
+            <span class="card-arrow">상세보기 →</span>
+          </div>
         </div>
-        <h3>${m.title}</h3>
-        <p class="market-meta tight">행사 기간 ${new Date(m.eventDate_min).toLocaleDateString()} ~ ${new Date(m.eventDate_max).toLocaleDateString()}</p>
-        <p class="market-meta tight">${m.locationName || ""}</p>
-        <p class="market-meta">모집 기간 ${new Date(m.recruitmentDate_min).toLocaleDateString()} ~ ${new Date(m.recruitmentDate_max).toLocaleDateString()}</p>
-        <div class="card-bottom">
-          <span class="price-tag ${Number(m.boothPrice) === 0 ? "free" : ""}">${formatPrice(m.boothPrice)}</span>
-          <span class="card-arrow">자세히 보기 →</span>
-        </div>
-        ${renderBoothGauge(m)}
       </a>`;
     })
     .join("");
 }
 
-// 지역/정렬이 바뀌었을 때: API를 다시 불러오고, 현재 탭 기준으로 다시 나눈 뒤 1페이지부터 보여줍니다.
 async function handleFilterChange() {
-  const region = document.getElementById("region-filter").value;
-  const sort = document.getElementById("sort-filter").value;
+  const region = document.getElementById("region-filter")?.value || "";
+  const sort = document.getElementById("sort-filter")?.value || "deadline";
   lastFetchedMarkets = await getMarketList({ region, sort });
   applyTabAndRender({ resetPage: true });
 }
 
-// 탭(모집중/진행중)이 바뀌었을 때: 이미 불러온 목록을 재사용하고, 다시 요청하지 않습니다.
 function applyTabAndRender({ resetPage = true } = {}) {
   currentTabList = filterByTab(lastFetchedMarkets, currentTab);
   if (resetPage) currentPage = 1;
@@ -280,38 +330,74 @@ function renderCurrentPage() {
   const totalItems = currentTabList.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
   if (currentPage > totalPages) currentPage = totalPages;
-
   const start = (currentPage - 1) * PAGE_SIZE;
   const pageItems = currentTabList.slice(start, start + PAGE_SIZE);
-
   renderMarketList(pageItems, totalItems);
   renderPagination(totalPages);
 }
 
-// [추가] 페이지 번호 버튼 렌더링 (이전/다음 + 숫자 버튼)
 function renderPagination(totalPages) {
   const nav = document.getElementById("pagination");
   if (!nav) return;
-
-  if (totalPages <= 1) {
-    nav.innerHTML = "";
-    return;
-  }
+  if (totalPages <= 1) { nav.innerHTML = ""; return; }
 
   const buttons = [];
   buttons.push(
-    `<button type="button" class="page-btn page-nav" data-page="${currentPage - 1}" ${currentPage === 1 ? "disabled" : ""}>이전</button>`
-  );
-  for (let p = 1; p <= totalPages; p++) {
-    buttons.push(
-      `<button type="button" class="page-btn${p === currentPage ? " is-active" : ""}" data-page="${p}">${p}</button>`
-    );
-  }
-  buttons.push(
-    `<button type="button" class="page-btn page-nav" data-page="${currentPage + 1}" ${currentPage === totalPages ? "disabled" : ""}>다음</button>`
+    `<button type="button" class="page-btn page-nav" data-page="${currentPage - 1}" ${currentPage === 1 ? "disabled" : ""}>‹</button>`
   );
 
+  // 표시할 페이지 번호를 축약해서 계산합니다: 1 … (현재 주변) … 마지막
+  // 항상 첫 페이지/마지막 페이지 + 현재 페이지 양옆 2개까지 보여줍니다.
+  const pages = getPageWindow(currentPage, totalPages);
+  pages.forEach((p) => {
+    if (p === "…") {
+      buttons.push(`<span class="page-ellipsis">…</span>`);
+    } else {
+      buttons.push(
+        `<button type="button" class="page-btn${p === currentPage ? " is-active" : ""}" data-page="${p}">${p}</button>`
+      );
+    }
+  });
+
+  buttons.push(
+    `<button type="button" class="page-btn page-nav" data-page="${currentPage + 1}" ${currentPage === totalPages ? "disabled" : ""}>›</button>`
+  );
   nav.innerHTML = buttons.join("");
+}
+
+// 현재 페이지 기준으로 보여줄 페이지 번호 목록을 만듭니다.
+// 예) 현재 1/총 20 → [1,2,3,4,5,"…",20]
+//     현재 10/총 20 → [1,"…",8,9,10,11,12,"…",20]
+//     현재 19/총 20 → [1,"…",16,17,18,19,20]
+function getPageWindow(current, total) {
+  const SIBLINGS = 2; // 현재 페이지 양옆으로 보여줄 개수
+  const first = 1;
+  const last = total;
+
+  // 페이지가 적으면(약 7개 이하) 그냥 전부 보여줍니다.
+  if (total <= SIBLINGS * 2 + 3) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+
+  const start = Math.max(current - SIBLINGS, first);
+  const end = Math.min(current + SIBLINGS, last);
+  const pages = [];
+
+  pages.push(first);
+  if (start > first + 1) pages.push("…"); // 첫 페이지와 start 사이가 벌어지면 …
+  else if (start === first + 1) pages.push(first + 1); // 딱 한 칸 차이면 숫자로 채움
+
+  for (let p = start; p <= end; p++) {
+    if (p !== first && p !== last) pages.push(p);
+  }
+
+  if (end < last - 1) pages.push("…");
+  else if (end === last - 1) pages.push(last - 1);
+
+  pages.push(last);
+
+  // 혹시 모를 중복 제거(경계값에서 안전하게)
+  return pages.filter((p, i) => p === "…" || pages.indexOf(p) === i);
 }
 
 function handlePaginationClick() {
@@ -348,11 +434,7 @@ function handleStatusTabClick() {
 function getLoggedInUser() {
   const raw = sessionStorage.getItem("loggedInUser");
   if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
+  try { return JSON.parse(raw); } catch { return null; }
 }
 
 function syncAuthNavVisibility() {
@@ -367,16 +449,16 @@ function syncAuthNavVisibility() {
 
   const user = getLoggedInUser();
   const isLoggedIn = !!user;
-  const isHost = user?.userType === 1; // 0: 판매자, 1: 주최자
+  const isHost = user?.userType === 1;
   const isSeller = user?.userType === 0;
 
   loginLink.hidden = isLoggedIn;
   if (registerLink) registerLink.hidden = isLoggedIn;
   logoutBtn.hidden = !isLoggedIn;
-  mypageLink.hidden = !isLoggedIn;          // 비로그인/판매자/주최자 모두 마이페이지는 숨김
-  hostCtaBtn.hidden = !isLoggedIn || !isHost; // 주최자로 로그인했을 때만 노출
-  hostmarketpageLink.hidden = !isLoggedIn || !isHost; // 주최자로 로그인했을 때만 노출
-  sellerBoothLink.hidden = !isLoggedIn || !isSeller; // 판매자로 로그인했을 때만 노출
+  mypageLink.hidden = !isLoggedIn;
+  hostCtaBtn.hidden = !isLoggedIn || !isHost;
+  hostmarketpageLink.hidden = !isLoggedIn || !isHost;
+  sellerBoothLink.hidden = !isLoggedIn || !isSeller;
 }
 
 function initAuthNav() {
@@ -392,7 +474,6 @@ function handleHostCtaClick() {
   const btn = document.getElementById("host-cta");
   if (!btn) return;
   btn.addEventListener("click", () => {
-    // 로그인이 되어 있으면 바로 마켓 등록 화면으로, 아니면 로그인 화면으로 보냅니다.
     const isLoggedIn = !!sessionStorage.getItem("loggedInUser");
     window.location.href = isLoggedIn
       ? "pages/B_host-seller/market-create.html"
@@ -410,7 +491,6 @@ function handleHostMarketPageClick() {
   });
 }
 
-// [추가] 판매자용 "내 부스 관리" 버튼 - 신청한 부스 목록/수정/취소 페이지로 이동
 function handleSellerBoothClick() {
   const btn = document.getElementById("nav-sellerbooth-link");
   if (!btn) return;
@@ -432,9 +512,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   handleStatusTabClick();
   handlePaginationClick();
 
-  // 지역 옵션은 필터가 걸리지 않은 전체 목록 기준으로 한 번만 채웁니다.
-  // (필터링된 목록으로 채우면 지역을 고를수록 선택지가 줄어드는 버그가 생깁니다.)
+  // 지역 옵션은 전체 목록 기준으로 한 번만 채움
   const allMarkets = await getMarketList({});
+  lastFetchedMarkets = allMarkets;
   populateRegionOptions(allMarkets);
 
   await handleFilterChange();

@@ -1,33 +1,48 @@
-/* 첫 화면(마켓 목록) 전용 스타일 - "코르크보드에 붙은 전단지" 컨셉 */
+/* ============================================================
+   첫 화면(마켓 목록) 전용 스타일 - "지금 열리고 있는 플리마켓"
+   첨부 시안 기반 리디자인 (다크 브라운 + 이미지 카드 + 진행률 바)
+   ⚠️ 기존 main.js / index.html 의 클래스명과 100% 호환되며,
+      이미지가 있을 때와 없을 때 모두 레이아웃이 깨지지 않도록 설계함.
+   ============================================================ */
 
 :root {
-  --board: #33261e;
-  --board-line: #402f24;
+  --board: #241a13;
+  --board-2: #2c211a;
+  --board-line: #3a2c22;
   --paper: #fbf6ec;
-  --paper-shadow: rgba(20, 12, 6, 0.35);
+  --paper-2: #f3ede0;
+  --paper-shadow: rgba(0, 0, 0, 0.45);
   --ink: #2a2118;
-  --ink-soft: #6b5c4c;
+  --ink-soft: #7b6a58;
+  --ink-faint: #a2917d;
   --mustard: #e8a33d;
-  --mustard-text: #4a2f09;
-  --coral: #d65f45;
-  --coral-bg: #f6e2dc;
-  --coral-text: #5b2013;
-  --sage: #7c9473;
-  --sage-bg: #e6ede2;
-  --sage-text: #2f3b29;
+  --mustard-dark: #d1902f;
+  --mustard-text: #3d2905;
+  --coral: #e07a3c;
+  --coral-2: #d65f45;
+  --coral-bg: #fbe6d5;
+  --coral-text: #7a3410;
+  --sage: #6f9a5f;
+  --sage-bg: #e4efdc;
+  --sage-text: #315226;
+  --blue: #5c86c4;
+  --blue-bg: #dde7f5;
+  --blue-text: #274063;
+  --tag-bg: #eef2e9;
+  --tag-text: #4f5c46;
 }
+
+* { box-sizing: border-box; }
 
 body {
   background: var(--board);
+  margin: 0;
 }
 
 .board {
-  max-width: 1180px;
+  max-width: 1320px;
   margin: 0 auto;
-  padding: 28px 32px 64px;
-  background-image:
-    radial-gradient(var(--board-line) 1px, transparent 1px);
-  background-size: 22px 22px;
+  padding: 24px 40px 72px;
 }
 
 /* ---------- nav ---------- */
@@ -35,13 +50,13 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 20px;
+  padding: 8px 0 18px;
 }
 
 .brand {
   font-family: "Space Grotesk", sans-serif;
   font-weight: 700;
-  font-size: 22px;
+  font-size: 23px;
   color: var(--paper);
   display: flex;
   align-items: center;
@@ -49,39 +64,38 @@ body {
 }
 
 .pin-dot {
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #f3c98a, var(--mustard) 60%, #a86a1c 100%);
-  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
   display: inline-block;
 }
 
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 18px;
 }
 
 .link-ghost {
-  color: #e9dcc9;
+  color: #e4d8c5;
   text-decoration: none;
   font-family: "Inter", sans-serif;
   font-size: 14px;
   font-weight: 500;
   border-bottom: 1px solid transparent;
+  transition: border-color 0.15s ease;
 }
-.link-ghost:hover {
-  border-bottom-color: #e9dcc9;
-}
+.link-ghost:hover { border-bottom-color: #e4d8c5; }
 
 .btn {
   font-family: "Inter", sans-serif;
   font-weight: 600;
   font-size: 14px;
   border: none;
-  border-radius: 8px;
-  padding: 10px 18px;
+  border-radius: 9px;
+  padding: 10px 20px;
   cursor: pointer;
 }
 
@@ -89,11 +103,10 @@ body {
   background: var(--mustard);
   color: var(--mustard-text);
   box-shadow: 0 3px 0 #a86a1c;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
-.btn-mustard:active {
-  transform: translateY(2px);
-  box-shadow: 0 1px 0 #a86a1c;
-}
+.btn-mustard:hover { background: var(--mustard-dark); }
+.btn-mustard:active { transform: translateY(2px); box-shadow: 0 1px 0 #a86a1c; }
 
 .btn-outline-board {
   background: transparent;
@@ -102,66 +115,83 @@ body {
   text-decoration: none;
   display: inline-block;
 }
-.btn-outline-board:hover {
-  border-color: var(--mustard);
-  color: var(--mustard);
-}
+.btn-outline-board:hover { border-color: var(--mustard); color: var(--mustard); }
 
 .btn-logout {
   background: transparent;
-  color: #f0c3b6;
-  border: 1.5px solid rgba(214, 95, 69, 0.55);
+  color: #ecc9bb;
+  border: 1.5px solid rgba(224, 122, 60, 0.5);
   border-radius: 8px;
-  padding: 6px 14px;
+  padding: 7px 15px;
   font-family: "Inter", sans-serif;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
-.btn-logout:hover {
-  background: rgba(214, 95, 69, 0.16);
-  border-color: var(--coral);
-  color: var(--paper);
-}
-.btn-logout:active {
-  background: rgba(214, 95, 69, 0.26);
-}
+.btn-logout:hover { background: rgba(224, 122, 60, 0.16); border-color: var(--coral); color: var(--paper); }
 
 /* ---------- head ---------- */
-.board-head {
-  padding: 28px 0 22px;
-}
+.board-head { padding: 26px 0 8px; }
 
 .board-head h1 {
-  font-family: "Archivo Black", sans-serif;
-  font-size: 44px;
-  line-height: 1.15;
+  font-family: "Archivo Black", "Space Grotesk", sans-serif;
+  font-size: 46px;
+  line-height: 1.12;
   color: var(--paper);
-  margin: 0 0 10px;
+  margin: 0 0 12px;
+  letter-spacing: -0.01em;
 }
 
 .board-head .sub {
   font-family: "Inter", sans-serif;
-  color: #cabba7;
+  color: #c7b8a3;
   font-size: 15px;
-  margin: 0 0 22px;
+  margin: 0 0 26px;
 }
 
+/* 검색 + 필터 묶음 (선택: index.html 에 검색바가 있으면 사용됨) */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #efe9dc;
+  border-radius: 14px;
+  padding: 15px 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+.search-bar input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-family: "Inter", sans-serif;
+  font-size: 15px;
+  color: var(--ink);
+  outline: none;
+}
+.search-bar input::placeholder { color: #9a8b76; }
+.search-bar .search-ico {
+  font-size: 18px;
+  color: #8a7b66;
+}
+
+/* ---------- 필터 (기존 select 유지 + pill 대응) ---------- */
 .filter-strip {
   display: flex;
   align-items: flex-end;
   gap: 16px;
   flex-wrap: wrap;
+  margin-bottom: 6px;
 }
 
 .filter-field {
   font-family: "Inter", sans-serif;
   font-size: 12px;
-  color: #cabba7;
+  color: #c7b8a3;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 
 .filter-field select {
@@ -170,61 +200,320 @@ body {
   color: var(--ink);
   background: var(--paper);
   border: none;
-  border-radius: 6px;
-  padding: 8px 12px;
-  min-width: 140px;
+  border-radius: 8px;
+  padding: 9px 14px;
+  min-width: 150px;
   cursor: pointer;
 }
 
 .result-count {
   font-family: "IBM Plex Mono", monospace;
-  font-size: 12px;
-  color: #cabba7;
+  font-size: 13px;
+  color: #c7b8a3;
   margin-left: auto;
   align-self: center;
 }
 
-/* ---------- status tabs (모집중/진행중) ---------- */
+/* ---------- status tabs (모집중/진행중/종료) ---------- */
 .status-tabs {
   display: flex;
-  gap: 8px;
+  gap: 9px;
   flex-wrap: wrap;
-  margin-top: 18px;
+  margin-top: 20px;
+  align-items: center;
 }
 
 .status-tab {
   font-family: "Space Grotesk", sans-serif;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 13.5px;
-  padding: 10px 22px;
+  padding: 9px 20px;
   border-radius: 999px;
-  border: 1px solid #5a4736;
+  border: 1px solid #4d3b2c;
   background: transparent;
-  color: #cabba7;
+  color: #c7b8a3;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
+.status-tab .dot {
+  width: 9px; height: 9px; border-radius: 50%; background: currentColor;
+}
+.status-tab[data-tab="recruiting"] .dot { color: var(--sage); }
+.status-tab[data-tab="ongoing"] .dot { color: var(--blue); }
+.status-tab[data-tab="ended"] .dot { color: #8a7b66; }
 .status-tab:hover { border-color: var(--mustard); color: var(--paper); }
 .status-tab.is-active {
   background: var(--mustard);
   border-color: var(--mustard);
   color: var(--mustard-text);
 }
+.status-tab.is-active .dot { color: var(--mustard-text); }
 
 /* ---------- market grid ---------- */
 .market-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 34px 26px;
-  padding-top: 12px;
+  gap: 30px 26px;
+  padding-top: 24px;
 }
 
-@media (max-width: 900px) {
-  .market-grid { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 1040px) { .market-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 640px)  { .market-grid { grid-template-columns: 1fr; } }
+
+/* ---------- card ---------- */
+.market-card {
+  position: relative;
+  background: var(--paper);
+  border-radius: 16px;
+  box-shadow: 0 14px 26px -10px var(--paper-shadow);
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  cursor: pointer;
 }
-@media (max-width: 600px) {
-  .market-grid { grid-template-columns: 1fr; }
+.market-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 22px 34px -12px var(--paper-shadow);
 }
+
+/* 기존 압정 장식은 새 디자인에서 숨김 (충돌 방지) */
+.market-card .pin { display: none; }
+
+/* ----- 이미지 영역 (있을 때) ----- */
+.card-image-wrap {
+  position: relative;
+  margin: 0;
+  height: 168px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #4a3b2c, #6a5340);
+  border-radius: 0;
+}
+.card-image {
+  display: block;
+  width: 100%;
+  height: 168px;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+.market-card:hover .card-image { transform: scale(1.05); }
+
+/* ----- 이미지 없을 때 대체 배너 (데이터 소실/깨짐 방지) ----- */
+.card-image-fallback {
+  position: relative;
+  height: 168px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    repeating-linear-gradient(45deg, rgba(255,255,255,0.04) 0 12px, transparent 12px 24px),
+    linear-gradient(135deg, #6a8f5c 0%, #4f7043 100%);
+  color: rgba(255, 255, 255, 0.92);
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 0.02em;
+  text-align: center;
+  padding: 0 18px;
+}
+.card-image-fallback .fb-emoji { font-size: 34px; margin-bottom: 4px; }
+.card-image-fallback .fb-inner {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+
+/* 이미지/배너 위에 얹히는 배지들 */
+.card-badges {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  pointer-events: none;
+}
+.status-badge {
+  font-family: "Inter", sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+}
+.status-badge.recruiting { background: var(--sage); }
+.status-badge.closing   { background: var(--coral); }
+.status-badge.ongoing   { background: var(--blue); }
+.status-badge.ended     { background: #7a6a58; }
+
+.dday-badge {
+  font-family: "IBM Plex Mono", monospace;
+  font-weight: 600;
+  font-size: 12.5px;
+  padding: 5px 11px;
+  border-radius: 8px;
+  background: rgba(251, 246, 236, 0.94);
+  color: var(--ink);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+/* ----- 본문 ----- */
+.card-body {
+  padding: 16px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.market-card h3 {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 18.5px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 10px;
+  line-height: 1.3;
+}
+
+/* 태그 묶음 (region + 카테고리) */
+.card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.chip {
+  font-family: "Inter", sans-serif;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 7px;
+  background: var(--tag-bg);
+  color: var(--tag-text);
+}
+.chip.region { background: var(--blue-bg); color: var(--blue-text); }
+
+/* 기존 카드에서 쓰던 category-tag/dday-tag 는 새 구조에서 숨김 (하위호환) */
+.card-top { display: none; }
+
+/* 날짜/장소 메타 (아이콘 + 텍스트) */
+.card-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+  margin-bottom: 14px;
+}
+.meta-item {
+  display: flex;
+  gap: 7px;
+  align-items: flex-start;
+}
+.meta-item .m-ico { font-size: 14px; line-height: 1.2; flex-shrink: 0; }
+.meta-item .m-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.meta-item .m-label {
+  font-family: "Inter", sans-serif;
+  font-size: 11px;
+  color: var(--ink-faint);
+  font-weight: 600;
+}
+.meta-item .m-value {
+  font-family: "Inter", sans-serif;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+.meta-item.full { grid-column: 1 / -1; }
+
+/* 기존 .market-meta (하위호환 - 혹시 남아있을 경우 대비) */
+.market-meta {
+  font-family: "Inter", sans-serif;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin: 0 0 6px;
+}
+
+/* ---------- 부스 신청 진행률 바 ---------- */
+.booth-gauge {
+  margin-top: auto;
+  padding-top: 14px;
+  --gauge-fill: var(--sage);
+}
+.booth-gauge[data-level="mid"]  { --gauge-fill: var(--mustard); }
+.booth-gauge[data-level="high"] { --gauge-fill: var(--coral); }
+
+.booth-gauge-track {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: #e8ddca;
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(20, 12, 6, 0.14);
+}
+.booth-gauge-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--gauge-fill);
+  transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.booth-gauge-head {
+  display: flex;
+  justify-content: flex-end;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+.booth-gauge-pct {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--gauge-fill);
+}
+.booth-gauge-label { display: none; }
+
+.booth-gauge-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+.booth-gauge-count {
+  font-family: "Inter", sans-serif;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+.booth-gauge-count strong { color: var(--ink); font-weight: 700; }
+.booth-gauge-remain { display: none; }
+
+/* ---------- 카드 하단: 가격 + 상세보기 ---------- */
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+}
+.price-tag {
+  font-family: "Inter", sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--paper-2);
+  padding: 5px 11px;
+  border-radius: 7px;
+}
+.price-tag.free { color: var(--sage-text); background: var(--sage-bg); }
+
+.card-arrow {
+  font-family: "Inter", sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--mustard-dark);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.card-bottom { display: none; } /* 기존 하단 바 숨김 (하위호환) */
 
 /* ---------- pagination ---------- */
 .pagination {
@@ -233,17 +522,16 @@ body {
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
-  margin: 32px 0 8px;
+  margin: 40px 0 8px;
 }
-
 .page-btn {
-  min-width: 34px;
-  height: 34px;
-  padding: 0 8px;
-  border-radius: 6px;
-  border: 1px solid #5a4736;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid #4d3b2c;
   background: transparent;
-  color: #cabba7;
+  color: #c7b8a3;
   font-family: "IBM Plex Mono", monospace;
   font-size: 13px;
   cursor: pointer;
@@ -259,229 +547,49 @@ body {
 .page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 .page-btn.page-nav { font-family: "Inter", sans-serif; }
 
-.market-card {
-  position: relative;
-  background: var(--paper);
-  border-radius: 3px;
-  padding: 18px 18px 16px;
-  box-shadow: 0 10px 18px -6px var(--paper-shadow);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-  text-decoration: none;
-  display: block;
-  cursor: pointer;
-}
-.market-card:hover {
-  transform: rotate(0deg) translateY(-3px) !important;
-  box-shadow: 0 16px 24px -8px var(--paper-shadow);
-}
-.market-card:nth-child(3n+1) { transform: rotate(-1.1deg); }
-.market-card:nth-child(3n+2) { transform: rotate(0.7deg); }
-.market-card:nth-child(3n+3) { transform: rotate(-0.4deg); }
-
-.market-card .pin {
-  position: absolute;
-  top: -8px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #ff9c8a, var(--coral) 65%, #7c2d1a 100%);
-  box-shadow: 0 3px 4px rgba(0, 0, 0, 0.35);
-}
-
-.card-image-wrap {
-  margin: -18px -18px 12px;
-  border-radius: 3px 3px 0 0;
-  overflow: hidden;
-  background: var(--sage-bg, #eee);
-}
-
-.card-image {
-  display: block;
-  width: 100%;
-  height: 140px;
-  object-fit: cover;
-}
-
-.card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 10px;
-}
-
-.category-tag {
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 10.5px;
-  font-weight: 500;
-  background: var(--sage-bg);
-  color: var(--sage-text);
-  padding: 3px 8px;
-  border-radius: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
-.dday-tag {
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 10.5px;
-  font-weight: 500;
-  background: var(--coral-bg);
-  color: var(--coral-text);
-  padding: 3px 8px;
-  border-radius: 4px;
-}
-
-.market-card h3 {
-  font-family: "Space Grotesk", sans-serif;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--ink);
-  margin: 0 0 8px;
-  line-height: 1.3;
-}
-
-.market-meta {
-  font-family: "Inter", sans-serif;
-  font-size: 12.5px;
-  color: var(--ink-soft);
-  margin: 0 0 14px;
-}
-
-.market-meta.tight {
-  margin-bottom: 4px;
-}
-
-.card-bottom {
-  display: flex;
-  justify-content: space-between;
+.page-ellipsis {
+  min-width: 28px;
+  height: 36px;
+  display: inline-flex;
   align-items: center;
-  border-top: 1px dashed #d8cbb5;
-  padding-top: 12px;
-}
-
-.price-tag {
+  justify-content: center;
+  color: #8a7b66;
   font-family: "IBM Plex Mono", monospace;
-  font-weight: 500;
-  font-size: 13px;
-  color: var(--ink);
-}
-
-.price-tag.free {
-  color: var(--sage-text);
-}
-
-.card-arrow {
-  font-family: "Inter", sans-serif;
-  font-size: 12px;
-  color: var(--ink-soft);
-}
-
-/* ---------- 부스 신청 현황 게이지 ---------- */
-.booth-gauge {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px dashed #d8cbb5;
-  /* 색상 단계별 채움색 (data-level 로 전환) */
-  --gauge-fill: var(--sage);
-}
-.booth-gauge[data-level="mid"]  { --gauge-fill: var(--mustard); }
-.booth-gauge[data-level="high"] { --gauge-fill: var(--coral); }
-
-.booth-gauge-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 7px;
-}
-.booth-gauge-label {
-  font-family: "Inter", sans-serif;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--ink-soft);
-}
-.booth-gauge-count {
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 12px;
-  color: var(--ink-soft);
-}
-.booth-gauge-count strong {
   font-size: 14px;
-  color: var(--ink);
-}
-
-.booth-gauge-track {
-  position: relative;
-  height: 10px;
-  border-radius: 999px;
-  background: #ece2d0;
-  overflow: hidden;
-  box-shadow: inset 0 1px 2px rgba(20, 12, 6, 0.12);
-}
-.booth-gauge-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: var(--gauge-fill);
-  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
-  /* 은은한 줄무늬로 진행률을 강조 */
-  background-image: linear-gradient(
-    45deg,
-    rgba(255, 255, 255, 0.22) 25%, transparent 25%,
-    transparent 50%, rgba(255, 255, 255, 0.22) 50%,
-    rgba(255, 255, 255, 0.22) 75%, transparent 75%, transparent
-  );
-  background-size: 14px 14px;
-}
-
-.booth-gauge-foot {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-top: 6px;
-}
-.booth-gauge-pct {
-  font-family: "Space Grotesk", sans-serif;
-  font-weight: 700;
-  font-size: 14px;
-  color: var(--gauge-fill);
-}
-.booth-gauge-remain {
-  font-family: "Inter", sans-serif;
-  font-size: 11px;
-  color: var(--ink-soft);
+  user-select: none;
 }
 
 /* ---------- empty / footer ---------- */
 .empty-state {
   font-family: "Inter", sans-serif;
-  color: #cabba7;
+  color: #c7b8a3;
   text-align: center;
-  padding: 60px 0;
+  padding: 70px 0;
+  font-size: 15px;
 }
 
 .cta-banner {
-  margin-top: 48px;
-  padding: 22px 26px;
-  background: rgba(251, 246, 236, 0.06);
+  margin-top: 52px;
+  padding: 24px 28px;
+  background: rgba(251, 246, 236, 0.05);
   border: 1px dashed #6b5c4c;
-  border-radius: 8px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
   flex-wrap: wrap;
 }
-
 .cta-banner p {
   font-family: "Inter", sans-serif;
-  color: #e9dcc9;
+  color: #e4d8c5;
   font-size: 14px;
   margin: 0;
 }
 
-@media (max-width: 640px) {
-  .board { padding: 20px 16px 48px; }
-  .board-head h1 { font-size: 32px; }
+@media (max-width: 720px) {
+  .board { padding: 18px 18px 52px; }
+  .board-head h1 { font-size: 33px; }
   .nav-links { gap: 10px; }
+  .card-meta-grid { grid-template-columns: 1fr; }
 }
