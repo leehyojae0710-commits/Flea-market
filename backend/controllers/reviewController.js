@@ -23,7 +23,10 @@ export async function createReview(req, res) {
   try {
     const [rows] = await pool.query(
       `SELECT a.applicationId, a.sellerId, a.status, a.marketId,
-              (m.eventDate_max < CURDATE()) AS eventEnded
+              (m.eventDate_max < CURDATE()) AS eventEnded,
+              EXISTS(
+                SELECT 1 FROM payments p WHERE p.applicationId = a.applicationId AND p.status = 'Paid'
+              ) AS isPaid
        FROM applications a
        JOIN markets m ON m.marketId = a.marketId
        WHERE a.applicationId = ?`,
@@ -40,6 +43,9 @@ export async function createReview(req, res) {
     }
     if (application.status !== 'Approved') {
       return res.status(409).json({ success: false, data: null, message: '승인된 부스만 평가할 수 있습니다.' });
+    }
+    if (!application.isPaid) {
+      return res.status(409).json({ success: false, data: null, message: '결제가 완료된 부스만 평가할 수 있습니다.' });
     }
     if (!application.eventEnded) {
       return res.status(409).json({ success: false, data: null, message: '행사가 끝난 뒤에만 평가할 수 있습니다.' });

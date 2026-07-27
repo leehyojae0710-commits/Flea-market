@@ -135,73 +135,73 @@ function renderBoothCard(a) {
         <button type="button" class="btn btn-danger btn-sm" data-action="delete" data-id="${id}" ${isPending ? '' : 'disabled title="대기중인 신청만 취소할 수 있어요."'}>삭제</button>
         ${
           isApproved
-          ? `
-          <span class="payment-area">
-            <a class="btn btn-danger btn-sm" href="payment?applicationId=${id}&amount=${a.boothPrice}&orderName=${a.marketTitle + '부스료'}">
-            결제하기
-            </a>
-            <span class="payment-timer" data-due="${a.paymentDueAt}"></span>
-          </span>
-          `: ''
+          ? renderPaymentArea(a)
+          : ''
           }
       </div>
       ${status === 'Approved' ? renderReviewTrigger(a) : ''}
     </div>
-
-      ${renderBoothRecruitGauge(a)}
 
       ${status === 'Approved' && reviewOpenId === String(id) ? renderReviewForm(id) : ''}
       ${isExpanded ? renderBoothDetail(a) : ''}
     </div>`;
 }
 
-// ---------- 부스 모집 현황 게이지 ----------
-
-// 마켓의 총 부스 수 / 현재 신청된 부스 수 / 참여율(%)
-function getBoothRecruitStats(a) {
-  const total = Number(a.maxparticipants ?? a.maxParticipants) || 0;
-  const applied = Number(a.appliedBooths) || 0;
-  const pct = total > 0 ? Math.min(100, Math.round((applied / total) * 100)) : 0;
-  return { applied, total, pct };
+// 결제 기한 문자열을 안전하게 Date로 파싱 (없거나 형식이 이상하면 null)
+function parsePaymentDue(paymentDueAt) {
+  if (!paymentDueAt) return null;
+  const due = new Date(String(paymentDueAt).replace(' ', 'T'));
+  return isNaN(due.getTime()) ? null : due;
 }
 
-function boothRecruitLevel(pct) {
-  if (pct >= 80) return 'high'; // 마감 임박
-  if (pct >= 50) return 'mid'; // 보통
-  return 'low'; // 여유
+// 결제 마감이 지났는지(또는 기한 정보가 없는지) 여부
+function isPaymentTimedOut(a) {
+  const due = parsePaymentDue(a.paymentDueAt);
+  if (!due) return true; // 기한 정보가 없으면(결제 완료 후 NULL 포함) 타임아웃으로 취급
+  return due.getTime() - Date.now() <= 0;
 }
 
-// 부스 카드 하단에 붙는 모집 현황 게이지 (독립 클래스: mb-gauge-*)
-function renderBoothRecruitGauge(a) {
-  const { applied, total, pct } = getBoothRecruitStats(a);
-  if (total === 0) return '';
-  const level = boothRecruitLevel(pct);
+// 승인된 신청의 결제 영역: 결제 완료 / 타임아웃 / 결제하기+타이머 셋 중 하나만 렌더링
+function renderPaymentArea(a) {
+  const id = a.applicationId;
+
+  if (a.isPaid) {
+    return `
+      <span class="payment-area">
+        <span class="status-tag approved">결제 완료</span>
+      </span>`;
+  }
+
+  if (isPaymentTimedOut(a)) {
+    return `
+      <span class="payment-area">
+        <span class="status-tag rejected">타임아웃</span>
+      </span>`;
+  }
+
   return `
-    <div class="mb-gauge" data-level="${level}">
-      <div class="mb-gauge-head">
-        <span class="mb-gauge-title">부스 모집 현황</span>
-        <span class="mb-gauge-pct">${pct}%</span>
-      </div>
-      <div class="mb-gauge-track" role="progressbar"
-           aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"
-           aria-label="부스 모집률 ${pct}%">
-        <div class="mb-gauge-fill" style="width:${pct}%"></div>
-      </div>
-      <div class="mb-gauge-foot">
-        <span class="mb-gauge-count"><strong>${applied}</strong> / ${total} 부스 모집</span>
-      </div>
-    </div>`;
+    <span class="payment-area">
+      <a class="btn btn-danger btn-sm" href="payment?applicationId=${id}&amount=${a.boothPrice}&orderName=${a.marketTitle + '부스료'}">
+      결제하기
+      </a>
+      <span class="payment-timer" data-due="${a.paymentDueAt}"></span>
+    </span>`;
 }
 
 function updateTimers() {
   document.querySelectorAll('.payment-timer').forEach((timer) => {
-    const due = new Date(timer.dataset.due.replace(' ', 'T'));
-    const now = new Date();
+    const due = parsePaymentDue(timer.dataset.due);
 
-    const diff = due.getTime() - now.getTime();
+    // due가 없거나(NULL) 파싱 불가능한 값이면 NaN:NaN 대신 타임아웃으로 표시
+    if (!due) {
+      timer.textContent = '타임아웃';
+      return;
+    }
+
+    const diff = due.getTime() - Date.now();
 
     if (diff <= 0) {
-      timer.textContent = '결제시간 만료';
+      timer.textContent = '타임아웃';
       return;
     }
 
@@ -232,6 +232,7 @@ function renderReviewTrigger(a) {
   const id = a.applicationId;
   const hasReview = a.myRating !== null && a.myRating !== undefined;
   const eventEnded = isEventEnded(a);
+  const isPaid = !!a.isPaid;
 
   if (hasReview) {
     return `
@@ -242,9 +243,14 @@ function renderReviewTrigger(a) {
       </span>`;
   }
 
+  const canReview = isPaid && eventEnded;
+  let disabledTitle = '';
+  if (!isPaid) disabledTitle = '결제가 완료되어야 평가할 수 있어요.';
+  else if (!eventEnded) disabledTitle = '행사가 끝난 뒤에 평가할 수 있어요.';
+
   return `
     <button type="button" class="btn btn-outline btn-sm" data-action="review-toggle" data-id="${id}"
-      ${eventEnded ? '' : 'disabled title="행사가 끝난 뒤에 평가할 수 있어요."'}>
+      ${canReview ? '' : `disabled title="${disabledTitle}"`}>
       행사 평가하기
     </button>`;
 }
