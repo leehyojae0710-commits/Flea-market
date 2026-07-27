@@ -797,6 +797,18 @@ body {
 .kr-region-label.is-active .kr-label-name,
 .kr-region-label.is-active .kr-label-count { fill: var(--mustard-text); }
 
+.kr-island { cursor: pointer; outline: none; }
+.kr-island-dot {
+  fill: #c9c9c9;
+  stroke: #3a5268; stroke-width: 0.8;
+  transition: fill .15s, filter .15s, stroke .15s;
+}
+.kr-island:hover .kr-island-dot { filter: brightness(1.12); stroke: #fff; stroke-width: 1; }
+.kr-island:focus-visible .kr-island-dot { stroke: #fff; stroke-width: 1.4; }
+.kr-island.is-active .kr-island-dot { fill: var(--mustard); stroke: var(--mustard-dark); stroke-width: 1.2; }
+.kr-island-label { fill: #2a2118; font-size: 9.5px; font-weight: 700; font-family: inherit; }
+.kr-island.is-active .kr-island-label { fill: var(--mustard-dark); }
+
 /* 우측 행사 카드 영역: 넓은 3×2, 페이지 전체 스크롤 (내부 스크롤 없음) */
 .region-events { min-width: 0; }
 .region-events .market-grid {

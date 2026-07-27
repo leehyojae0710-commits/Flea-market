@@ -3,7 +3,7 @@
 
 import pool from '../config/db.js';
 
-// GET /api/markets?region=&sort=latest|eventDate&includeExpired=
+// GET /api/markets?region=&sort=latest|eventDate|priceLow&includeExpired=
 export async function getMarketList(req, res) {
   const { region, sort } = req.query;
   const includeExpired = req.query.includeExpired === 'true';
@@ -29,7 +29,13 @@ export async function getMarketList(req, res) {
     if (region) { conditions.push('m.region = ?'); values.push(region); }
     if (conditions.length > 0) sql += ` WHERE ${conditions.join(' AND ')}`;
 
-    sql += sort === 'eventDate' ? ' ORDER BY m.eventDate_min ASC' : ' ORDER BY m.marketId DESC';
+    if (sort === 'eventDate') {
+      sql += ' ORDER BY m.eventDate_min ASC';
+    } else if (sort === 'priceLow') {
+      sql += ' ORDER BY m.boothPrice ASC';
+    } else {
+      sql += ' ORDER BY m.marketId DESC';
+    }
 
     const [rows] = await pool.query(sql, values);
     return res.status(200).json({ success: true, data: rows, message: '마켓 목록을 조회했습니다.' });

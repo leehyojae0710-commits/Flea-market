@@ -67,6 +67,14 @@ let currentTab = "recruiting"; // 'recruiting' | 'ongoing' | 'upcoming' | 'ended
 let currentPage = 1;
 let lastFetchedMarkets = [];
 let currentTabList = [];
+// 지도(전국 지역별 카운트)는 지역/정렬 필터와 무관하게 "전체 마켓" 기준으로 유지하되,
+// 상태 탭(모집중/진행중/진행예정/종료)이 바뀔 때는 그 상태에 맞춰 숫자를 다시 계산합니다.
+let allMarketsForMap = [];
+
+function renderRegionMapForCurrentTab() {
+  if (!window.RegionMap) return;
+  window.RegionMap.render(filterByTab(allMarketsForMap, currentTab));
+}
 
 // [통일] 카드 하나의 상태를 하나의 기준으로만 판정
 // 우선순위: 종료 > 모집 중(모집 기간 안) > 행사 중(행사 기간 안) > 진행 예정(그 외, 행사 시작 전)
@@ -327,7 +335,9 @@ function fmtDate(v) {
 }
 
 function toBackendSort(sort) {
-  return sort === "latest" ? "latest" : "eventDate";
+  if (sort === "latest") return "latest";
+  if (sort === "priceLow") return "priceLow";
+  return "eventDate";
 }
 
 async function getMarketList(params = {}) {
@@ -355,6 +365,8 @@ function applyFilterSort(markets, { region, sort } = {}) {
   if (region) list = list.filter((m) => m.region === region);
   if (sort === "latest") {
     list = [...list].sort((a, b) => b.marketId - a.marketId);
+  } else if (sort === "priceLow") {
+    list = [...list].sort((a, b) => Number(a.boothPrice || 0) - Number(b.boothPrice || 0));
   } else {
     list = [...list].sort(
       (a, b) => daysUntil(a.eventDate_min) - daysUntil(b.eventDate_min)
@@ -573,6 +585,7 @@ function handleStatusTabClick() {
         t.setAttribute("aria-selected", String(isActive));
       });
       applyTabAndRender({ resetPage: true });
+      renderRegionMapForCurrentTab();
     });
   });
 }
@@ -661,10 +674,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 지역 옵션은 전체 목록 기준으로 한 번만 채움
   const allMarkets = await getMarketList({});
   lastFetchedMarkets = allMarkets;
+  allMarketsForMap = allMarkets;
   populateRegionOptions(allMarkets);
 
-  // 지도/지역 목록 렌더 (전체 목록 기준 지역별 개수 표시)
-  if (window.RegionMap) window.RegionMap.render(allMarkets);
+  // 지도/지역 목록 렌더 (현재 선택된 상태 탭 기준 지역별 개수 표시)
+  renderRegionMapForCurrentTab();
 
   await handleFilterChange();
 });

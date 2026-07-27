@@ -16,6 +16,13 @@
     경남: "#bdccaa", 대구: "#c6cfa4", 울산: "#b4c4a2", 부산: "#accaa2", 제주: "#d6ac9c",
   };
 
+  // 울릉도·독도 (행정구역상 경상북도 울릉군) — 지도 우측 상단 바다 위에 작은 섬으로 표시.
+  // 클릭하면 경북과 동일하게 선택되어 필터/강조가 함께 연동됩니다.
+  const ISLANDS = [
+    { key: "울릉도", cx: 372, cy: 148, r: 4.2, region: "경북" },
+    { key: "독도", cx: 404, cy: 176, r: 3, region: "경북" },
+  ];
+
   // 소형·밀집 지역 라벨은 지도 옆 여백으로 빼서 지시선으로 연결 (겹침 방지)
   // [dx, dy] = 지역 중심 기준 이동. leader:true 면 지시선을 그림.
   const LABEL_OFFSET = {
@@ -143,6 +150,39 @@
       label.style.cursor = "pointer";
       label.addEventListener("click", select);
     });
+
+    // 울릉도·독도 마커 (경북 소속 — 클릭 시 경북과 동일하게 선택됨)
+    ISLANDS.forEach((island) => {
+      const g = document.createElementNS(SVG_NS, "g");
+      g.setAttribute("class", "kr-island");
+      g.setAttribute("data-region", island.region);
+      g.setAttribute("tabindex", "0");
+      g.setAttribute("role", "button");
+      g.setAttribute("aria-label", `${island.key} (경상북도 울릉군)`);
+
+      const dot = document.createElementNS(SVG_NS, "circle");
+      dot.setAttribute("cx", island.cx);
+      dot.setAttribute("cy", island.cy);
+      dot.setAttribute("r", island.r);
+      dot.setAttribute("class", "kr-island-dot");
+      g.appendChild(dot);
+
+      const label = document.createElementNS(SVG_NS, "text");
+      label.setAttribute("x", island.cx);
+      label.setAttribute("y", island.cy - island.r - 4);
+      label.setAttribute("text-anchor", "middle");
+      label.setAttribute("class", "kr-island-label");
+      label.textContent = island.key;
+      g.appendChild(label);
+
+      const select = () => selectRegion(island.region === currentRegion ? "" : island.region);
+      g.addEventListener("click", select);
+      g.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(); }
+      });
+      labelLayer.appendChild(g);
+    });
+
     return svg;
   }
 
@@ -208,6 +248,9 @@
     });
     document.querySelectorAll(".kr-region-list-item").forEach((li) => {
       li.classList.toggle("is-active", li.dataset.region === currentRegion);
+    });
+    document.querySelectorAll(".kr-island").forEach((el) => {
+      el.classList.toggle("is-active", el.dataset.region === currentRegion);
     });
   }
 

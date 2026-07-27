@@ -38,7 +38,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // 2. 메인페이지용: 서버 검색 요청 및 결과 저장
   async function fetchSearchResults(keyword) {
     try {
-      const response = await fetch(`http://localhost:5000/api/search?keyword=${encodeURIComponent(keyword)}&type=market`);
+      // main.js에서 관리하는 현재 선택된 탭(모집 중/진행 중/진행 예정/종료)과
+      // 정렬 드롭다운 값(마감임박순/최신등록순/낮은가격순)을 함께 전달
+      const tab = typeof currentTab !== 'undefined' ? currentTab : '';
+      const sortValue = document.getElementById('sort-filter')?.value || '';
+      const sort = typeof toBackendSort === 'function' ? toBackendSort(sortValue) : sortValue;
+      const response = await fetch(`http://localhost:5000/api/search?keyword=${encodeURIComponent(keyword)}&type=market&tab=${encodeURIComponent(tab)}&sort=${encodeURIComponent(sort)}`);
       if (!response.ok) throw new Error(`서버 응답 오류: ${response.status}`);
 
       const data = await response.json();
@@ -202,6 +207,23 @@ document.addEventListener('DOMContentLoaded', () => {
       submitBtn.click();
     }
   });
+
+  // 7. 탭(진행 중/모집 중/진행 예정/종료) 전환 시, 검색 중이던 키워드가 있으면 그 탭 기준으로 재검색
+  //    (main.js의 탭 클릭 핸들러가 currentTab을 먼저 갱신한 뒤 이 리스너가 실행됨: 같은 버튼에 나중에 등록됐기 때문)
+  if (isMainPage) {
+    document.querySelectorAll('.status-tab').forEach((tabBtn) => {
+      tabBtn.addEventListener('click', () => {
+        const keyword = inputEl.value.trim();
+        if (keyword) fetchSearchResults(keyword);
+      });
+    });
+
+    // 정렬 드롭다운 변경 시에도, 검색 중이던 키워드가 있으면 그 정렬 기준으로 재검색
+    document.getElementById('sort-filter')?.addEventListener('change', () => {
+      const keyword = inputEl.value.trim();
+      if (keyword) fetchSearchResults(keyword);
+    });
+  }
 
   // Helper: 직접 카드를 그릴 때
   function renderMarketCardsDirectly(targetContainer, markets) {
