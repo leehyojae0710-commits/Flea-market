@@ -46,24 +46,56 @@ function isEndedNow(m) {
   return isExpiredByDate(m.eventDate_max);
 }
 
+// [추가] 진행 예정 행사: 아직 행사 시작일(eventDate_min) 전인 마켓
+function isUpcomingNow(m) {
+  const today = todayMidnight();
+  const min = new Date(m.eventDate_min);
+  min.setHours(0, 0, 0, 0);
+  return today < min;
+}
+
 function filterByTab(markets, tab) {
   if (tab === "ongoing") return markets.filter(isOngoingNow);
+  if (tab === "upcoming") return markets.filter(isUpcomingNow);
   if (tab === "ended") return markets.filter(isEndedNow);
   return markets.filter(isRecruitingNow);
 }
 
 // [상태/페이지네이션]
 const PAGE_SIZE = 9; // 3 x 3
-let currentTab = "recruiting";
+let currentTab = "recruiting"; // 'recruiting' | 'ongoing' | 'upcoming' | 'ended'
 let currentPage = 1;
 let lastFetchedMarkets = [];
 let currentTabList = [];
 
-function ddayLabel(m) {
-  if (isExpiredByDate(m.eventDate_max)) return "종료";
+// [통일] 카드 하나의 상태를 하나의 기준으로만 판정
+// 우선순위: 종료 > 모집 중(모집 기간 안) > 행사 중(행사 기간 안) > 진행 예정(그 외, 행사 시작 전)
+function getMarketStatus(m) {
+  if (isEndedNow(m)) return "ended";
+  if (isRecruitingNow(m)) return "recruiting";
+  if (isOngoingNow(m)) return "ongoing";
+  return "upcoming";
+}
+
+// [통일] D-day는 상태별로 "그 상태가 끝나는 기준일"까지 남은 일수
+// - 모집 중: 모집 마지막날(recruitmentDate_max)까지
+// - 행사 중: 행사 마지막날(eventDate_max)까지
+// - 진행 예정: 행사 시작날(eventDate_min)까지
+// - 종료: 표시하지 않음
+function ddayLabel(m, status) {
+  if (status === "ended") return null;
+  if (status === "recruiting") {
+    const d = daysUntil(m.recruitmentDate_max);
+    if (d <= 0) return "오늘 마감";
+    return `마감 D-${d}`;
+  }
+  if (status === "ongoing") {
+    const d = daysUntil(m.eventDate_max);
+    if (d <= 0) return "오늘 마감";
+    return `마감 D-${d}`;
+  }
   const d = daysUntil(m.eventDate_min);
-  if (d < 0) return "종료";
-  if (d === 0) return "D-DAY";
+  if (d <= 0) return "D-DAY";
   return `D-${d}`;
 }
 
@@ -212,20 +244,16 @@ function renderBoothGauge(m) {
     </div>`;
 }
 
-// [리디자인] 상태 배지 (모집중 / 마감임박 / 진행중 / 종료) - 참여율과 날짜로 판정
-function renderStatusBadge(m) {
-  if (isEndedNow(m)) {
-    return `<span class="status-badge ended">종료</span>`;
-  }
-  if (isOngoingNow(m)) {
-    return `<span class="status-badge ongoing">진행 중</span>`;
-  }
-  if (isRecruitingNow(m)) {
+// [리디자인] 상태 배지 (모집중 / 마감임박 / 행사중 / 진행예정 / 종료) - getMarketStatus 하나로 통일
+function renderStatusBadge(status, m) {
+  if (status === "ended") return `<span class="status-badge ended">종료</span>`;
+  if (status === "recruiting") {
     const { pct } = getBoothStats(m);
     if (pct >= 80) return `<span class="status-badge closing">마감 임박</span>`;
     return `<span class="status-badge recruiting">모집 중</span>`;
   }
-  // 어느 상태에도 안 걸리면 배지 생략
+  if (status === "ongoing") return `<span class="status-badge ongoing">행사 중</span>`;
+  // upcoming: 배지 없이 D-day만 표시
   return "";
 }
 
@@ -235,16 +263,21 @@ function getMarketImageSrc(marketImage) {
   return marketImage.startsWith("http") ? marketImage : `${API_BASE_URL}${marketImage}`;
 }
 
+// marketId -> market 원본 데이터 매핑 (이미지 onerror 시 배지를 다시 그리기 위해 필요)
+window.__fleaMarketMap = window.__fleaMarketMap || {};
+
 // 이미지가 없을 때 쓸 대체 배너 (제목 첫 글자를 크게 노출 → 데이터 소실 없이 자연스럽게)
 function renderCardVisual(m, imageSrc) {
   const safeTitle = (m.title || "플리마켓").replace(/"/g, "&quot;");
   if (imageSrc) {
-    // onerror: 깨진 이미지 URL일 때 자동으로 대체 배너로 폴백 (충돌/공백 방지)
+    // onerror에서 배지를 다시 그릴 수 있도록 marketId로 원본 데이터를 찾아옴
+    window.__fleaMarketMap[m.marketId] = m;
+    // onerror: 깨진 이미지 URL일 때 자동으로 대체 배너로 폴백 (배지도 함께 복원)
     return `
       <div class="card-image-wrap">
         <img class="card-image" src="${imageSrc}" alt="${safeTitle} 대표 이미지"
              loading="lazy"
-             onerror="this.closest('.card-image-wrap').outerHTML = window.__fleaFallback('${safeTitle}');" />
+             onerror="this.closest('.card-image-wrap').outerHTML = window.__fleaFallback('${m.marketId}', '${safeTitle}');" />
         ${renderCardBadges(m)}
       </div>`;
   }
@@ -262,8 +295,11 @@ function renderFallbackVisual(m, safeTitle) {
     </div>`;
 }
 
-// 이미지 로드 실패 시 onerror에서 호출 (배지 없이 순수 배너만 - 인라인 안전용)
-window.__fleaFallback = function (safeTitle) {
+// 이미지 로드 실패 시 onerror에서 호출 (marketId로 원본 데이터를 찾아 배지까지 그대로 복원)
+window.__fleaFallback = function (marketId, safeTitle) {
+  const m = window.__fleaMarketMap[marketId];
+  if (m) return renderFallbackVisual(m, safeTitle);
+  // 원본 데이터를 못 찾은 경우에만 배지 없이 순수 배너로 폴백
   return `
     <div class="card-image-fallback">
       <div class="fb-inner">
@@ -274,10 +310,12 @@ window.__fleaFallback = function (safeTitle) {
 };
 
 function renderCardBadges(m) {
+  const status = getMarketStatus(m);
+  const dday = ddayLabel(m, status);
   return `
     <div class="card-badges">
-      ${renderStatusBadge(m)}
-      <span class="dday-badge">${ddayLabel(m)}</span>
+      ${renderStatusBadge(status, m)}
+      ${dday ? `<span class="dday-badge">${dday}</span>` : ""}
     </div>`;
 }
 
@@ -343,11 +381,13 @@ function populateRegionOptions(markets) {
 const TAB_COUNT_SUFFIX = {
   recruiting: "개 마켓 모집 중",
   ongoing: "개 마켓 진행 중",
+  upcoming: "개 마켓 진행 예정",
   ended: "개 마켓 종료",
 };
 const TAB_EMPTY_MESSAGE = {
   recruiting: "조건에 맞는 모집 중인 마켓이 없어요. 다른 지역을 선택해 보세요.",
   ongoing: "조건에 맞는 진행 중인 마켓이 없어요. 다른 지역을 선택해 보세요.",
+  upcoming: "조건에 맞는 진행 예정인 마켓이 없어요. 다른 지역을 선택해 보세요.",
   ended: "조건에 맞는 종료된 마켓이 없어요. 다른 지역을 선택해 보세요.",
 };
 

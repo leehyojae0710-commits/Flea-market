@@ -359,6 +359,7 @@ body {
   background: rgba(251, 246, 236, 0.94);
   color: var(--ink);
   box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  margin-left: auto; /* 상태 배지가 없어도(진행 예정) 항상 오른쪽 끝에 고정 */
 }
 
 /* ----- 본문 ----- */
