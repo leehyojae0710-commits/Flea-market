@@ -492,10 +492,30 @@ body {
   color: var(--ink-soft);
 }
 
+.comment-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 .comment-delete-btn {
   padding: 3px 10px;
   font-size: 11.5px;
 }
+
+.comment-edit-btn {
+  background: none;
+  border: none;
+  padding: 3px 4px;
+  font-family: "Inter", sans-serif;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+  text-decoration: underline;
+}
+.comment-edit-btn:hover { color: var(--ink); }
 
 .comment-content {
   font-size: 13.5px;
@@ -503,6 +523,15 @@ body {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+.comment-edit-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.comment-edit-form .form-field { flex: 1; margin-bottom: 0; }
+.comment-edit-form .comment-edit-input { font-size: 13px; padding: 6px 10px; }
 
 .comment-item-reply {
   margin-left: 22px;

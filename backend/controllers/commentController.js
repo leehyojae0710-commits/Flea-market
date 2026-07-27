@@ -63,3 +63,38 @@ export async function getCommentList(req, res) {
     return res.status(500).json({ success: false, data: null, message: '서버 오류로 댓글 목록 조회에 실패했습니다.' });
   }
 }
+
+// PATCH /api/comments/:commentId (로그인 필요, 본인 댓글만)
+export async function updateComment(req, res) {
+  const { commentId } = req.params;
+  const { userId } = req.user;
+  const { content } = req.body;
+
+  if (!content || !content.trim()) {
+    return res.status(400).json({ success: false, data: null, message: 'content는 필수입니다.' });
+  }
+
+  try {
+    const [rows] = await pool.query('SELECT userId FROM comments WHERE commentId = ?', [commentId]);
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, data: null, message: '존재하지 않는 댓글입니다.' });
+    }
+    if (rows[0].userId !== userId) {
+      return res.status(403).json({ success: false, data: null, message: '본인이 작성한 댓글만 수정할 수 있습니다.' });
+    }
+
+    await pool.query(
+      'UPDATE comments SET content = ?, updatedAt = CURRENT_TIMESTAMP WHERE commentId = ?',
+      [content.trim(), commentId]
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: { commentId: Number(commentId), content: content.trim() },
+      message: '댓글이 수정되었습니다.',
+    });
+  } catch (error) {
+    console.error('댓글 수정 오류:', error.message);
+    return res.status(500).json({ success: false, data: null, message: '서버 오류로 댓글 수정에 실패했습니다.' });
+  }
+}

@@ -1,7 +1,7 @@
 // backend/routes/commentRoutes.js
 // 담당 D: 댓글 (공고/판매자 페이지 공용)
 import express from 'express';
-import { createComment, getCommentList } from '../controllers/commentController.js';
+import { createComment, getCommentList, updateComment } from '../controllers/commentController.js';
 import { deleteComment } from '../controllers/dbdeleteController.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 
@@ -91,6 +91,56 @@ const router = express.Router();
  */
 router.post('/', authenticateToken, createComment);
 router.get('/', getCommentList);
+
+/**
+ * @swagger
+ * /comments/{commentId}:
+ *   patch:
+ *     summary: 댓글 수정 (본인 댓글만)
+ *     tags: [Comments]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [content]
+ *             properties:
+ *               content: { type: string }
+ *     responses:
+ *       200:
+ *         description: 수정 성공
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ApiEnvelope' }
+ *       400:
+ *         description: content 누락
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       403:
+ *         description: 본인 댓글이 아님
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       404:
+ *         description: 존재하지 않는 댓글
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         description: 서버 오류
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ */
+router.patch('/:commentId', authenticateToken, updateComment);
 
 /**
  * @swagger

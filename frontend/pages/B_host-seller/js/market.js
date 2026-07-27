@@ -46,6 +46,10 @@ async function deleteCommentApi(commentId) {
   return callApi(`/comments/${commentId}`, { method: 'DELETE' });
 }
 
+async function updateCommentApi(commentId, content) {
+  return callApi(`/comments/${commentId}`, { method: 'PATCH', body: { content } });
+}
+
 // ---------- 화면 피드백 유틸 ----------
 
 function renderAlert(message, type = 'error') {
@@ -503,6 +507,14 @@ function handleBoothApplySubmit() {
 
 // ---------- 댓글 ----------
 
+function escapeAttr(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 function buildCommentTree(comments) {
   const byId = new Map();
   comments.forEach((c) => byId.set(c.commentId, { ...c, replies: [] }));
@@ -526,9 +538,14 @@ function renderCommentNode(c, isReply) {
     <div class="comment-item${isReply ? ' comment-item-reply' : ''}" data-comment-id="${c.commentId}">
       <div class="comment-item-top">
         <div class="comment-nickname">${c.nickname || '알 수 없음'}</div>
-        ${isMine ? `<button type="button" class="btn btn-danger btn-sm comment-delete-btn" data-comment-id="${c.commentId}">삭제</button>` : ''}
+        ${isMine ? `
+          <div class="comment-item-actions">
+            <button type="button" class="comment-edit-btn" data-comment-id="${c.commentId}">수정</button>
+            <button type="button" class="btn btn-danger btn-sm comment-delete-btn" data-comment-id="${c.commentId}">삭제</button>
+          </div>` : ''}
       </div>
-      <div class="comment-content">${c.content}</div>
+      <div class="comment-content" data-content-for="${c.commentId}">${c.content}</div>
+      <div class="comment-edit-form-slot" data-edit-slot-for="${c.commentId}"></div>
       ${!isReply ? `<button type="button" class="comment-reply-btn" data-comment-id="${c.commentId}">답글달기</button>` : ''}
       <div class="comment-reply-form-slot" data-slot-for="${c.commentId}"></div>
       ${(c.replies || []).map((r) => renderCommentNode(r, true)).join('')}
@@ -559,6 +576,17 @@ function renderReplyForm(parentId) {
     </form>`;
 }
 
+function renderEditForm(commentId, content) {
+  return `
+    <form class="comment-edit-form" data-comment-id="${commentId}">
+      <div class="form-field">
+        <input type="text" class="form-input comment-edit-input" value="${escapeAttr(content)}" required />
+      </div>
+      <button type="submit" class="btn btn-outline btn-sm">저장</button>
+      <button type="button" class="btn btn-outline btn-sm comment-edit-cancel">취소</button>
+    </form>`;
+}
+
 async function handleCommentDelete(commentId) {
   if (!commentId) return;
   const confirmed = confirm('이 댓글을 삭제하시겠습니까? 답글이 달려있다면 함께 삭제됩니다.');
@@ -571,6 +599,22 @@ async function handleCommentDelete(commentId) {
       await loadCommentList();
     } else {
       renderAlert(res?.message || '댓글 삭제에 실패했어요.');
+    }
+  } catch (err) {
+    renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
+  }
+}
+
+async function handleCommentUpdate(commentId, content) {
+  if (!commentId || !content) return;
+
+  hideAlert();
+  try {
+    const res = await updateCommentApi(commentId, content);
+    if (res && res.success) {
+      await loadCommentList();
+    } else {
+      renderAlert(res?.message || '댓글 수정에 실패했어요.');
     }
   } catch (err) {
     renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
@@ -602,10 +646,48 @@ function handleCommentReplyClick() {
     const deleteBtn = e.target.closest('.comment-delete-btn');
     if (deleteBtn) {
       handleCommentDelete(deleteBtn.dataset.commentId);
+      return;
+    }
+
+    const editBtn = e.target.closest('.comment-edit-btn');
+    if (editBtn) {
+      const commentId = editBtn.dataset.commentId;
+      const slot = wrap.querySelector(`.comment-edit-form-slot[data-edit-slot-for="${commentId}"]`);
+      const contentEl = wrap.querySelector(`.comment-content[data-content-for="${commentId}"]`);
+      if (!slot) return;
+      if (slot.innerHTML) {
+        slot.innerHTML = '';
+        if (contentEl) contentEl.hidden = false;
+      } else {
+        slot.innerHTML = renderEditForm(commentId, contentEl ? contentEl.textContent : '');
+        if (contentEl) contentEl.hidden = true;
+      }
+      return;
+    }
+
+    const editCancelBtn = e.target.closest('.comment-edit-cancel');
+    if (editCancelBtn) {
+      const slot = editCancelBtn.closest('.comment-edit-form-slot');
+      if (slot) {
+        const commentId = slot.dataset.editSlotFor;
+        const contentEl = wrap.querySelector(`.comment-content[data-content-for="${commentId}"]`);
+        if (contentEl) contentEl.hidden = false;
+        slot.innerHTML = '';
+      }
     }
   });
 
   wrap.addEventListener('submit', async (e) => {
+    const editForm = e.target.closest('.comment-edit-form');
+    if (editForm) {
+      e.preventDefault();
+      const input = editForm.querySelector('.comment-edit-input');
+      const content = input.value.trim();
+      if (!content) return;
+      await handleCommentUpdate(editForm.dataset.commentId, content);
+      return;
+    }
+
     const form = e.target.closest('.comment-reply-form');
     if (!form) return;
     e.preventDefault();
