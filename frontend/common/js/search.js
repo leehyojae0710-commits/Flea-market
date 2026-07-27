@@ -70,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (typeof displayMarkets === 'function') {
       displayMarkets(pagedMarkets);
     } else if (typeof renderMarketList === 'function') {
-      renderMarketList(pagedMarkets);
+      renderMarketList(pagedMarkets, totalItems);
     } else {
       renderMarketCardsDirectly(container, pagedMarkets);
     }
