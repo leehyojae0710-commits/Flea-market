@@ -10,7 +10,11 @@ export async function getMarketList(req, res) {
 
   try {
     let sql = `
-      SELECT m.*
+      SELECT m.*,
+        (SELECT COUNT(*) FROM applications a
+          WHERE a.marketId = m.marketId
+            AND a.status IN ('Pending', 'Approved', 'Paid')
+        ) AS appliedBooths
       FROM markets m
       JOIN users u ON u.userId = m.hostId
     `;

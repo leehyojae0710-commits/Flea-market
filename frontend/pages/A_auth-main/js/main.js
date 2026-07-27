@@ -88,6 +88,44 @@ function formatPrice(price) {
   return n === 0 ? "무료 참가" : `참가비 ${n.toLocaleString()}원`;
 }
 
+// [추가] 부스 신청 현황: 신청 부스 수 / 총 부스 수 와 참여 비율(%) 계산
+function getBoothStats(m) {
+  const total = Number(m.maxparticipants ?? m.maxParticipants) || 0;
+  const applied = Number(m.appliedBooths) || 0;
+  const pct = total > 0 ? Math.min(100, Math.round((applied / total) * 100)) : 0;
+  return { applied, total, pct };
+}
+
+// [추가] 참여율에 따라 색상 단계(여유/보통/마감임박)를 나눕니다.
+function boothLevel(pct) {
+  if (pct >= 80) return "high";   // 마감 임박
+  if (pct >= 50) return "mid";    // 보통
+  return "low";                   // 여유
+}
+
+// [추가] 카드 하단에 들어갈 부스 참여율 그래프 HTML
+function renderBoothGauge(m) {
+  const { applied, total, pct } = getBoothStats(m);
+  if (total === 0) return ""; // 총 부스 수가 없으면 표시하지 않음
+  const level = boothLevel(pct);
+  return `
+    <div class="booth-gauge" data-level="${level}">
+      <div class="booth-gauge-head">
+        <span class="booth-gauge-label">부스 신청 현황</span>
+        <span class="booth-gauge-count"><strong>${applied}</strong> / ${total} 부스</span>
+      </div>
+      <div class="booth-gauge-track" role="progressbar"
+           aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"
+           aria-label="부스 신청률 ${pct}%">
+        <div class="booth-gauge-fill" style="width:${pct}%"></div>
+      </div>
+      <div class="booth-gauge-foot">
+        <span class="booth-gauge-pct">${pct}%</span>
+        <span class="booth-gauge-remain">${pct >= 100 ? "마감" : `잔여 ${total - applied}부스`}</span>
+      </div>
+    </div>`;
+}
+
 // market-detail-extra.js의 renderMarketImage()와 동일한 규칙:
 // 절대 URL(http로 시작)이면 그대로, 아니면 백엔드 API_BASE_URL을 붙여서 완성합니다.
 function getMarketImageSrc(marketImage) {
@@ -206,6 +244,7 @@ function renderMarketList(pageMarkets, totalCount) {
           <span class="price-tag ${Number(m.boothPrice) === 0 ? "free" : ""}">${formatPrice(m.boothPrice)}</span>
           <span class="card-arrow">자세히 보기 →</span>
         </div>
+        ${renderBoothGauge(m)}
       </a>`;
     })
     .join("");
