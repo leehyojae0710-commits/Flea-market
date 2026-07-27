@@ -663,5 +663,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   lastFetchedMarkets = allMarkets;
   populateRegionOptions(allMarkets);
 
+  // 지도/지역 목록 렌더 (전체 목록 기준 지역별 개수 표시)
+  if (window.RegionMap) window.RegionMap.render(allMarkets);
+
   await handleFilterChange();
 });

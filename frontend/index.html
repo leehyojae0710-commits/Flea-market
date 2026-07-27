@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="common/css/style.css" />
-  <link rel="stylesheet" href="pages/A_auth-main/css/main.css?v=5" />
+  <link rel="stylesheet" href="pages/A_auth-main/css/main.css?v=8" />
   <link rel="stylesheet" href="/common/css/search.css" />
 </head>
 <body>
@@ -55,9 +55,29 @@
       </div>
     </section>
 
-    <section id="market-grid" class="market-grid" aria-live="polite"></section>
-    <p id="empty-state" class="empty-state" hidden>조건에 맞는 열려 있는 마켓이 없어요. 다른 지역을 선택해 보세요.</p>
-    <nav id="pagination" class="pagination" aria-label="마켓 목록 페이지"></nav>
+    <section class="region-explorer" aria-label="지역별 플리마켓 현황">
+      <aside class="region-panel">
+        <h2 class="region-panel-title">전국 한눈에 보기</h2>
+        <p class="region-panel-sub">지역을 클릭하면 해당 지역의 행사를 확인할 수 있어요.</p>
+        <div id="kr-region-list-host"></div>
+        <div class="region-total-box">
+          <span class="region-total-label">등록된 전국 행사</span>
+          <span class="region-total-value"><strong id="kr-total-count">0</strong>개</span>
+        </div>
+      </aside>
+
+      <div class="region-map-wrap">
+        <h2 class="region-map-title">지역별 플리마켓 현황</h2>
+        <p class="region-map-sub">원하는 지역을 클릭해보세요!</p>
+        <div id="kr-map" class="kr-map"></div>
+      </div>
+
+      <div class="region-events">
+        <section id="market-grid" class="market-grid" aria-live="polite"></section>
+        <p id="empty-state" class="empty-state" hidden>조건에 맞는 열려 있는 마켓이 없어요. 다른 지역을 선택해 보세요.</p>
+        <nav id="pagination" class="pagination" aria-label="마켓 목록 페이지"></nav>
+      </div>
+    </section>
 
     <footer class="cta-banner">
       <p>관심 있는 마켓을 놓치지 마세요. 로그인하면 개최 알림을 받아볼 수 있어요.</p>
@@ -66,7 +86,9 @@
   </div>
 
   <script src="common/js/api.js?v=2"></script>
-  <script src="pages/A_auth-main/js/main.js?v=6"></script>
+  <script src="pages/A_auth-main/js/kr-map-data.js?v=1"></script>
+  <script src="pages/A_auth-main/js/region-map.js?v=2"></script>
+  <script src="pages/A_auth-main/js/main.js?v=7"></script>
   <script src="/common/js/search.js"></script>
 </body>
 </html>
