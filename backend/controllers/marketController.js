@@ -493,7 +493,14 @@ export async function getMyMarket(req, res) {
   const { userId } = req.user;
   try {
     const [rows] = await pool.query(
-      'SELECT * FROM markets WHERE hostId = ? ORDER BY isExpired ASC, updated_at DESC',
+      `SELECT m.*,
+         (SELECT COUNT(*) FROM applications a
+            WHERE a.marketId = m.marketId
+              AND a.status IN ('Pending', 'Approved', 'Paid')
+         ) AS appliedBooths
+       FROM markets m
+       WHERE m.hostId = ?
+       ORDER BY m.isExpired ASC, m.updated_at DESC`,
       [userId]
     );
     // 밑에 코드는 참여자 수 까지 가져오는 코드지만 아직 applications db가 완성 되지 않아 보류

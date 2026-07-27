@@ -62,6 +62,44 @@ let myMarkets = [];
 let statusFilter = '';
 let expandedId = null; // 상세정보가 펼쳐진 마켓 id
 
+// ---------- 부스 모집 현황 게이지 ----------
+
+// 마켓의 총 부스 수 / 현재 신청된 부스 수 / 참여율(%)
+function getBoothRecruitStats(m) {
+  const total = Number(m.maxparticipants ?? m.maxParticipants) || 0;
+  const applied = Number(m.appliedBooths) || 0;
+  const pct = total > 0 ? Math.min(100, Math.round((applied / total) * 100)) : 0;
+  return { applied, total, pct };
+}
+
+function boothRecruitLevel(pct) {
+  if (pct >= 80) return 'high'; // 마감 임박
+  if (pct >= 50) return 'mid'; // 보통
+  return 'low'; // 여유
+}
+
+// 마켓 카드 하단에 붙는 모집 현황 게이지 (판매자 화면과 동일한 mb-gauge-* 스타일 재사용)
+function renderBoothRecruitGauge(m) {
+  const { applied, total, pct } = getBoothRecruitStats(m);
+  if (total === 0) return '';
+  const level = boothRecruitLevel(pct);
+  return `
+    <div class="mb-gauge" data-level="${level}">
+      <div class="mb-gauge-head">
+        <span class="mb-gauge-title">부스 모집 현황</span>
+        <span class="mb-gauge-pct">${pct}%</span>
+      </div>
+      <div class="mb-gauge-track" role="progressbar"
+           aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"
+           aria-label="부스 모집률 ${pct}%">
+        <div class="mb-gauge-fill" style="width:${pct}%"></div>
+      </div>
+      <div class="mb-gauge-foot">
+        <span class="mb-gauge-count"><strong>${applied}</strong> / ${total} 부스 모집</span>
+      </div>
+    </div>`;
+}
+
 // ---------- 렌더링 (목록 전체) ----------
 
 function renderMarketList() {
@@ -140,6 +178,8 @@ function renderMarketItem(market) {
     <button type="button" class="btn btn-danger btn-sm" data-action="delete" data-id="${id}">취소하기</button>
     <a class="btn btn-sage btn-sm" href="market-detail?marketId=${id}">보러가기</a>
   </div>
+
+  ${renderBoothRecruitGauge(market)}
 
   <!-- 📌 상세 영역은 별도 컨테이너로 분리, id로 특정해서 부분 업데이트 -->
   <div class="market-detail-slot" id="market-detail-${id}">${isExpanded ? renderMarketDetail(market) : ''}</div>

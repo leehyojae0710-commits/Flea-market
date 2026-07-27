@@ -148,8 +148,48 @@ function renderBoothCard(a) {
       ${status === 'Approved' ? renderReviewTrigger(a) : ''}
     </div>
 
+      ${renderBoothRecruitGauge(a)}
+
       ${status === 'Approved' && reviewOpenId === String(id) ? renderReviewForm(id) : ''}
       ${isExpanded ? renderBoothDetail(a) : ''}
+    </div>`;
+}
+
+// ---------- 부스 모집 현황 게이지 ----------
+
+// 마켓의 총 부스 수 / 현재 신청된 부스 수 / 참여율(%)
+function getBoothRecruitStats(a) {
+  const total = Number(a.maxparticipants ?? a.maxParticipants) || 0;
+  const applied = Number(a.appliedBooths) || 0;
+  const pct = total > 0 ? Math.min(100, Math.round((applied / total) * 100)) : 0;
+  return { applied, total, pct };
+}
+
+function boothRecruitLevel(pct) {
+  if (pct >= 80) return 'high'; // 마감 임박
+  if (pct >= 50) return 'mid'; // 보통
+  return 'low'; // 여유
+}
+
+// 부스 카드 하단에 붙는 모집 현황 게이지 (독립 클래스: mb-gauge-*)
+function renderBoothRecruitGauge(a) {
+  const { applied, total, pct } = getBoothRecruitStats(a);
+  if (total === 0) return '';
+  const level = boothRecruitLevel(pct);
+  return `
+    <div class="mb-gauge" data-level="${level}">
+      <div class="mb-gauge-head">
+        <span class="mb-gauge-title">부스 모집 현황</span>
+        <span class="mb-gauge-pct">${pct}%</span>
+      </div>
+      <div class="mb-gauge-track" role="progressbar"
+           aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"
+           aria-label="부스 모집률 ${pct}%">
+        <div class="mb-gauge-fill" style="width:${pct}%"></div>
+      </div>
+      <div class="mb-gauge-foot">
+        <span class="mb-gauge-count"><strong>${applied}</strong> / ${total} 부스 모집</span>
+      </div>
     </div>`;
 }
 
