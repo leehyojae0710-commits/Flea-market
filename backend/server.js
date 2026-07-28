@@ -17,6 +17,7 @@ import upload, { uploadItemImage, uploadProfileImage } from './middleware/multer
 import profileRoutes from './routes/profileRoutes.js';
 import reviewRoutes from './routes/reviewRoutes.js';
 import { authenticateToken } from './middleware/authMiddleware.js';
+import { hostAreaGuard } from './middleware/roleGuard.js'; // [C-01] 판매자의 주최자 API 접근 차단
 import searchRoutes from './routes/searchRoutes.js';
 
 
@@ -27,6 +28,7 @@ const PORT = process.env.PORT || 5000;
 
 app.use(cors()); // 프론트(5500 등 다른 포트)에서 오는 요청 허용
 app.use(express.json());
+app.use(hostAreaGuard); // [C-01] 라우터 등록 전에 역할 가드를 먼저 통과시킵니다.
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/users', profileRoutes);

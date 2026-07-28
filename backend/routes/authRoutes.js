@@ -5,6 +5,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import pool from '../config/db.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
+import { isHostType, USER_TYPE } from '../middleware/roleGuard.js';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'flea-market-dev-secret-change-me';
@@ -20,7 +21,27 @@ function publicUser(row) {
     phone: row.phone,
     region: row.region,
     nickname: row.nickname,
+    // [C-01] 화면 분기용 정보
+    activeRole: normalizeActiveRole(row.userType, row.activeRole),
+    canBeHost: isHostType(row.userType), // 주최자만 true (판매자 -> 주최자 전환 불가)
   };
+}
+
+/**
+ * [C-01] activeRole 정규화
+ * - 주최자(userType 1)는 host / seller 를 모두 쓸 수 있습니다. (주최자 -> 판매자 겸용 허용)
+ * - 판매자(userType 0)는 DB에 어떤 값이 들어 있어도 항상 seller 로 고정합니다.
+ */
+function normalizeActiveRole(userType, activeRole) {
+  if (!isHostType(userType)) return 'seller';
+  return activeRole === 'seller' ? 'seller' : 'host';
+}
+
+/** [C-01] 역할별 첫 화면 경로 (주최 = 관리 화면 / 판매 = 탐색 화면) */
+function landingPathFor(userType) {
+  return isHostType(userType)
+    ? '/pages/B_host-seller/mymarketpage.html'
+    : '/index.html';
 }
 
 /**
@@ -85,6 +106,12 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ success: false, message: '필수 항목이 누락되었습니다.' });
   }
 
+  // [C-01] 가입 역할은 0(판매자) / 1(주최자) 두 가지만 허용합니다.
+  const userTypeNum = Number(userType);
+  if (userTypeNum !== USER_TYPE.SELLER && userTypeNum !== USER_TYPE.HOST) {
+    return res.status(400).json({ success: false, message: '가입 역할 값이 올바르지 않습니다.' });
+  }
+
   try {
     const [existing] = await pool.query('SELECT email FROM users WHERE email = ?', [email]);
     if (existing.length > 0) {
@@ -99,18 +126,31 @@ router.post('/register', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
     const [result] = await pool.query(
-      `INSERT INTO users (userType, password, phone, email, region, nickname)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [userType, hashedPassword, phone, email, region, nickname]
+      `INSERT INTO users (userType, password, phone, email, region, nickname, activeRole)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [userTypeNum, hashedPassword, phone, email, region, nickname, normalizeActiveRole(userTypeNum, null)]
     );
 
     const userId = result.insertId;
 
-    const token = jwt.sign({ userId, userType }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ userId, userType: userTypeNum }, JWT_SECRET, { expiresIn: '7d' });
 
     return res.status(201).json({
       success: true,
-      data: { token, user: { userId, userType: Number(userType), email, phone, region, nickname } },
+      data: {
+        token,
+        user: {
+          userId,
+          userType: userTypeNum,
+          email,
+          phone,
+          region,
+          nickname,
+          activeRole: normalizeActiveRole(userTypeNum, null),
+          canBeHost: isHostType(userTypeNum),
+        },
+        landingPath: landingPathFor(userTypeNum),
+      },
       message: '회원가입이 완료되었습니다.',
     });
   } catch (error) {
@@ -243,11 +283,24 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, message: '이메일 또는 비밀번호가 올바르지 않습니다.' });
     }
 
+    // [C-01] 판매자 계정에 host 값이 남아 있으면 로그인 시점에 seller 로 되돌립니다.
+    //        (판매자 -> 주최자 우회 로그인 차단)
+    const safeActiveRole = normalizeActiveRole(user.userType, user.activeRole);
+    if (user.activeRole !== safeActiveRole) {
+      await pool.query('UPDATE users SET activeRole = ? WHERE userId = ?', [safeActiveRole, user.userId]);
+      user.activeRole = safeActiveRole;
+    }
+
     const token = jwt.sign({ userId: user.userId, userType: user.userType }, JWT_SECRET, { expiresIn: '7d' });
 
     return res.status(200).json({
       success: true,
-      data: { token, user: publicUser(user) },
+      data: {
+        token,
+        user: publicUser(user),
+        // 프론트는 이 값을 그대로 써도 되고, role-routing.js 규칙을 써도 됩니다.
+        landingPath: landingPathFor(user.userType),
+      },
       message: '로그인 성공!',
     });
   } catch (error) {
@@ -260,7 +313,7 @@ router.post('/login', async (req, res) => {
  * @swagger
  * /auth/toggle-role:
  *   patch:
- *     summary: 판매자 <-> 주최자 역할 전환
+ *     summary: 역할 전환 (주최자 계정 전용, 주최자 <-> 판매자 단방향 정책)
  *     tags: [Auth]
  *     security: [{ bearerAuth: [] }]
  *     responses:
@@ -279,6 +332,11 @@ router.post('/login', async (req, res) => {
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       403:
+ *         description: 판매자 계정은 주최자로 전환 불가 (단방향 정책)
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *       404:
  *         description: 사용자를 찾을 수 없음
  *         content:
@@ -294,9 +352,20 @@ router.patch('/toggle-role', authenticateToken, async (req, res) => {
   const { userId } = req.user;
 
   try {
-    const [rows] = await pool.query('SELECT activeRole FROM users WHERE userId = ?', [userId]);
+    const [rows] = await pool.query('SELECT userType, activeRole FROM users WHERE userId = ?', [userId]);
     if (rows.length === 0) {
       return res.status(404).json({ success: false, data: null, message: '사용자를 찾을 수 없습니다.' });
+    }
+
+    // [C-01] 역할 전환은 단방향입니다.
+    //  - 주최자 계정: host <-> seller 전환 허용 (주최자는 판매자도 될 수 있음)
+    //  - 판매자 계정: 전환 자체를 차단 (판매자는 주최자가 될 수 없음)
+    if (!isHostType(rows[0].userType)) {
+      return res.status(403).json({
+        success: false,
+        data: null,
+        message: '판매자 계정은 주최자로 전환할 수 없습니다. 주최자 계정으로 가입해 주세요.',
+      });
     }
 
     const nextRole = rows[0].activeRole === 'host' ? 'seller' : 'host';

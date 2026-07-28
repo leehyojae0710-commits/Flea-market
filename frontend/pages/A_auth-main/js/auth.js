@@ -38,9 +38,19 @@ if (loginForm) {
           sessionStorage.setItem('token', result.data.token);
           sessionStorage.setItem('loggedInUser', JSON.stringify(result.data.user));
 
-          // 로그인 직후엔 특정 마켓이 정해져 있지 않으므로
-          // 역할과 무관하게 마켓 목록(메인 화면)으로 이동합니다.
-          window.location.href = '../../index.html';
+          // [C-01] 역할별 첫 화면 분기
+          //  - 주최자(userType 1) : 내 마켓 관리 화면
+          //  - 판매자(userType 0) : 마켓 탐색(메인) 화면
+          // 분기 규칙은 common/js/role-routing.js 한 곳에서만 관리합니다.
+          const nextPath = new URLSearchParams(window.location.search).get('next');
+
+          if (typeof redirectToRoleHome === 'function') {
+            redirectToRoleHome(nextPath);
+          } else {
+            // role-routing.js 미로드 시 안전망 (기존 동작 유지)
+            console.warn('role-routing.js 가 로드되지 않아 메인 화면으로 이동합니다.');
+            window.location.href = '../../index.html';
+          }
         }
       } else {
         showAlert(result.message || '로그인 실패: 아이디 혹은 비밀번호를 확인하세요.');
