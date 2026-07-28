@@ -166,6 +166,9 @@ function handlePaymentClick() {
       btn.disabled = false;
       btn.textContent = original;
     }
+    setTimeout(() => {
+      window.location.href ='../B_host-seller/mybooth';
+    }, 1000);
   });
 }
 

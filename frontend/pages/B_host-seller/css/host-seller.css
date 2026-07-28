@@ -443,6 +443,14 @@ body {
   background: #ece1cd;
   color: var(--ink-soft);
 }
+.status-tag.paid{
+  background: var(--coral-bg);
+  color: var(--coral-text);
+}
+.status-tag.refunded{
+  background: rgb(158, 202, 197);
+  color: var(--ink-soft);
+}
 
 .item-card-actions {
   display: flex;

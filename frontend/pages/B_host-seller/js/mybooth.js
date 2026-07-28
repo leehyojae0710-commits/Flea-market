@@ -44,11 +44,15 @@ const STATUS_LABEL = {
   Pending: '대기중',
   Approved: '승인됨',
   Rejected: '반려됨',
+  Paid: '결제됨',
+  Refunded: '결제 취소',
 };
 const STATUS_CLASS = {
   Pending: 'pending',
   Approved: 'approved',
   Rejected: 'rejected',
+  Paid: 'paid',
+  Refunded: 'refunded',
 };
 
 // ---------- 상태 ----------
@@ -119,7 +123,6 @@ function renderBoothCard(a) {
   const isPending = status === 'Pending';
   const isApproved = status === 'Approved';
   const isExpanded = expandedId === String(id) || expandedId === id;
-  console.log(status);
   return `
     <div class="item-card" data-application-id="${id}">
       <div class="item-card-top">
@@ -227,7 +230,6 @@ function renderStaticStars(rating) {
   const empty = '☆'.repeat(5 - rating);
   return `<span class="stars-static" aria-label="${rating}점">${full}${empty}</span>`;
 }
-
 // 수정·삭제와 같은 줄, 오른쪽에 배치되는 부분 (평가하기 버튼 또는 이미 남긴 별점 표시)
 function renderReviewTrigger(a) {
   const id = a.applicationId;
