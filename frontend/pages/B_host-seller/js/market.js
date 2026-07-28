@@ -89,7 +89,7 @@ function formatPrice(price) {
 }
 
 const STATUS_LABEL = { Pending: '대기중', Approved: '승인됨', Rejected: '반려됨', Paid: '결제 완료', Refunded: '결제 취소' };
-const STATUS_CLASS = { Pending: 'pending', Approved: 'approved', Rejected: 'rejected' };
+const STATUS_CLASS = { Pending: 'pending', Approved: 'approved', Rejected: 'rejected', Paid: 'paid', Refunded: 'refunded'};
 
 // ---------- 마켓 등록 ----------
 
