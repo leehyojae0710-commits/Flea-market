@@ -495,8 +495,15 @@ export async function processQueueTimeouts(req, res) {
   }
 }
 
+// GET /api/markets/mine?includeExpired=
+// [통합] 기존 /api/my-markets (myMarketController.getMyMarkets) 와 기능이 중복되어
+//        이 함수 하나로 합쳤습니다. includeExpired 옵션은 구 my-markets 스펙에서 흡수.
+//        - 기본값: 모집중/마감/취소 전부 반환 (프론트 상태 필터가 클라이언트에서 동작)
+//        - includeExpired=false: 모집중(isExpired=0)만 반환
 export async function getMyMarket(req, res) {
   const { userId } = req.user;
+  const includeExpired = req.query.includeExpired !== 'false';
+
   try {
     const [rows] = await pool.query(
       `SELECT m.*,
@@ -506,6 +513,7 @@ export async function getMyMarket(req, res) {
          ) AS appliedBooths
        FROM markets m
        WHERE m.hostId = ?
+         ${includeExpired ? '' : 'AND m.isExpired = 0'}
        ORDER BY m.isExpired ASC, m.updated_at DESC`,
       [userId]
     );

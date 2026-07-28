@@ -6,7 +6,6 @@ import swaggerUi from 'swagger-ui-express';
 import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import marketRoutes from './routes/marketRoutes.js';
-import mymarketRoutes from './routes/myMarketRoutes.js';
 import applicationRoutes from './routes/applicationRoutes.js';
 import payRoutes from './routes/payRoutes.js';
 import commentRoutes from './routes/commentRoutes.js';
@@ -15,7 +14,6 @@ import checkinRoutes from './routes/checkinRoutes.js';
 import pool from './config/db.js'; // DB 데이터를 가져오기 위해 연결 풀을 불러옵니다.
 import swaggerSpec from './config/swagger.js';
 import upload, { uploadItemImage, uploadProfileImage } from './middleware/multer.js';
-import myMarketRoutes from './routes/myMarketRoutes.js';
 import profileRoutes from './routes/profileRoutes.js';
 import reviewRoutes from './routes/reviewRoutes.js';
 import { authenticateToken } from './middleware/authMiddleware.js';
@@ -33,7 +31,6 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/users', profileRoutes);
 app.use('/api/markets', marketRoutes);
-app.use('/api/markets', mymarketRoutes)
 app.use('/api/applications', applicationRoutes);
 app.use('/api/payments', payRoutes);
 app.use('/api/comments', commentRoutes);
@@ -46,7 +43,6 @@ app.use('/api/uploads', express.static('Z:/seller/'));
 app.use('/api/uploads', express.static('Z:/profile/'));
 app.use('/api/search', searchRoutes);
 
-app.use('/api/my-markets', myMarketRoutes);
 // 🌐 http://localhost:5000 접속 시 DB 데이터를 HTML 표로 보여주는 라우터
 app.get('/', async (req, res) => {
   try {

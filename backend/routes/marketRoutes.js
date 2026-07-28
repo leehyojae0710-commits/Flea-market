@@ -116,8 +116,43 @@ const router = express.Router();
  */
 router.get('/', getMarketList);
 
-router.post('/', authenticateToken, createMarket);
+// [정리] POST / 는 requireHost + validateMarketInput 를 거치는 아래 정의 하나로 통합됨
 
+/**
+ * @swagger
+ * /markets/mine:
+ *   get:
+ *     summary: 내 마켓 목록 조회 (로그인한 주최자 본인)
+ *     description: "본인이 개설한 마켓을 모집중/마감/취소 전부 반환합니다. includeExpired=false 를 주면 모집중(isExpired=0)만 반환합니다. 각 항목에 appliedBooths(신청 부스 수)가 포함됩니다."
+ *     tags: [Markets]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: includeExpired
+ *         description: "false 로 주면 마감/취소된 마켓 제외 (기본값 true)"
+ *         schema: { type: boolean }
+ *     responses:
+ *       200:
+ *         description: 내 마켓 목록
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiEnvelope'
+ *                 - type: object
+ *                   properties:
+ *                     data: { type: array, items: { $ref: '#/components/schemas/Market' } }
+ *       401:
+ *         description: 인증 필요
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         description: 서버 오류
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ */
 router.get('/mine', authenticateToken, getMyMarket);
 
 router.post(

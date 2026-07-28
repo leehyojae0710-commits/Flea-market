@@ -146,18 +146,19 @@ function renderMarketItem(market) {
   const id = market.marketId;
   const isExpanded = expandedId === String(id) || expandedId === id;
 
-  let marketUrl = '';
-  let marketUrl2 = '';
+  // [수정] 기존에는 href="${marketUrl} ${marketUrl2}" 처럼 속성이 href 문자열 안에
+  //        들어가 있어서 링크가 깨졌습니다. href 와 나머지 속성을 분리합니다.
+  let marketUrl = '#';
+  let marketAttrs = '';
 
   if (statusKey === 'open') {
     marketUrl = `correctionMarket?marketId=${id}`;
-    marketUrl2 = '';
-  } else if (statusKey === 'closed') {
-    marketUrl = '#';
-    marketUrl2 = `aria-disabled="true" tabindex="-1" title='마감된 마켓은 수정할 수 없어요.' onclick="return false;"`;
   } else {
-    marketUrl = '#';
-    marketUrl2 = `aria-disabled="true" tabindex="-1" title='취소된 마켓은 수정할 수 없어요.' onclick="return false;"`;
+    const reason =
+      statusKey === 'closed'
+        ? '마감된 마켓은 수정할 수 없어요.'
+        : '취소된 마켓은 수정할 수 없어요.';
+    marketAttrs = `aria-disabled="true" tabindex="-1" title="${reason}" onclick="return false;"`;
   }
 
   return `
@@ -174,7 +175,7 @@ function renderMarketItem(market) {
   </div>
 
   <div class="item-card-actions">
-    <a class="btn btn-outline btn-sm" href="${marketUrl} ${marketUrl2}">수정하기</a>
+    <a class="btn btn-outline btn-sm" href="${marketUrl}" ${marketAttrs}>수정하기</a>
     <button type="button" class="btn btn-danger btn-sm" data-action="delete" data-id="${id}">취소하기</button>
     <a class="btn btn-sage btn-sm" href="market-detail?marketId=${id}">보러가기</a>
   </div>
