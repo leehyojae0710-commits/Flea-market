@@ -309,6 +309,39 @@ router.post('/login', async (req, res) => {
 
 /**
  * @swagger
+ * /auth/logout:
+ *   post:
+ *     summary: 로그아웃
+ *     description: JWT는 서버에 상태를 저장하지 않으므로(stateless), 이 API는 토큰 유효성만 확인하고 로그아웃 처리를 승인합니다. 실제 토큰/세션 삭제는 클라이언트(sessionStorage)에서 수행합니다.
+ *     tags: [Auth]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: 로그아웃 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiEnvelope'
+ *                 - type: object
+ *                   properties:
+ *                     data: { nullable: true, example: null }
+ *       401:
+ *         description: 인증 필요 (토큰 없음 또는 만료)
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ */
+// 3. 로그아웃 API
+// [수정] 기존에는 서버 라우트가 없어 logoutUser()가 sessionStorage만 지웠음.
+//        JWT는 stateless라 서버가 토큰을 별도로 무효화하지는 않지만,
+//        토큰 유효성 검증 + 요청 흐름 확인용으로 라우트를 신설함.
+router.post('/logout', authenticateToken, (req, res) => {
+  return res.status(200).json({ success: true, data: null, message: '로그아웃되었습니다.' });
+});
+
+/**
+ * @swagger
  * /auth/toggle-role:
  *   patch:
  *     summary: 역할 전환 (주최자 계정 전용, 주최자 <-> 판매자 단방향 정책)
