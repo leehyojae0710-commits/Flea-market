@@ -119,7 +119,63 @@ async function loadStats() {
   }
 }
 
+// 수정
 document.addEventListener('DOMContentLoaded', () => {
   loadProfile();
   loadStats();
+  loadReviewSummary();
 });
+
+
+/* [추가] 판매자 평가(별점/후기) - 주최자(userType=1)만 표시 */
+function renderStars(score) {
+  const rounded = Math.round(Number(score) || 0);
+  return '★'.repeat(rounded) + '☆'.repeat(5 - rounded);
+}
+
+function renderReviewSummary(data) {
+  const section = document.getElementById('review-section');
+  if (!section) return;
+  section.hidden = false;
+
+  const scoreEl = document.getElementById('review-avg-score');
+  const starsEl = document.getElementById('review-avg-stars');
+  const countEl = document.getElementById('review-count-text');
+  const listEl = document.getElementById('review-list');
+
+  const avg = data.averageRating;
+  if (scoreEl) scoreEl.textContent = avg !== null ? avg.toFixed(1) : '-';
+  if (starsEl) starsEl.textContent = avg !== null ? renderStars(avg) : '☆☆☆☆☆';
+  if (countEl) countEl.textContent = `평가 ${data.reviewCount || 0}건`;
+
+  if (listEl) {
+    if (!data.reviews || data.reviews.length === 0) {
+      listEl.innerHTML = '<li class="review-empty">아직 등록된 평가가 없어요.</li>';
+    } else {
+      listEl.innerHTML = data.reviews
+        .map(
+          (r) => `
+        <li class="review-item">
+          <div class="review-item-top">
+            <span class="review-item-stars">${renderStars(r.rating)}</span>
+            <span class="review-item-market">${r.marketTitle}</span>
+          </div>
+          ${r.comment ? `<p class="review-item-comment">${r.comment}</p>` : ''}
+        </li>`,
+        )
+        .join('');
+    }
+  }
+}
+
+async function loadReviewSummary() {
+  if (!currentUser || Number(currentUser.userType) !== 1) return; // 주최자만
+  try {
+    const res = await callApi('/reviews/me/summary');
+    if (res && res.success && res.data) {
+      renderReviewSummary(res.data);
+    }
+  } catch (err) {
+    console.error('평가 요약 조회 오류:', err);
+  }
+}
