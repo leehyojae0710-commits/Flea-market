@@ -151,7 +151,7 @@ export async function refundPayment(req, res) {
 
   try {
     const [rows] = await pool.query(
-      /*sql*/ 
+      /*sql*/
       `SELECT p.paymentId, p.paymentKey, p.status, p.amount, m.hostId
        FROM payments p
        JOIN applications a ON a.applicationId = p.applicationId
@@ -176,14 +176,13 @@ export async function refundPayment(req, res) {
     )
 
     await pool.query(
-      /* SQL */
-      `UPDATE payments p
-      JOIN applications a ON p.applicationId = a.applicationId
-      SET p.status = 'Refunded', 
-          a.status = 'Refunded'
-      WHERE p.applicationId = ?`,
-      [applicationId]
-    );
+      /*sql*/ `UPDATE payments SET status = 'Refunded' WHERE applicationId = ?`,
+      [applicationId]);
+    await pool.query(
+       /*sql*/ `UPDATE applications 
+      SET status = 'Refunded' 
+      WHERE applicationId = ?`,
+      [applicationId]);
     return res.status(200).json({
       success: true,
       data: { applicationId, status: 'Refunded' },
