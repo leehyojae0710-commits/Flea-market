@@ -608,16 +608,25 @@ function syncAuthNavVisibility() {
 
   const user = getLoggedInUser();
   const isLoggedIn = !!user;
-  const isHost = user?.userType === 1;
-  const isSeller = user?.userType === 0;
+  const isHostAccount = user?.userType === 1;
+
+  // [C-02] 주최자는 "판매자 모드"로 전환할 수 있으므로,
+  //        버튼 노출은 계정 역할(userType)이 아니라 현재 화면 모드(viewRole) 기준입니다.
+  //        role-routing.js 가 없으면 기존과 동일하게 userType 만 봅니다.
+  const viewRole = window.RoleRouting
+    ? window.RoleRouting.getViewRole()
+    : (isHostAccount ? 'host' : 'seller');
+
+  const showHostUi = isLoggedIn && isHostAccount && viewRole === 'host';
+  const showSellerUi = isLoggedIn && viewRole === 'seller';
 
   loginLink.hidden = isLoggedIn;
   if (registerLink) registerLink.hidden = isLoggedIn;
   logoutBtn.hidden = !isLoggedIn;
   mypageLink.hidden = !isLoggedIn;
-  hostCtaBtn.hidden = !isLoggedIn || !isHost;
-  hostmarketpageLink.hidden = !isLoggedIn || !isHost;
-  sellerBoothLink.hidden = !isLoggedIn || !isSeller;
+  hostCtaBtn.hidden = !showHostUi;
+  hostmarketpageLink.hidden = !showHostUi;
+  sellerBoothLink.hidden = !showSellerUi;
 }
 
 function initAuthNav() {
@@ -625,7 +634,9 @@ function initAuthNav() {
   const logoutBtn = document.getElementById("nav-logout-btn");
   logoutBtn?.addEventListener("click", async () => {
     await logoutUser();
+    sessionStorage.removeItem("viewRole"); // [C-02] 다음 로그인에 모드가 남지 않도록 초기화
     syncAuthNavVisibility();
+    document.getElementById("role-switch-btn")?.remove();
   });
 }
 
