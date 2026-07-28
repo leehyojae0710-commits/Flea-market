@@ -5,6 +5,10 @@
 //        · D-DAY 산정 기준은 첫 화면(A_auth-main/js/main.js)의 ddayLabel() 규칙과 동일하게 맞춤
 //        · 상태태그(status-tag)는 DB의 isExpired 값 기준, D-DAY는 날짜 기준으로 각각 계산
 //        · 취소된 마켓(isExpired=2)은 D-DAY를 표기하지 않음
+// [추가 07-28] H-02 정렬 필터(모집마감순/지역순/개최순) 적용.
+//        · 정렬은 서버(GET /markets/mine?sort=)에서 DB ORDER BY 로 처리 (메인 목록과 동일 방식)
+//        · 백엔드가 아직 갱신되지 않은 환경에서도 화면 순서가 맞도록 클라이언트 정렬을 안전망으로 함께 적용
+//        · 취소된 마켓은 어떤 정렬에서도 항상 목록 맨 아래
 
 // ---------- API 호출 ----------
 
@@ -12,8 +16,9 @@ async function deleteMarket(marketId) {
   return callApi(`/markets/closed/${marketId}`, { method: 'PATCH' });
 }
 
-async function getMyMarkets() {
-  return callApi('/markets/mine');
+async function getMyMarkets(sort = '') {
+  const query = sort ? `?sort=${encodeURIComponent(sort)}` : '';
+  return callApi(`/markets/mine${query}`);
 }
 
 // ---------- 화면 피드백 유틸 ----------
@@ -162,7 +167,46 @@ function renderDDayBadges(market, statusKey) {
 let allMarkets = [];
 let myMarkets = [];
 let statusFilter = '';
+let sortOption = ''; // '' | 'recruitEnd' | 'region' | 'eventDate'
 let expandedId = null; // 상세정보가 펼쳐진 마켓 id
+
+// ---------- 정렬 (클라이언트 안전망) ----------
+
+// 날짜 문자열 -> 정렬용 숫자. 값이 없으면 Infinity 로 두어 항상 뒤로 밀림
+function sortableTime(dateString) {
+  if (!dateString) return Infinity;
+  const t = new Date(dateString).getTime();
+  return Number.isNaN(t) ? Infinity : t;
+}
+
+// 서버(MY_MARKET_SORT_CLAUSES)와 동일한 기준
+const SORT_COMPARATORS = {
+  // 모집마감순: 모집 마감일이 가까운 순
+  recruitEnd: (a, b) =>
+    sortableTime(a.recruitmentDate_max) - sortableTime(b.recruitmentDate_max) ||
+    Number(b.marketId) - Number(a.marketId),
+  // 지역순: 지역 가나다순, 같은 지역이면 개최일이 빠른 순
+  region: (a, b) =>
+    String(a.region || '').localeCompare(String(b.region || ''), 'ko') ||
+    sortableTime(a.eventDate_min) - sortableTime(b.eventDate_min) ||
+    Number(b.marketId) - Number(a.marketId),
+  // 개최순: 개최일이 가까운 순
+  eventDate: (a, b) =>
+    sortableTime(a.eventDate_min) - sortableTime(b.eventDate_min) ||
+    Number(b.marketId) - Number(a.marketId),
+};
+
+function sortMarkets(list) {
+  const comparator = SORT_COMPARATORS[sortOption];
+  if (!comparator) return list; // 기본 정렬은 서버가 내려준 순서를 그대로 사용
+
+  // 취소된 마켓은 항상 맨 아래로
+  return [...list].sort((a, b) => {
+    const aCancel = getStatusKey(a.isExpired) === 'cancel' ? 1 : 0;
+    const bCancel = getStatusKey(b.isExpired) === 'cancel' ? 1 : 0;
+    return aCancel - bCancel || comparator(a, b);
+  });
+}
 
 // ---------- 부스 모집 현황 게이지 ----------
 
@@ -368,10 +412,12 @@ async function handleDeleteClick(marketId) {
 
 // ---------- 필터 ----------
 
+// 상태 필터 -> 정렬 순으로 적용
 function applyStatusFilter() {
-  myMarkets = statusFilter
+  const filtered = statusFilter
     ? allMarkets.filter((m) => getStatusKey(m.isExpired) === statusFilter)
     : allMarkets;
+  myMarkets = sortMarkets(filtered);
   renderMarketList(); // 필터 변경 시에는 목록 자체가 바뀌니 전체 재렌더링이 맞음
 }
 
@@ -381,6 +427,13 @@ function handleFilterChange() {
   applyStatusFilter();
 }
 
+// [추가 07-28] 정렬 변경 시에는 서버에 다시 요청해 DB 정렬 결과를 그대로 받아옴
+async function handleSortChange() {
+  sortOption = document.getElementById('sort-filter')?.value || '';
+  expandedId = null;
+  await loadMyMarkets();
+}
+
 // ---------- 초기 로드 ----------
 
 async function loadMyMarkets() {
@@ -388,7 +441,7 @@ async function loadMyMarkets() {
   if (!listEl) return;
 
   try {
-    const res = await getMyMarkets();
+    const res = await getMyMarkets(sortOption);
     if (res && res.success) {
       allMarkets = res.data || [];
       applyStatusFilter();
@@ -410,5 +463,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document
     .getElementById('status-filter')
     ?.addEventListener('change', handleFilterChange);
+  document
+    .getElementById('sort-filter')
+    ?.addEventListener('change', handleSortChange);
   loadMyMarkets();
 });

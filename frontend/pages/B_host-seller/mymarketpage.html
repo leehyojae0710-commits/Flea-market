@@ -41,6 +41,18 @@
               <option value="cancel">취소</option>
             </select>
           </label>
+
+          <!-- [추가 07-28] H-02 정렬 필터 -->
+          <label class="filter-field">
+            정렬
+            <select id="sort-filter">
+              <option value="">기본 (진행중 우선)</option>
+              <option value="recruitEnd">모집마감순</option>
+              <option value="region">지역순</option>
+              <option value="eventDate">개최순</option>
+            </select>
+          </label>
+
           <span id="result-count" class="result-count"></span>
         </div>
 
@@ -57,7 +69,7 @@
     </div>
 
     <script src="../../common/js/api.js?v=2"></script>
-    <script src="js/marketdelete.js?v=3"></script>
+    <script src="js/marketdelete.js?v=4"></script>
     <script src="/common/js/search.js"></script>
   </body>
 </html>
