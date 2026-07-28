@@ -50,6 +50,13 @@ async function updateCommentApi(commentId, content) {
   return callApi(`/comments/${commentId}`, { method: 'PATCH', body: { content } });
 }
 
+async function refundPayment(applicationId, reason) {
+  return callApi('/payments/refund', {
+    method: 'POST',
+    body: { applicationId, reason },
+  });
+}
+
 // ---------- 화면 피드백 유틸 ----------
 
 function renderAlert(message, type = 'error') {
@@ -81,7 +88,7 @@ function formatPrice(price) {
   return !n ? '무료 참가' : `참가비 ${n.toLocaleString()}원`;
 }
 
-const STATUS_LABEL = { Pending: '대기중', Approved: '승인됨', Rejected: '반려됨' };
+const STATUS_LABEL = { Pending: '대기중', Approved: '승인됨', Rejected: '반려됨', Paid: '결제 완료', Refunded: '결제 취소' };
 const STATUS_CLASS = { Pending: 'pending', Approved: 'approved', Rejected: 'rejected' };
 
 // ---------- 마켓 등록 ----------
@@ -311,6 +318,11 @@ function renderApplicationList(applications) {
           <button type="button" class="btn btn-sage btn-sm" data-action="approve" data-id="${a.applicationId}">승인</button>
           <button type="button" class="btn btn-danger btn-sm" data-action="reject" data-id="${a.applicationId}">반려</button>
         </div>` : ''}
+        ${status === 'Paid' ? `
+        <div class="item-card-actions">
+          <button type="button" class="btn btn-sage btn-sm" data-action="refunded" data-id="${a.applicationId}">결제 취소</button>
+        </div>
+          `: ''}
       </div>`;
     })
     .join('');
@@ -320,6 +332,9 @@ function renderApplicationList(applications) {
   });
   wrap.querySelectorAll('[data-action="reject"]').forEach((btn) => {
     btn.addEventListener('click', () => handleApplicationDecision(btn.dataset.id, 'reject'));
+  });
+  wrap.querySelectorAll('[data-action="refunded"]').forEach((btn)=>{
+    btn.addEventListener('click',()=> refundPayment_(btn.dataset.id));
   });
 }
 
@@ -756,6 +771,18 @@ function handleCommentSubmit() {
       renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
     }
   });
+}
+
+async function refundPayment_(a) {
+  const id = a.applicationId;
+  try{
+    const res =await refundPayment(a,'주최자의 의한 환불처리');
+    if(res.success)
+      renderAlert('환불 처리 완료');
+  }
+  catch(error){
+    renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.'); 
+  }
 }
 
 // ---------- 초기화 ----------

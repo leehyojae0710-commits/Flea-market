@@ -1,5 +1,5 @@
 import pool from '../config/db.js';
-import { verifyPayment } from '../services/paymentService.js';
+import { verifyPayment, cencelPayment } from '../services/paymentService.js';
 
 // POST /api/payments/confirm
 // PortOne 결제 완료 후 호출
@@ -99,7 +99,6 @@ export async function confirmPayment(req, res) {
       WHERE applicationId = ? AND status = 'Paid'`,
       [applicationId]
     );
-
     if (paidRows.length > 0) {
       return res.status(409).json({
         success: false,
@@ -107,13 +106,13 @@ export async function confirmPayment(req, res) {
         message: '이미 결제가 완료된 신청입니다.',
       });
     }
-
-    // 결제 저장 (스키마에 paymentKey 컬럼이 없으므로 포트원 paymentId는 저장하지 않음)
     const [result] = await pool.query(
-      `INSERT INTO payments (applicationId, amount, status)
-       VALUES (?, ?, 'Paid')`,
-      [applicationId, boothPrice]
+      `INSERT INTO payments (applicationId, amount, status, paymentKey)
+   VALUES (?, ?, 'Paid', ?)`,
+      [applicationId, application.boothPrice || 0, paymentId] // ← paymentId를 paymentKey 자리에 넣음
     );
+
+    await pool.query(`UPDATE applications SET status = 'Paid' WHERE applicationId = ?`, [applicationId]);
 
     // 결제 완료 → 결제 기한 제거
     await pool.query(
@@ -139,5 +138,53 @@ export async function confirmPayment(req, res) {
       data: null,
       message: '서버 오류로 결제 처리에 실패했습니다.',
     });
+  }
+}
+
+export async function refundPayment(req, res) {
+  const { userId } = req.user;
+  const { applicationId, reason } = req.body;
+
+  if (!applicationId) {
+    return res.status(400).json({ success: false, message: 'applicationId는 필수 입니다' })
+  }
+
+  try {
+    const [rows] = await pool.query(
+      `SELECT p.paymentId, p.paymentKey, p.status, p.amount, m.hostId
+       FROM payments p
+       JOIN applications a ON a.applicationId = p.applicationId
+       JOIN markets m ON m.marketId = a.marketId
+       WHERE p.applicationId = ?`,
+      [applicationId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: "결제 내역을 찾을 수 없습니다" });
+    }
+
+    const payment = rows[0];
+
+    if (Number(payment.hostId) !== Number(userId)) {
+      return res.status(403).json({ success: false, message: "결제 완료된 건만 환불할 수 있습니다." });
+    }
+
+    const cancelResult = await cencelPayment(
+      payment.paymentKey,
+      reason || '주최자 요청에 의한 환불'
+    )
+
+    await pool.query(
+      `UPDATE payments SET status = 'Refunded' WHERE applicationId = ?`,
+      [applicationId]
+    );
+    return res.status(200).json({
+      success: true,
+      data: { applicationId, status: 'Refunded' },
+      message: '환불이 완료되었습니다.',
+    });
+  }
+  catch (err) {
+
   }
 }
