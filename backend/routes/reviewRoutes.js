@@ -2,7 +2,7 @@
 // [추가] 행사 평가(별점) 기능
 
 import express from 'express';
-import { createReview, getMarketReviewSummary } from '../controllers/reviewController.js';
+import { createReview, getMarketReviewSummary, getHostReviewSummary } from '../controllers/reviewController.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -88,6 +88,7 @@ router.post('/', authenticateToken, createReview);
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
+router.get('/me/summary', authenticateToken, getHostReviewSummary);
 router.get('/market/:marketId', getMarketReviewSummary);
 
 export default router;
