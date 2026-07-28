@@ -145,10 +145,20 @@ body.profile-body {
 }
 
 @media (max-width: 480px) {
-  .profile-top { flex-direction: column; align-items: center; text-align: center; }
-  .profile-bio-row { flex-direction: column; }
-  .profile-bio-image { width: 100%; }
-  .profile-stats-row { grid-template-columns: 1fr; }
+  .profile-top {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  .profile-bio-row {
+    flex-direction: column;
+  }
+  .profile-bio-image {
+    width: 100%;
+  }
+  .profile-stats-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ===== 주최행사 성공율 ===== */
@@ -164,7 +174,10 @@ body.profile-body {
   background: #fffdf7;
 }
 
-.success-rate-info { flex: 1 1 240px; min-width: 0; }
+.success-rate-info {
+  flex: 1 1 240px;
+  min-width: 0;
+}
 
 .success-rate-title {
   display: inline-block;
@@ -175,7 +188,7 @@ body.profile-body {
   color: #fff;
   font-size: 13px;
   font-weight: 700;
-  letter-spacing: .01em;
+  letter-spacing: 0.01em;
 }
 
 .success-rate-desc {
@@ -199,7 +212,9 @@ body.profile-body {
   color: #6b5f52;
   border-bottom: 1px dashed #ece3d3;
 }
-.success-rate-legend li:last-child { border-bottom: 0; }
+.success-rate-legend li:last-child {
+  border-bottom: 0;
+}
 .success-rate-legend b {
   margin-left: auto;
   font-size: 13px;
@@ -213,8 +228,12 @@ body.profile-body {
   border-radius: 3px;
   flex: 0 0 auto;
 }
-.lg-ok { background: #2f6b8f; }
-.lg-cancel { background: #d8cfbe; }
+.lg-ok {
+  background: #2f6b8f;
+}
+.lg-cancel {
+  background: #d8cfbe;
+}
 
 .success-rate-note {
   margin: 12px 0 0;
@@ -234,14 +253,14 @@ body.profile-body {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 14px rgba(47, 107, 143, .16);
+  box-shadow: 0 4px 14px rgba(47, 107, 143, 0.16);
 }
 .success-rate-donut::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 30px;
   border-radius: 50%;
-  background: #fffdf7;   /* .success-rate-card 배경과 동일 */
+  background: #fffdf7; /* .success-rate-card 배경과 동일 */
 }
 .success-rate-center {
   position: relative;
@@ -253,7 +272,76 @@ body.profile-body {
 }
 
 @media (max-width: 640px) {
-  .success-rate-card { justify-content: center; text-align: center; }
-  .success-rate-info { flex: 1 1 100%; }
-  .success-rate-legend { margin: 0 auto; }
+  .success-rate-card {
+    justify-content: center;
+    text-align: center;
+  }
+  .success-rate-info {
+    flex: 1 1 100%;
+  }
+  .success-rate-legend {
+    margin: 0 auto;
+  }
+}
+
+/* 프로필 평가 추가 */
+
+.review-summary-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.review-summary-score {
+  font-family: "Archivo Black", sans-serif;
+  font-size: 32px;
+}
+.review-summary-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.review-summary-stars {
+  color: #e8a33d;
+  font-size: 16px;
+  letter-spacing: 2px;
+}
+.review-summary-count {
+  font-size: 12px;
+  color: #8a8375;
+}
+.review-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.review-item {
+  border: 1px solid #e5ded2;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.review-item-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+.review-item-stars {
+  color: #e8a33d;
+  letter-spacing: 1px;
+}
+.review-item-market {
+  color: #8a8375;
+}
+.review-item-comment {
+  margin: 6px 0 0;
+  font-size: 13.5px;
+  color: #333;
+}
+.review-empty {
+  font-size: 13px;
+  color: #8a8375;
 }

@@ -9,7 +9,7 @@ import pool from '../config/db.js';
 // POST /api/reviews (로그인 필요, 판매자 본인)
 export async function createReview(req, res) {
   const { userId } = req.user;
-  const { applicationId, rating } = req.body;
+  const { applicationId, rating, comment } = req.body;
 
   if (applicationId === undefined || applicationId === null || rating === undefined || rating === null) {
     return res.status(400).json({ success: false, data: null, message: 'applicationId, rating은 필수입니다.' });
@@ -23,7 +23,7 @@ export async function createReview(req, res) {
   try {
     const [rows] = await pool.query(
       `SELECT a.applicationId, a.sellerId, a.status, a.marketId,
-              (m.eventDate_max < CURDATE()) AS eventEnded,
+              (m.eventDate_min <= CURDATE()) AS eventEnded,
               EXISTS(
                 SELECT 1 FROM payments p WHERE p.applicationId = a.applicationId AND p.status = 'Paid'
               ) AS isPaid
@@ -48,7 +48,7 @@ export async function createReview(req, res) {
       return res.status(409).json({ success: false, data: null, message: '결제가 완료된 부스만 평가할 수 있습니다.' });
     }
     if (!application.eventEnded) {
-      return res.status(409).json({ success: false, data: null, message: '행사가 끝난 뒤에만 평가할 수 있습니다.' });
+      return res.status(409).json({ success: false, data: null, message: '행사가 시작된 뒤에만 평가할 수 있습니다.' });
     }
 
     const [existing] = await pool.query(
@@ -59,16 +59,20 @@ export async function createReview(req, res) {
       return res.status(409).json({ success: false, data: null, message: '이미 이 행사에 평가를 남겼습니다.' });
     }
 
+    
+    const trimmedComment = typeof comment === 'string' && comment.trim() ? comment.trim().slice(0, 200) : null;
+
     const [result] = await pool.query(
-      `INSERT INTO market_reviews (applicationId, marketId, sellerId, rating) VALUES (?, ?, ?, ?)`,
-      [applicationId, application.marketId, userId, ratingNum]
+      `INSERT INTO market_reviews (applicationId, marketId, sellerId, rating, comment) VALUES (?, ?, ?, ?, ?)`,
+      [applicationId, application.marketId, userId, ratingNum, trimmedComment]
     );
 
     return res.status(201).json({
       success: true,
-      data: { reviewId: result.insertId, applicationId: Number(applicationId), rating: ratingNum },
-      message: '별점을 등록했습니다.',
+      data: { reviewId: result.insertId, applicationId: Number(applicationId), rating: ratingNum, comment: trimmedComment },
+      message: '평가를 등록했습니다.',
     });
+
   } catch (error) {
     console.error('별점 등록 오류:', error.message);
     return res.status(500).json({ success: false, data: null, message: '서버 오류로 별점 등록에 실패했습니다.' });
@@ -100,5 +104,45 @@ export async function getMarketReviewSummary(req, res) {
   } catch (error) {
     console.error('평균 별점 조회 오류:', error.message);
     return res.status(500).json({ success: false, data: null, message: '서버 오류로 평균 별점 조회에 실패했습니다.' });
+  }
+}
+
+
+// GET /api/reviews/me/summary (로그인 필요, 주최자 본인)
+// [추가] 내가 연 모든 마켓을 통틀어 평균 별점 + 최근 후기 목록을 반환합니다. (마이페이지 프로필용)
+export async function getHostReviewSummary(req, res) {
+  const { userId } = req.user;
+
+  try {
+    const [[summary]] = await pool.query(
+      `SELECT COUNT(*) AS reviewCount, ROUND(AVG(r.rating), 1) AS averageRating
+       FROM market_reviews r
+       JOIN markets m ON m.marketId = r.marketId
+       WHERE m.hostId = ?`,
+      [userId]
+    );
+
+    const [reviews] = await pool.query(
+      `SELECT r.reviewId, r.rating, r.comment, r.createdAt, m.title AS marketTitle
+       FROM market_reviews r
+       JOIN markets m ON m.marketId = r.marketId
+       WHERE m.hostId = ?
+       ORDER BY r.createdAt DESC
+       LIMIT 20`,
+      [userId]
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        reviewCount: summary.reviewCount,
+        averageRating: summary.averageRating !== null ? Number(summary.averageRating) : null,
+        reviews,
+      },
+      message: '내 평가 요약을 조회했습니다.',
+    });
+  } catch (error) {
+    console.error('주최자 평가 요약 조회 오류:', error.message);
+    return res.status(500).json({ success: false, data: null, message: '서버 오류로 평가 요약 조회에 실패했습니다.' });
   }
 }

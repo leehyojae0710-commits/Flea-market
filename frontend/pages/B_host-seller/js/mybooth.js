@@ -13,10 +13,11 @@ async function deleteMyBoothApplication(applicationId) {
 }
 
 // [추가] 행사 평가(별점) 등록
-async function submitBoothReview(applicationId, rating) {
+// 수정
+async function submitBoothReview(applicationId, rating, comment) {
   return callApi('/reviews', {
     method: 'POST',
-    body: { applicationId: Number(applicationId), rating },
+    body: { applicationId: Number(applicationId), rating, comment },
   });
 }
 
@@ -246,7 +247,7 @@ function renderReviewTrigger(a) {
   const canReview = isPaid && eventEnded;
   let disabledTitle = '';
   if (!isPaid) disabledTitle = '결제가 완료되어야 평가할 수 있어요.';
-  else if (!eventEnded) disabledTitle = '행사가 끝난 뒤에 평가할 수 있어요.';
+  else if (!eventEnded) disabledTitle = '행사가 시작된 뒤에 평가할 수 있어요.';
 
   return `
     <button type="button" class="btn btn-outline btn-sm" data-action="review-toggle" data-id="${id}"
@@ -271,6 +272,8 @@ function renderReviewForm(id) {
         <span>${reviewDraftRating}점</span>
         <button type="button" class="link-reset" data-action="review-reset">초기화(0점)</button>
       </div>
+      <textarea id="review-comment-input" class="review-comment-input" maxlength="200"
+        placeholder="한줄평을 남겨주세요 (선택)"></textarea>
       <div class="review-form-actions">
         <button type="button" class="btn btn-primary btn-sm" data-action="review-submit" data-id="${id}">평가 등록</button>
         <button type="button" class="btn btn-outline btn-sm" data-action="review-cancel">취소</button>
@@ -349,8 +352,14 @@ function handleReviewCancel() {
 
 async function handleReviewSubmit(id) {
   hideAlert();
+
+  const confirmed = window.confirm('평가를 등록하면 변경할 수 없습니다. 등록하시겠어요?');
+  if (!confirmed) return;
+
+  const commentValue = document.getElementById('review-comment-input')?.value.trim() || undefined;
+
   try {
-    const res = await submitBoothReview(id, reviewDraftRating);
+    const res = await submitBoothReview(id, reviewDraftRating, commentValue);
     if (res && res.success) {
       renderAlert('행사 평가를 등록했어요.', 'success');
       reviewOpenId = null;
