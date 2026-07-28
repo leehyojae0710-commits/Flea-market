@@ -51,7 +51,7 @@ export async function getMyApplications(req, res) {
          a.applicationId, a.marketId, a.boothNumber, a.title, a.itemName,
          a.productDesc, a.itemImage, a.status,a.paymentDueAt,
          m.title AS marketTitle, m.eventDate_min, m.eventDate_max, m.locationName,m.boothPrice,
-         (m.eventDate_max < CURDATE()) AS eventEnded,
+         (m.eventDate_min <= CURDATE()) AS eventEnded,
          r.rating AS myRating,
          EXISTS(
            SELECT 1 FROM payments p WHERE p.applicationId = a.applicationId AND p.status = 'Paid'

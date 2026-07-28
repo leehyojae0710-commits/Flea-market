@@ -495,7 +495,21 @@ export async function processQueueTimeouts(req, res) {
   }
 }
 
-// GET /api/markets/mine?includeExpired=
+// [추가 07-28] H-02 주최자 마켓 목록 정렬 필터
+// 메인 목록(getMarketList) / 검색(searchController) 과 동일하게
+// 고정된 SQL 조각만 매핑에서 골라 쓰므로 sort 값이 그대로 쿼리에 들어가지 않음 (인젝션 안전).
+//   - recruitEnd : 모집마감순  (모집 마감일이 가까운 순, 마감일 없는 마켓은 뒤로)
+//   - region     : 지역순      (같은 지역 안에서는 개최일이 빠른 순)
+//   - eventDate  : 개최순      (개최일이 가까운 순, 개최일 없는 마켓은 뒤로)
+//   - latest     : 기본값      (기존 동작 = 진행중 우선 + 최근 수정순)
+const MY_MARKET_SORT_CLAUSES = {
+  recruitEnd: 'm.recruitmentDate_max IS NULL ASC, m.recruitmentDate_max ASC, m.marketId DESC',
+  region: 'm.region ASC, m.eventDate_min ASC, m.marketId DESC',
+  eventDate: 'm.eventDate_min IS NULL ASC, m.eventDate_min ASC, m.marketId DESC',
+  latest: 'm.isExpired ASC, m.updated_at DESC',
+};
+
+// GET /api/markets/mine?includeExpired=&sort=recruitEnd|region|eventDate|latest
 // [통합] 기존 /api/my-markets (myMarketController.getMyMarkets) 와 기능이 중복되어
 //        이 함수 하나로 합쳤습니다. includeExpired 옵션은 구 my-markets 스펙에서 흡수.
 //        - 기본값: 모집중/마감/취소 전부 반환 (프론트 상태 필터가 클라이언트에서 동작)
@@ -503,6 +517,14 @@ export async function processQueueTimeouts(req, res) {
 export async function getMyMarket(req, res) {
   const { userId } = req.user;
   const includeExpired = req.query.includeExpired !== 'false';
+
+  // 정렬 옵션이 없거나 정의되지 않은 값이면 기존 기본 정렬(latest)을 사용
+  const { sort } = req.query;
+  const sortClause = MY_MARKET_SORT_CLAUSES[sort] || MY_MARKET_SORT_CLAUSES.latest;
+  // 취소된 마켓(isExpired=2)은 어떤 정렬을 골라도 항상 목록 맨 아래로 내림
+  const orderClause = sort && sort !== 'latest'
+    ? `(m.isExpired = 2) ASC, ${sortClause}`
+    : sortClause;
 
   try {
     const [rows] = await pool.query(
@@ -514,7 +536,7 @@ export async function getMyMarket(req, res) {
        FROM markets m
        WHERE m.hostId = ?
          ${includeExpired ? '' : 'AND m.isExpired = 0'}
-       ORDER BY m.isExpired ASC, m.updated_at DESC`,
+       ORDER BY ${orderClause}`,
       [userId]
     );
     // 밑에 코드는 참여자 수 까지 가져오는 코드지만 아직 applications db가 완성 되지 않아 보류

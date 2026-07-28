@@ -38,9 +38,19 @@ if (loginForm) {
           sessionStorage.setItem('token', result.data.token);
           sessionStorage.setItem('loggedInUser', JSON.stringify(result.data.user));
 
-          // 로그인 직후엔 특정 마켓이 정해져 있지 않으므로
-          // 역할과 무관하게 마켓 목록(메인 화면)으로 이동합니다.
-          window.location.href = '../../index.html';
+          // [C-01] 역할별 첫 화면 분기
+          //  - 주최자(userType 1) : 내 마켓 관리 화면
+          //  - 판매자(userType 0) : 마켓 탐색(메인) 화면
+          // 분기 규칙은 common/js/role-routing.js 한 곳에서만 관리합니다.
+          const nextPath = new URLSearchParams(window.location.search).get('next');
+
+          if (typeof redirectToRoleHome === 'function') {
+            redirectToRoleHome(nextPath);
+          } else {
+            // role-routing.js 미로드 시 안전망 (기존 동작 유지)
+            console.warn('role-routing.js 가 로드되지 않아 메인 화면으로 이동합니다.');
+            window.location.href = '../../index.html';
+          }
         }
       } else {
         showAlert(result.message || '로그인 실패: 아이디 혹은 비밀번호를 확인하세요.');
@@ -93,6 +103,25 @@ if (roleSelect) {
 
 if (changeRoleBtn) {
   changeRoleBtn.addEventListener('click', resetRoleSelection);
+}
+
+/* ---------------------- 회원가입: 전화번호 자동 하이픈 ---------------------- */
+// 검증 규칙(validators.js PHONE_REGEX)이 하이픈을 필수로 요구해서,
+// 숫자만 입력해도 010-1234-5678 형태가 되도록 입력 중 자동으로 하이픈을 넣어줍니다.
+const phoneInput = document.getElementById('phone');
+
+function formatPhone(value) {
+  const digits = (value || '').replace(/\D/g, '').slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, digits.length - 4)}-${digits.slice(-4)}`;
+}
+
+if (phoneInput) {
+  phoneInput.addEventListener('input', () => {
+    const formatted = formatPhone(phoneInput.value);
+    if (phoneInput.value !== formatted) phoneInput.value = formatted;
+  });
 }
 
 /* ---------------------- 회원가입: 닉네임 중복 확인 ---------------------- */

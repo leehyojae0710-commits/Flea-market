@@ -50,6 +50,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* [UI 개선] space-between 만으로는 화면이 좁아질 때 브랜드 로고와
+     마이페이지 링크가 서로 붙어버릴 수 있어 최소 여백(gap)을 보장하고,
+     정말 공간이 부족하면 줄바꿈되도록 함. */
+  gap: 12px 20px;
+  flex-wrap: wrap;
   padding: 8px 0 18px;
 }
 
@@ -75,7 +80,9 @@ body {
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 18px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px 18px;
 }
 
 .link-ghost {

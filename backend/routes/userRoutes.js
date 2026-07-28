@@ -8,6 +8,10 @@ import { authenticateToken } from '../middleware/authMiddleware.js';
 const router = express.Router();
 const SALT_ROUNDS = 10;
 
+// [수정] 서버측 형식 검증 없이 phone 값을 그대로 저장하고 있었음.
+// frontend/common/js/validators.js 의 PHONE_REGEX 와 동일한 규칙 (010-0000-0000 형식).
+const PHONE_REGEX = /^01[0-9]-\d{3,4}-\d{4}$/;
+
 /**
  * @swagger
  * tags:
@@ -43,7 +47,7 @@ const SALT_ROUNDS = 10;
  *                   properties:
  *                     data: { $ref: '#/components/schemas/UserUpdateData' }
  *       400:
- *         description: 수정할 내용 없음
+ *         description: 수정할 내용 없음 / 전화번호 형식 오류
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -61,6 +65,12 @@ const SALT_ROUNDS = 10;
 router.patch('/me', authenticateToken, async (req, res) => {
   const { userId } = req.user;
   const { phone, region, password } = req.body;
+
+  // [수정] 프론트(profile-edit.js)는 isValidPhone()으로 형식을 검증하지만,
+  // 서버는 값을 그대로 저장했음. API를 직접 호출하면 형식이 깨진 전화번호도 저장될 수 있어 서버측 검증을 추가함.
+  if (phone && !PHONE_REGEX.test(phone.trim())) {
+    return res.status(400).json({ success: false, data: null, message: '전화번호는 010-0000-0000 형식으로 입력해주세요.' });
+  }
 
   const fields = [];
   const values = [];

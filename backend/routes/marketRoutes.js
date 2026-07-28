@@ -131,6 +131,10 @@ router.get('/', getMarketList);
  *         name: includeExpired
  *         description: "false 로 주면 마감/취소된 마켓 제외 (기본값 true)"
  *         schema: { type: boolean }
+ *       - in: query
+ *         name: sort
+ *         description: "정렬 기준 - recruitEnd(모집마감순) / region(지역순) / eventDate(개최순) / latest(기본, 진행중 우선+최근수정순). 취소된 마켓은 항상 맨 뒤"
+ *         schema: { type: string, enum: [recruitEnd, region, eventDate, latest] }
  *     responses:
  *       200:
  *         description: 내 마켓 목록
