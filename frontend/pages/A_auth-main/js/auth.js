@@ -105,6 +105,25 @@ if (changeRoleBtn) {
   changeRoleBtn.addEventListener('click', resetRoleSelection);
 }
 
+/* ---------------------- 회원가입: 전화번호 자동 하이픈 ---------------------- */
+// 검증 규칙(validators.js PHONE_REGEX)이 하이픈을 필수로 요구해서,
+// 숫자만 입력해도 010-1234-5678 형태가 되도록 입력 중 자동으로 하이픈을 넣어줍니다.
+const phoneInput = document.getElementById('phone');
+
+function formatPhone(value) {
+  const digits = (value || '').replace(/\D/g, '').slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, digits.length - 4)}-${digits.slice(-4)}`;
+}
+
+if (phoneInput) {
+  phoneInput.addEventListener('input', () => {
+    const formatted = formatPhone(phoneInput.value);
+    if (phoneInput.value !== formatted) phoneInput.value = formatted;
+  });
+}
+
 /* ---------------------- 회원가입: 닉네임 중복 확인 ---------------------- */
 const nicknameInput = document.getElementById('nickname');
 const checkNicknameBtn = document.getElementById('check-nickname-btn');

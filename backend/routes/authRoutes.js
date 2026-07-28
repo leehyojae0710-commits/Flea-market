@@ -126,9 +126,11 @@ router.post('/register', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
     const [result] = await pool.query(
-      `INSERT INTO users (userType, password, phone, email, region, nickname, activeRole)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [userTypeNum, hashedPassword, phone, email, region, nickname, normalizeActiveRole(userTypeNum, null)]
+      // [수정] activeRole 은 users 테이블에 없을 수도 있는 선택 컬럼이라 INSERT 대상에서 제외합니다.
+      //        (역할은 userType 으로 판정하고, activeRole 은 화면 모드 표시용일 뿐입니다.)
+      `INSERT INTO users (userType, password, phone, email, region, nickname)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [userTypeNum, hashedPassword, phone, email, region, nickname]
     );
 
     const userId = result.insertId;
@@ -283,13 +285,9 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, message: '이메일 또는 비밀번호가 올바르지 않습니다.' });
     }
 
-    // [C-01] 판매자 계정에 host 값이 남아 있으면 로그인 시점에 seller 로 되돌립니다.
-    //        (판매자 -> 주최자 우회 로그인 차단)
-    const safeActiveRole = normalizeActiveRole(user.userType, user.activeRole);
-    if (user.activeRole !== safeActiveRole) {
-      await pool.query('UPDATE users SET activeRole = ? WHERE userId = ?', [safeActiveRole, user.userId]);
-      user.activeRole = safeActiveRole;
-    }
+    // [C-01] 판매자 계정에 host 값이 남아 있어도 응답에서는 항상 seller 로 내려줍니다.
+    //        (DB 쓰기를 하지 않으므로 activeRole 컬럼이 없는 DB에서도 로그인이 실패하지 않습니다.)
+    user.activeRole = normalizeActiveRole(user.userType, user.activeRole);
 
     const token = jwt.sign({ userId: user.userId, userType: user.userType }, JWT_SECRET, { expiresIn: '7d' });
 
@@ -352,7 +350,7 @@ router.patch('/toggle-role', authenticateToken, async (req, res) => {
   const { userId } = req.user;
 
   try {
-    const [rows] = await pool.query('SELECT userType, activeRole FROM users WHERE userId = ?', [userId]);
+    const [rows] = await pool.query('SELECT userType FROM users WHERE userId = ?', [userId]);
     if (rows.length === 0) {
       return res.status(404).json({ success: false, data: null, message: '사용자를 찾을 수 없습니다.' });
     }
@@ -368,7 +366,20 @@ router.patch('/toggle-role', authenticateToken, async (req, res) => {
       });
     }
 
-    const nextRole = rows[0].activeRole === 'host' ? 'seller' : 'host';
+    // activeRole 은 선택 컬럼이라, 없으면 안내 메시지를 주고 로그인 흐름에는 영향을 주지 않습니다.
+    let currentRole = 'host';
+    try {
+      const [roleRows] = await pool.query('SELECT activeRole FROM users WHERE userId = ?', [userId]);
+      currentRole = roleRows[0]?.activeRole === 'seller' ? 'seller' : 'host';
+    } catch (columnError) {
+      return res.status(500).json({
+        success: false,
+        data: null,
+        message: 'users.activeRole 컬럼이 없습니다. backend 에서 node scripts/migrate-add-swagger-columns.js 를 한 번 실행해 주세요.',
+      });
+    }
+
+    const nextRole = currentRole === 'host' ? 'seller' : 'host';
     await pool.query('UPDATE users SET activeRole = ? WHERE userId = ?', [nextRole, userId]);
 
     return res.status(200).json({
