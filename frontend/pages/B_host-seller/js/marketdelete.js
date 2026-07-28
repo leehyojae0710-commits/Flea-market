@@ -1,6 +1,10 @@
 // 담당 B: 주최자 화면 - 내 마켓 관리
 // [수정] 토글(펼치기/접기) 시 renderMarketList() 전체 재실행 대신,
 //        해당 카드의 상세 영역만 부분 업데이트하도록 변경 (성능/버벅임 개선)
+// [추가 07-28] H-01 잔여작업 - 모집 / 개최 D-DAY 표기를 주최자 화면에도 적용.
+//        · D-DAY 산정 기준은 첫 화면(A_auth-main/js/main.js)의 ddayLabel() 규칙과 동일하게 맞춤
+//        · 상태태그(status-tag)는 DB의 isExpired 값 기준, D-DAY는 날짜 기준으로 각각 계산
+//        · 취소된 마켓(isExpired=2)은 D-DAY를 표기하지 않음
 
 // ---------- API 호출 ----------
 
@@ -33,13 +37,34 @@ function hideAlert() {
 
 const STATUS_LABEL = { open: '모집중', closed: '마감', cancel: '취소됨' };
 
+// [추가] 제목/소개에 <, > 같은 문자가 들어와도 카드 레이아웃이 깨지지 않도록 이스케이프
+function escapeHtml(value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function formatDate(dateString) {
   if (!dateString) return '';
   const d = new Date(dateString);
+  if (Number.isNaN(d.getTime())) return '';
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+// [추가] 기간 표기 (한쪽만 있거나 둘 다 없을 때도 깨지지 않게)
+function formatDateRange(from, to) {
+  const a = formatDate(from);
+  const b = formatDate(to);
+  if (!a && !b) return '미정';
+  if (a && b) return `${a} ~ ${b}`;
+  return a || b;
 }
 
 function getStatusKey(isExpired) {
@@ -53,6 +78,83 @@ function getStatusKey(isExpired) {
     default:
       return 'open';
   }
+}
+
+// ---------- 날짜 / D-DAY 계산 ----------
+
+function todayMidnight() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+// 오늘 00:00 기준으로 target 날짜까지 남은 일수 (지났으면 음수)
+function daysUntil(dateString) {
+  if (!dateString) return null;
+  const target = new Date(dateString);
+  if (Number.isNaN(target.getTime())) return null;
+  target.setHours(0, 0, 0, 0);
+  return Math.round((target - todayMidnight()) / (1000 * 60 * 60 * 24));
+}
+
+// 모집 D-DAY
+//  - 모집 시작 전 : 모집 시작 D-n
+//  - 모집 중      : 모집 마감 D-n (당일이면 오늘 마감)
+//  - 모집 종료 후 : 모집 마감
+function getRecruitDDay(market) {
+  const toStart = daysUntil(market.recruitmentDate_min);
+  const toEnd = daysUntil(market.recruitmentDate_max);
+  if (toStart === null && toEnd === null) return null;
+
+  if (toStart !== null && toStart > 0) {
+    return { state: 'before', label: `모집 시작 D-${toStart}` };
+  }
+  if (toEnd !== null && toEnd > 0) {
+    return { state: 'active', label: `모집 마감 D-${toEnd}` };
+  }
+  if (toEnd === 0) {
+    return { state: 'active', label: '모집 오늘 마감' };
+  }
+  return { state: 'done', label: '모집 마감' };
+}
+
+// 개최 D-DAY
+//  - 개최 전   : 개최 D-n
+//  - 개최 기간 : 개최 D-DAY / 개최중 · 종료 D-n
+//  - 개최 후   : 개최 종료
+function getEventDDay(market) {
+  const toStart = daysUntil(market.eventDate_min);
+  const toEnd = daysUntil(market.eventDate_max);
+  if (toStart === null && toEnd === null) return null;
+
+  if (toStart !== null && toStart > 0) {
+    return { state: 'before', label: `개최 D-${toStart}` };
+  }
+  if (toStart === 0) {
+    return { state: 'active', label: '개최 D-DAY' };
+  }
+  if (toEnd !== null && toEnd > 0) {
+    return { state: 'active', label: `개최중 · 종료 D-${toEnd}` };
+  }
+  if (toEnd === 0) {
+    return { state: 'active', label: '개최 오늘 마지막 날' };
+  }
+  return { state: 'done', label: '개최 종료' };
+}
+
+// 카드 한 행에 모집 / 개최 D-DAY 배지를 나란히 표기
+function renderDDayBadges(market, statusKey) {
+  if (statusKey === 'cancel') return ''; // 취소된 마켓은 D-DAY 무의미
+
+  const badges = [getRecruitDDay(market), getEventDDay(market)]
+    .filter(Boolean)
+    .map(
+      (d) =>
+        `<span class="hm-dday" data-state="${d.state}">${escapeHtml(d.label)}</span>`,
+    )
+    .join('');
+
+  return badges ? `<div class="hm-dday-row">${badges}</div>` : '';
 }
 
 // ---------- 상태 ----------
@@ -170,9 +272,12 @@ function renderMarketItem(market) {
        data-action="toggle"
        data-id="${id}"
        style="cursor:pointer;">
-    <span class="my-market-item-title">${market.title}</span>
+    <span class="my-market-item-title">${escapeHtml(market.title)}</span>
     <span class="status-tag ${statusKey}">${STATUS_LABEL[statusKey]}</span>
   </div>
+
+  <!-- [추가] 모집 / 개최 D-DAY 한 행 표기 -->
+  ${renderDDayBadges(market, statusKey)}
 
   <div class="item-card-actions">
     <a class="btn btn-outline btn-sm" href="${marketUrl}" ${marketAttrs}>수정하기</a>
@@ -189,13 +294,19 @@ function renderMarketItem(market) {
 }
 
 function renderMarketDetail(market) {
+  const statusKey = getStatusKey(market.isExpired);
+  const recruit = statusKey === 'cancel' ? null : getRecruitDDay(market);
+  const event = statusKey === 'cancel' ? null : getEventDDay(market);
+  const suffix = (d) =>
+    d ? ` <span class="hm-dday-inline">(${escapeHtml(d.label)})</span>` : '';
+
   return `
     <div class="item-card-detail">
-      <p class="item-card-meta">마켓 이름: ${market.title || '-'}</p>
-      <p class="item-card-meta">개최 일자: ${formatDate(market.eventDate_min)} ~ ${formatDate(market.eventDate_max)}</p>
-      <p class="item-card-meta">모집 일자: ${formatDate(market.recruitmentDate_min)} ~ ${formatDate(market.recruitmentDate_max)}</p>
-      <p class="item-card-meta">장소: ${market.locationName || '-'}</p>
-      <p class="item-card-meta">소개: ${market.description || '등록된 소개가 없어요.'}</p>
+      <p class="item-card-meta">마켓 이름: ${escapeHtml(market.title) || '-'}</p>
+      <p class="item-card-meta">개최 일자: ${formatDateRange(market.eventDate_min, market.eventDate_max)}${suffix(event)}</p>
+      <p class="item-card-meta">모집 일자: ${formatDateRange(market.recruitmentDate_min, market.recruitmentDate_max)}${suffix(recruit)}</p>
+      <p class="item-card-meta">장소: ${escapeHtml(market.locationName) || '-'}</p>
+      <p class="item-card-meta">소개: ${escapeHtml(market.description) || '등록된 소개가 없어요.'}</p>
     </div>`;
 }
 
