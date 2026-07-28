@@ -33,6 +33,13 @@ async function applyForBooth(payload) {
   return callApi('/applications', { method: 'POST', body: payload });
 }
 
+async function submitSellerReview(applicationId, rating, comment) {
+  return callApi('/reviews/seller', {
+    method: 'POST',
+    body: { applicationId: Number(applicationId), rating, comment },
+  });
+}
+
 async function createComment(payload) {
   // payload: { targetType, targetId, content }
   return callApi('/comments', { method: 'POST', body: payload });
@@ -89,7 +96,11 @@ function formatPrice(price) {
 }
 
 const STATUS_LABEL = { Pending: '대기중', Approved: '승인됨', Rejected: '반려됨', Paid: '결제 완료', Refunded: '결제 취소' };
-const STATUS_CLASS = { Pending: 'pending', Approved: 'approved', Rejected: 'rejected', Paid: 'paid', Refunded: 'refunded'};
+const STATUS_CLASS = { Pending: 'pending', Approved: 'approved', Rejected: 'rejected', Paid: 'paid', Refunded: 'refunded' };
+
+let currentApplications = [];
+let sellerReviewOpenId = null;
+let sellerReviewDraftRating = 0;
 
 // ---------- 마켓 등록 ----------
 
@@ -293,19 +304,23 @@ function handleBoothSelectClick() {
 // ---------- 신청자 목록 (주최측 전용) ----------
 
 function renderApplicationList(applications) {
+  currentApplications = applications || [];
   const wrap = document.getElementById('application-list');
   if (!wrap) return;
 
-  if (!applications || applications.length === 0) {
+  if (currentApplications.length === 0) {
     wrap.innerHTML = '<p class="list-empty">아직 들어온 신청이 없어요.</p>';
     return;
   }
 
-  wrap.innerHTML = applications
+  wrap.innerHTML = currentApplications
     .map((a) => {
       const status = a.status || 'Pending';
+      const id = a.applicationId;
+      const canShowReview = status === 'Paid'; // 결제 완료된 건만 평가 대상
+
       return `
-      <div class="item-card" data-application-id="${a.applicationId}">
+      <div class="item-card" data-application-id="${id}">
         <div class="item-card-top">
           <div>
             <div class="item-card-title">${a.itemName || '이름 미입력'} · ${a.boothNumber}번 부스${a.title ? ` · ${a.title}` : ''}</div>
@@ -315,14 +330,11 @@ function renderApplicationList(applications) {
         </div>
         ${status === 'Pending' ? `
         <div class="item-card-actions">
-          <button type="button" class="btn btn-sage btn-sm" data-action="approve" data-id="${a.applicationId}">승인</button>
-          <button type="button" class="btn btn-danger btn-sm" data-action="reject" data-id="${a.applicationId}">반려</button>
+          <button type="button" class="btn btn-sage btn-sm" data-action="approve" data-id="${id}">승인</button>
+          <button type="button" class="btn btn-danger btn-sm" data-action="reject" data-id="${id}">반려</button>
         </div>` : ''}
-        ${status === 'Paid' ? `
-        <div class="item-card-actions">
-          <button type="button" class="btn btn-sage btn-sm" data-action="refunded" data-id="${a.applicationId}">결제 취소</button>
-        </div>
-          `: ''}
+        ${canShowReview ? renderSellerReviewTrigger(a) : ''}
+        ${canShowReview && sellerReviewOpenId === String(id) ? renderSellerReviewForm(id) : ''}
       </div>`;
     })
     .join('');
@@ -333,9 +345,210 @@ function renderApplicationList(applications) {
   wrap.querySelectorAll('[data-action="reject"]').forEach((btn) => {
     btn.addEventListener('click', () => handleApplicationDecision(btn.dataset.id, 'reject'));
   });
-  wrap.querySelectorAll('[data-action="refunded"]').forEach((btn)=>{
-    btn.addEventListener('click',()=> refundPayment_(btn.dataset.id));
+  wrap.querySelectorAll('[data-action="seller-review-toggle"]').forEach((btn) => {
+    btn.addEventListener('click', () => handleSellerReviewToggle(btn.dataset.id));
   });
+  wrap.querySelectorAll('[data-action="seller-star-pick"]').forEach((btn) => {
+    btn.addEventListener('click', () => handleSellerStarPick(Number(btn.dataset.value)));
+  });
+  wrap.querySelectorAll('[data-action="seller-review-reset"]').forEach((btn) => {
+    btn.addEventListener('click', () => handleSellerReviewReset());
+  });
+  wrap.querySelectorAll('[data-action="seller-review-submit"]').forEach((btn) => {
+    btn.addEventListener('click', () => handleSellerReviewSubmit(btn.dataset.id));
+  });
+  wrap.querySelectorAll('[data-action="seller-review-cancel"]').forEach((btn) => {
+    btn.addEventListener('click', () => handleSellerReviewCancel());
+  });
+}
+
+function renderStaticStars(rating) {
+  return `<span class="stars-static" aria-label="${rating}점">${'★'.repeat(rating)}${'☆'.repeat(5 - rating)}</span>`;
+}
+
+function renderSellerReviewTrigger(a) {
+  const id = a.applicationId;
+  const hasReview = a.mySellerRating !== null && a.mySellerRating !== undefined;
+
+  if (hasReview) {
+    return `
+      <span class="review-summary">
+        <span class="review-label">내 평가</span>
+        ${renderStaticStars(a.mySellerRating)}
+        <span class="review-score">${a.mySellerRating}점</span>
+      </span>`;
+  }
+
+  const eventStarted = !!a.eventStarted;
+  return `
+    <div class="item-card-actions">
+      <button type="button" class="btn btn-outline btn-sm" data-action="seller-review-toggle" data-id="${id}"
+        ${eventStarted ? '' : `disabled title="행사가 시작된 뒤에 평가할 수 있어요."`}>
+        판매자 평가하기
+      </button>
+    </div>`;
+}
+
+function renderSellerReviewForm(id) {
+  return `
+    <div class="review-form">
+      <div class="star-picker">
+        ${[1, 2, 3, 4, 5]
+      .map((n) => `<button type="button" class="star-btn ${n <= sellerReviewDraftRating ? 'filled' : ''}" data-action="seller-star-pick" data-value="${n}" aria-label="${n}점">★</button>`)
+      .join('')}
+      </div>
+      <div class="review-form-meta">
+        <span>${sellerReviewDraftRating}점</span>
+        <button type="button" class="link-reset" data-action="seller-review-reset">초기화(0점)</button>
+      </div>
+      <textarea id="seller-review-comment-input" class="review-comment-input" maxlength="200"
+        placeholder="한줄평을 남겨주세요 (선택)"></textarea>
+      <div class="review-form-actions">
+        <button type="button" class="btn btn-primary btn-sm" data-action="seller-review-submit" data-id="${id}">평가 등록</button>
+        <button type="button" class="btn btn-outline btn-sm" data-action="seller-review-cancel">취소</button>
+      </div>
+    </div>`;
+}
+
+function handleSellerReviewToggle(id) {
+  sellerReviewOpenId = sellerReviewOpenId === String(id) ? null : String(id);
+  sellerReviewDraftRating = 0;
+  renderApplicationList(currentApplications);
+}
+function handleSellerStarPick(value) {
+  sellerReviewDraftRating = value;
+  renderApplicationList(currentApplications);
+}
+function handleSellerReviewReset() {
+  sellerReviewDraftRating = 0;
+  renderApplicationList(currentApplications);
+}
+function handleSellerReviewCancel() {
+  sellerReviewOpenId = null;
+  sellerReviewDraftRating = 0;
+  renderApplicationList(currentApplications);
+}
+
+async function handleSellerReviewSubmit(id) {
+  hideAlert();
+  const confirmed = window.confirm('평가를 등록하면 변경할 수 없습니다. 등록하시겠어요?');
+  if (!confirmed) return;
+
+  const commentValue = document.getElementById('seller-review-comment-input')?.value.trim() || undefined;
+
+  try {
+    const res = await submitSellerReview(id, sellerReviewDraftRating, commentValue);
+    if (res && res.success) {
+      renderAlert('판매자 평가를 등록했어요.', 'success');
+      sellerReviewOpenId = null;
+      sellerReviewDraftRating = 0;
+      await loadApplicationList();
+    } else {
+      renderAlert(res?.message || '평가 등록에 실패했어요.');
+    }
+  } catch (err) {
+    renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
+  }
+}
+
+function renderStaticStars(rating) {
+  return `<span class="stars-static" aria-label="${rating}점">${'★'.repeat(rating)}${'☆'.repeat(5 - rating)}</span>`;
+}
+
+function renderSellerReviewTrigger(a) {
+  const id = a.applicationId;
+  const hasReview = a.mySellerRating !== null && a.mySellerRating !== undefined;
+
+  if (hasReview) {
+    return `
+      <span class="review-summary">
+        <span class="review-label">내 평가</span>
+        ${renderStaticStars(a.mySellerRating)}
+        <span class="review-score">${a.mySellerRating}점</span>
+      </span>`;
+  }
+
+  const isPaid = !!a.isPaid;
+  const eventStarted = !!a.eventStarted;
+  const canReview = isPaid && eventStarted;
+  let disabledTitle = '';
+  if (!isPaid) disabledTitle = '결제가 완료되어야 평가할 수 있어요.';
+  else if (!eventStarted) disabledTitle = '행사가 시작된 뒤에 평가할 수 있어요.';
+
+  return `
+    <div class="item-card-actions">
+      <button type="button" class="btn btn-outline btn-sm" data-action="seller-review-toggle" data-id="${id}"
+        ${canReview ? '' : `disabled title="${disabledTitle}"`}>
+        판매자 평가하기
+      </button>
+    </div>`;
+}
+
+function renderSellerReviewForm(id) {
+  return `
+    <div class="review-form">
+      <div class="star-picker">
+        ${[1, 2, 3, 4, 5]
+      .map(
+        (n) => `<button type="button" class="star-btn ${n <= sellerReviewDraftRating ? 'filled' : ''}" data-action="seller-star-pick" data-value="${n}" aria-label="${n}점">★</button>`,
+      )
+      .join('')}
+      </div>
+      <div class="review-form-meta">
+        <span>${sellerReviewDraftRating}점</span>
+        <button type="button" class="link-reset" data-action="seller-review-reset">초기화(0점)</button>
+      </div>
+      <textarea id="seller-review-comment-input" class="review-comment-input" maxlength="200"
+        placeholder="한줄평을 남겨주세요 (선택)"></textarea>
+      <div class="review-form-actions">
+        <button type="button" class="btn btn-primary btn-sm" data-action="seller-review-submit" data-id="${id}">평가 등록</button>
+        <button type="button" class="btn btn-outline btn-sm" data-action="seller-review-cancel">취소</button>
+      </div>
+    </div>`;
+}
+
+function handleSellerReviewToggle(id) {
+  sellerReviewOpenId = sellerReviewOpenId === String(id) ? null : String(id);
+  sellerReviewDraftRating = 0;
+  renderApplicationList(currentApplications);
+}
+
+function handleSellerStarPick(value) {
+  sellerReviewDraftRating = value;
+  renderApplicationList(currentApplications);
+}
+
+function handleSellerReviewReset() {
+  sellerReviewDraftRating = 0;
+  renderApplicationList(currentApplications);
+}
+
+function handleSellerReviewCancel() {
+  sellerReviewOpenId = null;
+  sellerReviewDraftRating = 0;
+  renderApplicationList(currentApplications);
+}
+
+async function handleSellerReviewSubmit(id) {
+  hideAlert();
+  const confirmed = window.confirm('평가를 등록하면 변경할 수 없습니다. 등록하시겠어요?');
+  if (!confirmed) return;
+
+  const commentValue = document.getElementById('seller-review-comment-input')?.value.trim() || undefined;
+
+  try {
+    const res = await submitSellerReview(id, sellerReviewDraftRating, commentValue);
+    if (res && res.success) {
+      renderAlert('판매자 평가를 등록했어요.', 'success');
+      sellerReviewOpenId = null;
+      sellerReviewDraftRating = 0;
+      await loadApplicationList();
+    } else {
+      renderAlert(res?.message || '평가 등록에 실패했어요.');
+    }
+  } catch (err) {
+    renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
+  }
 }
 
 async function handleApplicationDecision(applicationId, decision) {
@@ -365,9 +578,11 @@ async function loadApplicationList() {
     if (res && res.success) {
       renderApplicationList(res.data || []);
     } else {
+      currentApplications = [];
       wrap.innerHTML = '<p class="list-empty">신청 목록을 불러오지 못했어요.</p>';
     }
   } catch (err) {
+    currentApplications = [];
     wrap.innerHTML = '<p class="list-empty">서버에 연결할 수 없어요.</p>';
   }
 }
@@ -504,6 +719,7 @@ function handleBoothApplySubmit() {
 
     try {
       const res = await applyForBooth(payload);
+
       if (res && res.success) {
         renderAlert('부스 신청이 완료됐어요!', 'success');
         setTimeout(() => {
@@ -775,13 +991,13 @@ function handleCommentSubmit() {
 
 async function refundPayment_(a) {
   const id = a.applicationId;
-  try{
-    const res =await refundPayment(a,'주최자의 의한 환불처리');
-    if(res.success)
+  try {
+    const res = await refundPayment(a, '주최자의 의한 환불처리');
+    if (res.success)
       renderAlert('환불 처리 완료');
   }
-  catch(error){
-    renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.'); 
+  catch (error) {
+    renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
   }
 }
 

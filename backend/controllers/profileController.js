@@ -93,28 +93,22 @@ export async function getMyEventStats(req, res) {
       });
     }
 
-    const [[upcoming]] = await pool.query(
-      `SELECT COUNT(*) AS cnt FROM applications a
-       JOIN markets m ON m.marketId = a.marketId
-       WHERE a.sellerId = ? AND m.isExpired = 0 AND a.status IN ('Pending', 'Approved')`,
+    // 수정 — [참여 마켓] 결제 완료(Paid) 건수, [후기] 주최자에게 받은 평가 건수
+    const [[participated]] = await pool.query(
+      `SELECT COUNT(*) AS cnt FROM applications WHERE sellerId = ? AND status = 'Paid'`,
       [userId]
     );
-    const [[past]] = await pool.query(
-      `SELECT COUNT(*) AS cnt FROM applications a
-       JOIN markets m ON m.marketId = a.marketId
-       WHERE a.sellerId = ? AND m.isExpired = 1 AND a.status = 'Approved'`,
-      [userId]
-    );
-    const [[cancelled]] = await pool.query(
-      `SELECT COUNT(*) AS cnt FROM applications WHERE sellerId = ? AND status = 'Rejected'`,
+    const [[reviewCount]] = await pool.query(
+      `SELECT COUNT(*) AS cnt FROM seller_reviews WHERE sellerId = ?`,
       [userId]
     );
 
     return res.status(200).json({
       success: true,
-      data: { upcomingCount: upcoming.cnt, pastCount: past.cnt, cancelledCount: cancelled.cnt },
-      message: '행사 현황을 조회했습니다.',
+      data: { participatedCount: participated.cnt, reviewCount: reviewCount.cnt },
+      message: '참여 이력을 조회했습니다.',
     });
+
   } catch (error) {
     console.error('행사 현황 조회 오류:', error.message);
     return res.status(500).json({ success: false, data: null, message: '서버 오류로 행사 현황 조회에 실패했습니다.' });

@@ -121,7 +121,7 @@ function renderBoothCard(a) {
   const id = a.applicationId;
   const status = a.status || 'Pending';
   const isPending = status === 'Pending';
-  const isApproved = status === 'Approved';
+  const isApproved = status === 'Approved' || status === 'Paid';
   const isExpanded = expandedId === String(id) || expandedId === id;
   return `
     <div class="item-card" data-application-id="${id}">
@@ -137,16 +137,15 @@ function renderBoothCard(a) {
       <div class="action-group">
         <a class="btn btn-outline btn-sm" href="${isPending ? `booth-edit?applicationId=${id}` : '#'}" ${isPending ? '' : 'aria-disabled="true" tabindex="-1" title="대기중인 신청만 수정할 수 있어요." onclick="return false;"'}>수정</a>
         <button type="button" class="btn btn-danger btn-sm" data-action="delete" data-id="${id}" ${isPending ? '' : 'disabled title="대기중인 신청만 취소할 수 있어요."'}>삭제</button>
-        ${
-          isApproved
-          ? renderPaymentArea(a)
-          : ''
-          }
+        ${isApproved
+      ? renderPaymentArea(a)
+      : ''
+    }
       </div>
-      ${status === 'Approved' ? renderReviewTrigger(a) : ''}
+      ${(status === 'Approved' || status === 'Paid') ? renderReviewTrigger(a) : ''}
     </div>
 
-      ${status === 'Approved' && reviewOpenId === String(id) ? renderReviewForm(id) : ''}
+      ${(status === 'Approved' || status === 'Paid') && reviewOpenId === String(id) ? renderReviewForm(id) : ''}
       ${isExpanded ? renderBoothDetail(a) : ''}
     </div>`;
 }
@@ -263,12 +262,12 @@ function renderReviewForm(id) {
     <div class="review-form">
       <div class="star-picker">
         ${[1, 2, 3, 4, 5]
-          .map(
-            (n) => `
+      .map(
+        (n) => `
           <button type="button" class="star-btn ${n <= reviewDraftRating ? 'filled' : ''}" data-action="star-pick" data-value="${n}" aria-label="${n}점">★</button>
         `,
-          )
-          .join('')}
+      )
+      .join('')}
       </div>
       <div class="review-form-meta">
         <span>${reviewDraftRating}점</span>

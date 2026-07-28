@@ -209,7 +209,21 @@ export async function getApplicationsByMarket(req, res) {
         return res.status(403).json({ success: false, data: null, message: '본인이 등록한 마켓의 신청 목록만 조회할 수 있습니다.' });
       }
 
-      const [rows] = await pool.query('SELECT * FROM applications WHERE marketId = ? ORDER BY applicationId DESC', [marketId]);
+      // 수정 — 평가하기 버튼 표시에 필요한 정보(행사 시작 여부/결제여부/이미 평가했는지) 같이 내려줌
+      const [rows] = await pool.query(
+        `SELECT a.*,
+          (m.eventDate_min <= CURDATE()) AS eventStarted,
+          EXISTS(
+            SELECT 1 FROM payments p WHERE p.applicationId = a.applicationId AND p.status = 'Paid'
+          ) AS isPaid,
+          sr.rating AS mySellerRating
+        FROM applications a
+        JOIN markets m ON m.marketId = a.marketId
+        LEFT JOIN seller_reviews sr ON sr.applicationId = a.applicationId
+        WHERE a.marketId = ?
+        ORDER BY a.applicationId DESC`,
+        [marketId]
+      );
       return res.status(200).json({ success: true, data: rows, message: '신청 목록을 조회했습니다.' });
     }
   } catch (error) {

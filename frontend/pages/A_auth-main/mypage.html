@@ -49,40 +49,83 @@
                 </div>
             </div>
 
-            <div class="profile-section">
-                <div class="success-rate-card">
-                    <div class="success-rate-info">
-                        <div class="success-rate-title">주최행사 성공율</div>
-                        <p class="success-rate-desc">종료된 행사 기준</p>
-                        <ul class="success-rate-legend">
-                            <li><i class="lg lg-ok"></i>정상 개최 <b id="rate-success">-</b></li>
-                            <li><i class="lg lg-cancel"></i>취소 <b id="rate-cancelled">-</b></li>
-                        </ul>
-                        <p class="success-rate-note" id="rate-pending"></p>
-                    </div>
-                    <div class="success-rate-donut" id="stat-donut">
-                        <span class="success-rate-center" id="stat-donut-rate">-</span>
-                    </div>
-                </div>
-            </div>
+            <!-- 주최자 전용: 성공율 -->
+<div class="profile-section" id="host-success-block" hidden>
+    <div class="success-rate-card">
+        <div class="success-rate-info">
+            <div class="success-rate-title">주최행사 성공율</div>
+            <p class="success-rate-desc">종료된 행사 기준</p>
+            <ul class="success-rate-legend">
+                <li><i class="lg lg-ok"></i>정상 개최 <b id="rate-success">-</b></li>
+                <li><i class="lg lg-cancel"></i>취소 <b id="rate-cancelled">-</b></li>
+            </ul>
+            <p class="success-rate-note" id="rate-pending"></p>
+        </div>
+        <div class="success-rate-donut" id="stat-donut">
+            <span class="success-rate-center" id="stat-donut-rate">-</span>
+        </div>
+    </div>
+</div>
 
-            <div class="profile-section">
-                <div class="profile-section-label">행사 현황</div>
-                <div class="profile-stats-row">
-                    <div class="profile-stat">
-                        <span id="stat-upcoming" class="profile-stat-num">-</span>
-                        <span class="profile-stat-label">진행 중 / 예정</span>
-                    </div>
-                    <div class="profile-stat">
-                        <span id="stat-past" class="profile-stat-num">-</span>
-                        <span class="profile-stat-label">지난 행사</span>
-                    </div>
-                    <div class="profile-stat">
-                        <span id="stat-cancelled" class="profile-stat-num">-</span>
-                        <span class="profile-stat-label">취소 이력</span>
-                    </div>
-                </div>
-            </div>
+<!-- 주최자 전용: 행사 현황 3종 -->
+<div class="profile-section" id="host-stats-block" hidden>
+    <div class="profile-section-label">행사 현황</div>
+    <div class="profile-stats-row">
+        <div class="profile-stat">
+            <span id="stat-upcoming" class="profile-stat-num">-</span>
+            <span class="profile-stat-label">진행 중 / 예정</span>
+        </div>
+        <div class="profile-stat">
+            <span id="stat-past" class="profile-stat-num">-</span>
+            <span class="profile-stat-label">지난 행사</span>
+        </div>
+        <div class="profile-stat">
+            <span id="stat-cancelled" class="profile-stat-num">-</span>
+            <span class="profile-stat-label">취소 이력</span>
+        </div>
+    </div>
+</div>
+
+<!-- 판매자 전용: 참여 이력 2종 -->
+<div class="profile-section" id="seller-stats-block" hidden>
+    <div class="profile-section-label">참여 이력</div>
+    <div class="profile-stats-row">
+        <div class="profile-stat">
+            <span id="stat-participated" class="profile-stat-num">-</span>
+            <span class="profile-stat-label">참여 마켓</span>
+        </div>
+        <div class="profile-stat">
+            <span id="stat-review-count" class="profile-stat-num">-</span>
+            <span class="profile-stat-label">받은 후기</span>
+        </div>
+    </div>
+</div>
+
+<!-- 주최자 전용: 판매자가 남긴 평가 -->
+<div class="profile-section" id="review-section" hidden>
+    <div class="profile-section-label">판매자 평가</div>
+    <div class="review-summary-card">
+        <span class="review-summary-score" id="review-avg-score">-</span>
+        <div class="review-summary-meta">
+            <span class="review-summary-stars" id="review-avg-stars">☆☆☆☆☆</span>
+            <span class="review-summary-count" id="review-count-text"></span>
+        </div>
+    </div>
+    <ul class="review-list" id="review-list"></ul>
+</div>
+
+<!-- 판매자 전용: 주최자가 남긴 평가 -->
+<div class="profile-section" id="seller-review-section" hidden>
+    <div class="profile-section-label">주최자 평가</div>
+    <div class="review-summary-card">
+        <span class="review-summary-score" id="seller-review-avg-score">-</span>
+        <div class="review-summary-meta">
+            <span class="review-summary-stars" id="seller-review-avg-stars">☆☆☆☆☆</span>
+            <span class="review-summary-count" id="seller-review-count-text"></span>
+        </div>
+    </div>
+    <ul class="review-list" id="seller-review-list"></ul>
+</div>
 
             <div class="profile-section" id="review-section" hidden>
     <div class="profile-section-label">판매자 평가</div>
