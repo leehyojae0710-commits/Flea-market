@@ -1,5 +1,6 @@
 import pool from '../config/db.js';
 import { verifyPayment, cencelPayment } from '../services/paymentService.js';
+import { calculateRefundRate } from '../utills/refundPolicy.js'
 
 // POST /api/payments/confirm
 // PortOne 결제 완료 후 호출
@@ -175,6 +176,11 @@ export async function refundPayment(req, res) {
       reason || '주최자 요청에 의한 환불'
     )
 
+    if (payment.status !== 'RefundRequested') {
+      // 📌 미리 계산해둔 refundAmount로 부분 환불 실행
+      await cancelPayment(payment.paymentKey, '환불 승인 처리', payment.refundAmount);
+    }
+
     await pool.query(
       /*sql*/ `UPDATE payments SET status = 'Refunded' WHERE applicationId = ?`,
       [applicationId]);
@@ -191,5 +197,58 @@ export async function refundPayment(req, res) {
   }
   catch (err) {
 
+  }
+}
+
+export async function requestRefund(req, res) {
+  const { userId } = req.user;
+  const { applicationId, reason } = req.body;
+
+  try {
+    const [rows] = await pool.query(
+      /*SQL*/
+      `SELECT p.paymentId, p.amount, p.status, a.sellerId, m.eventDate_min
+       FROM payments p
+       JOIN applications a ON a.applicationId = p.applicationId
+       JOIN markets m ON m.marketId = a.marketId
+       WHERE p.applicationId = ?`
+      , [applicationId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: '결제 내역을 찾을 수 없습니다.' });
+    }
+
+    const payment = rows[0];
+
+    if (Number(payment.sellerId) !== Number(userId)) {
+      return res.status(403).json({ success: false, message: '본인의 결제 건만 환불 요청할 수 있습니다.' });
+    }
+
+    // 📌 환불 비율 계산
+    const refundRate = calculateRefundRate(payment.eventDate_min);
+    const refundAmount = Math.floor(payment.amount * refundRate);
+
+    if (refundRate === 0) {
+      return res.status(400).json({
+        success: false,
+        message: '행사가 임박하여 환불이 불가능합니다.',
+      });
+    }
+
+    // 계산된 금액을 미리 저장해서, 주최자가 승인할 때 그대로 쓰게 함
+    await pool.query(
+      `UPDATE payments SET status = 'RefundRequested', refundReason = ?, refundAmount = ? WHERE applicationId = ?`,
+      [reason, refundAmount, applicationId]
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: { refundRate: refundRate * 100, refundAmount },
+      message: `환불 요청이 접수되었습니다. (환불 예정 금액: ${refundAmount.toLocaleString()}원, 환불율: ${refundRate * 100}%)`,
+    });
+  } catch (error) {
+    console.error('환불 요청 오류:', error.message);
+    return res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
