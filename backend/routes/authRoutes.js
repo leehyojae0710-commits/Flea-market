@@ -37,11 +37,13 @@ function normalizeActiveRole(userType, activeRole) {
   return activeRole === 'seller' ? 'seller' : 'host';
 }
 
-/** [C-01] 역할별 첫 화면 경로 (주최 = 관리 화면 / 판매 = 탐색 화면) */
-function landingPathFor(userType) {
-  return isHostType(userType)
-    ? '/pages/B_host-seller/mymarketpage.html'
-    : '/index.html';
+/**
+ * [C-01] 로그인 직후 첫 화면 경로
+ * [변경] 주최자/판매자 모두 메인 페이지로 진입합니다.
+ *        (주최자의 내 마켓 관리 화면은 헤더 메뉴 / 모드 전환으로 이동)
+ */
+function landingPathFor() {
+  return '/index.html';
 }
 
 /**

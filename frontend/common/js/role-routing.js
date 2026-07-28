@@ -23,9 +23,11 @@
   /* 설정값                                                              */
   /* ------------------------------------------------------------------ */
 
-  // 역할별 첫 화면 (주최 = 내 마켓 관리 / 판매 = 마켓 탐색)
+  // 로그인 직후 / 모드 전환 후 이동할 첫 화면
+  // [변경] 주최자도 마이마켓이 아니라 메인 페이지로 진입합니다.
+  //        내 마켓 관리는 헤더의 「내 마켓 관리」 링크로 이동합니다.
   var ROLE_HOME = {
-    host: '/pages/B_host-seller/mymarketpage.html',
+    host: '/index.html',
     seller: '/index.html',
     guest: '/index.html',
   };
@@ -140,6 +142,8 @@
     }
 
     setViewRole(target);
+    // 주최자/판매자 모드 모두 메인 페이지로 이동합니다.
+    // (내 마켓 관리는 헤더의 「내 마켓 관리」 링크로 진입)
     window.location.href = getRoleHomePath(target);
   }
 
