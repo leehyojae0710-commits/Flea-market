@@ -55,7 +55,10 @@ async function revokeOtherSessionsSafely(req) {
  * /users/me:
  *   patch:
  *     summary: 회원 정보 수정 (전화번호/지역/비밀번호)
- *     description: 비밀번호를 함께 변경하면 지금 사용 중인 기기를 제외한 다른 모든 기기의 세션이 폐기됩니다.
+ *     description: |
+ *       비밀번호를 함께 변경하려면 currentPassword(현재 비밀번호)를 반드시 같이 보내야 하며,
+ *       서버가 이를 검증한 뒤에만 비밀번호가 바뀝니다. 변경에 성공하면 지금 사용 중인 기기를 제외한
+ *       다른 모든 기기의 세션이 폐기됩니다.
  *     tags: [Users]
  *     security: [{ bearerAuth: [] }]
  *     requestBody:
@@ -67,6 +70,7 @@ async function revokeOtherSessionsSafely(req) {
  *               phone: { type: string }
  *               region: { type: string }
  *               password: { type: string }
+ *               currentPassword: { type: string, description: "password 를 보낼 때 필수. 현재 비밀번호 확인용." }
  *     responses:
  *       200:
  *         description: 수정 성공
@@ -79,12 +83,17 @@ async function revokeOtherSessionsSafely(req) {
  *                   properties:
  *                     data: { $ref: '#/components/schemas/UserUpdateData' }
  *       400:
- *         description: 수정할 내용 없음 / 전화번호 형식 오류
+ *         description: 수정할 내용 없음 / 전화번호 형식 오류 / password 변경 시 currentPassword 누락
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *       401:
- *         description: 인증 필요
+ *         description: 인증 필요 / 현재 비밀번호 불일치
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       404:
+ *         description: 사용자를 찾을 수 없음
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -96,7 +105,7 @@ async function revokeOtherSessionsSafely(req) {
  */
 router.patch('/me', authenticateToken, async (req, res) => {
   const { userId } = req.user;
-  const { phone, region, password } = req.body;
+  const { phone, region, password, currentPassword } = req.body;
 
   // [수정] 프론트(profile-edit.js)는 isValidPhone()으로 형식을 검증하지만,
   // 서버는 값을 그대로 저장했음. API를 직접 호출하면 형식이 깨진 전화번호도 저장될 수 있어 서버측 검증을 추가함.
@@ -104,11 +113,34 @@ router.patch('/me', authenticateToken, async (req, res) => {
     return res.status(400).json({ success: false, data: null, message: '전화번호는 010-0000-0000 형식으로 입력해주세요.' });
   }
 
+  // [보안 수정] 이 엔드포인트는 원래 password 필드를 같이 보내면 현재 비밀번호 확인 없이 바로 바꿔줬음.
+  // PATCH /users/me/password 는 currentPassword 를 확인하는데 여기는 확인하지 않아서,
+  // 세션/토큰만 탈취해도(로그인 상태만 있으면) 비밀번호를 마음대로 바꿀 수 있는 구멍이었음.
+  // 이제 password 를 바꾸려면 currentPassword 를 같이 보내야 하고, DB의 해시와 일치할 때만 반영됨.
+  let hashedPassword = null;
+  if (password) {
+    if (!currentPassword) {
+      return res.status(400).json({ success: false, data: null, message: '비밀번호를 변경하려면 현재 비밀번호를 함께 입력해주세요.' });
+    }
+
+    const [userRows] = await pool.query('SELECT password FROM users WHERE userId = ?', [userId]);
+    if (userRows.length === 0) {
+      return res.status(404).json({ success: false, data: null, message: '사용자를 찾을 수 없습니다.' });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, userRows[0].password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, data: null, message: '현재 비밀번호가 일치하지 않습니다.' });
+    }
+
+    hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+  }
+
   const fields = [];
   const values = [];
   if (phone) { fields.push('phone = ?'); values.push(phone); }
   if (region) { fields.push('region = ?'); values.push(region); }
-  if (password) { fields.push('password = ?'); values.push(await bcrypt.hash(password, SALT_ROUNDS)); }
+  if (hashedPassword) { fields.push('password = ?'); values.push(hashedPassword); }
 
   if (fields.length === 0) {
     return res.status(400).json({ success: false, data: null, message: '수정할 내용이 없습니다.' });
