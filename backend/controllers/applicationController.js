@@ -55,10 +55,12 @@ export async function getMyApplications(req, res) {
          r.rating AS myRating,
          EXISTS(
            SELECT 1 FROM payments p WHERE p.applicationId = a.applicationId AND p.status = 'Paid'
-         ) AS isPaid
+         ) AS isPaid,
+          pay.refundAmount AS refundAmount
        FROM applications a
        JOIN markets m ON m.marketId = a.marketId
        LEFT JOIN market_reviews r ON r.applicationId = a.applicationId
+       LEFT JOIN payments pay ON pay.applicationId = a.applicationId
        WHERE a.sellerId = ?
        ORDER BY a.applicationId DESC`,
       [userId]
