@@ -153,7 +153,7 @@ export async function refundPayment(req, res) {
   try {
     const [rows] = await pool.query(
       /*sql*/
-      `SELECT p.paymentId, p.paymentKey, p.status, p.amount, m.hostId
+      `SELECT p.paymentId, p.paymentKey, p.status, p.amount, p.refundAmount,m.hostId
        FROM payments p
        JOIN applications a ON a.applicationId = p.applicationId
        JOIN markets m ON m.marketId = a.marketId
@@ -171,21 +171,26 @@ export async function refundPayment(req, res) {
       return res.status(403).json({ success: false, message: "결제 완료된 건만 환불할 수 있습니다." });
     }
 
-    const cancelResult = await cencelPayment(
-      payment.paymentKey,
-      reason || '주최자 요청에 의한 환불'
-    )
+    if (payment.status == 'Paid') {
+      console.log('여기 실행됨: Paid 분기, reason =', reason);
+      const cancelResult = await cencelPayment(
+        payment.paymentKey,
+        reason || '주최자 요청에 의한 환불'
+      )
+    }
 
-    if (payment.status !== 'RefundRequested') {
+    if (payment.status == 'RefundRequested') {
+      console.log('여기 실행됨: RefundRequested 분기, refundAmount =', payment.refundAmount);
       // 📌 미리 계산해둔 refundAmount로 부분 환불 실행
-      await cancelPayment(payment.paymentKey, '환불 승인 처리', payment.refundAmount);
+      await cencelPayment(payment.paymentKey, '환불 승인 처리', payment.refundAmount);
     }
 
     await pool.query(
-      /*sql*/ `UPDATE payments SET status = 'Refunded' WHERE applicationId = ?`,
-      [applicationId]);
+      /*sql*/ `UPDATE payments SET status = 'Refunded', refundReason = ? WHERE applicationId = ?`,
+      [reason, applicationId]);
     await pool.query(
-       /*sql*/ `UPDATE applications 
+      /*sql*/
+      `UPDATE applications 
       SET status = 'Refunded' 
       WHERE applicationId = ?`,
       [applicationId]);
@@ -195,8 +200,9 @@ export async function refundPayment(req, res) {
       message: '환불이 완료되었습니다.',
     });
   }
-  catch (err) {
-
+  catch (error) {
+    console.error('환불 처리 오류:', error.message);
+    return res.status(500).json({ success: false, message: error.message || '서버 오류가 발생했습니다.' });
   }
 }
 
@@ -238,8 +244,13 @@ export async function requestRefund(req, res) {
 
     // 계산된 금액을 미리 저장해서, 주최자가 승인할 때 그대로 쓰게 함
     await pool.query(
+      /*sql*/
       `UPDATE payments SET status = 'RefundRequested', refundReason = ?, refundAmount = ? WHERE applicationId = ?`,
       [reason, refundAmount, applicationId]
+    );
+    await pool.query(
+      `UPDATE applications SET status = 'RefundRequested' WHERE applicationId = ?`,
+      [applicationId]
     );
 
     return res.status(200).json({
