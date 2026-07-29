@@ -95,8 +95,8 @@ function formatPrice(price) {
   return !n ? '무료 참가' : `참가비 ${n.toLocaleString()}원`;
 }
 
-const STATUS_LABEL = { Pending: '대기중', Approved: '승인됨', Rejected: '반려됨', Paid: '결제 완료', Refunded: '결제 취소' };
-const STATUS_CLASS = { Pending: 'pending', Approved: 'approved', Rejected: 'rejected', Paid: 'paid', Refunded: 'refunded' };
+const STATUS_LABEL = { Pending: '대기중', Approved: '승인됨', Rejected: '반려됨', Paid: '결제 완료', Refunded: '결제 취소', RefundRequested: '환불 신청' };
+const STATUS_CLASS = { Pending: 'pending', Approved: 'approved', Rejected: 'rejected', Paid: 'paid', Refunded: 'refunded', RefundRequested: 'refundRequested' };
 
 let currentApplications = [];
 let sellerReviewOpenId = null;
@@ -318,7 +318,6 @@ function renderApplicationList(applications) {
       const status = a.status || 'Pending';
       const id = a.applicationId;
       const canShowReview = status === 'Paid'; // 결제 완료된 건만 평가 대상
-
       return `
       <div class="item-card" data-application-id="${id}">
         <div class="item-card-top">
@@ -333,6 +332,26 @@ function renderApplicationList(applications) {
           <button type="button" class="btn btn-sage btn-sm" data-action="approve" data-id="${id}">승인</button>
           <button type="button" class="btn btn-danger btn-sm" data-action="reject" data-id="${id}">반려</button>
         </div>` : ''}
+        ${status === 'Paid' ? `
+        <div class="item-card-actions">
+          <button type="button" class="btn btn-sage btn-sm" data-action="refunded_onBtn">
+           결제 취소
+          </button>
+         </div>
+         <div id="inputContainer" style="display: none; margin-top: 10px;">
+            <input type="text" id="userInput" placeholder="취소 내용을 입력하세요 (*주최자가 직접 취소 시 100% 환불이 적용됩니다.)">
+            <button type="button" class="btn btn-sage btn-sm" data-action="refunded" data-id="${a.applicationId}">
+            입력 확인
+            </button>
+         </div>
+        ` : ''}
+        ${status === `RefundRequested` ? `
+          <div class="item-card-actions">
+          <button type="button" class="btn btn-sage btn-sm" data-action="refundRequested" data-id="${a.applicationId}">
+            환불 승인
+          </button>
+         </div>
+          `: ''}
         ${canShowReview ? renderSellerReviewTrigger(a) : ''}
         ${canShowReview && sellerReviewOpenId === String(id) ? renderSellerReviewForm(id) : ''}
       </div>`;
@@ -359,6 +378,15 @@ function renderApplicationList(applications) {
   });
   wrap.querySelectorAll('[data-action="seller-review-cancel"]').forEach((btn) => {
     btn.addEventListener('click', () => handleSellerReviewCancel());
+  });
+  wrap.querySelectorAll('[data-action="refunded_onBtn"]').forEach((btn) => {
+    btn.addEventListener('click', () => refundMemoBtn());
+  });
+  wrap.querySelectorAll('[data-action="refunded"]').forEach((btn) => {
+    btn.addEventListener('click', () => refundPayment_(btn.dataset.id));
+  });
+  wrap.querySelectorAll('[data-action="refundRequested"]').forEach((btn) => {
+    btn.addEventListener('click', () => refundPayment_seller(btn.dataset.id,));
   });
 }
 
@@ -988,11 +1016,33 @@ function handleCommentSubmit() {
     }
   });
 }
-
+/*환불 관련*/
+async function refundMemoBtn() {
+  const inputContainer = document.getElementById('inputContainer');
+  inputContainer.style.display = 'block'
+}
 async function refundPayment_(a) {
-  const id = a.applicationId;
+  const inputContainer = document.getElementById('inputContainer');
+  const memotxt =document.getElementById('userInput').value;
+  if (!memotxt)
+    return;
+  if (memotxt.length <= 0) {
+    renderAlert('메모를 입력해 주십시오');
+    return;
+  }
   try {
-    const res = await refundPayment(a, '주최자의 의한 환불처리');
+    const res = await refundPayment(a, memotxt);
+    if (res.success)
+      renderAlert('환불 처리 완료');
+  }
+  catch (error) {
+    renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
+  }
+  inputContainer.style.display = 'none'
+}
+async function refundPayment_seller(a) {
+  try {
+    const res = await refundPayment(a);
     if (res.success)
       renderAlert('환불 처리 완료');
   }

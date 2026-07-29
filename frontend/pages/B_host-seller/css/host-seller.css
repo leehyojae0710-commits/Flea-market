@@ -312,6 +312,13 @@ body {
   background: var(--coral);
   color: #fff;
 }
+.Refunded{
+  pointer-events: none;
+  background: var(--coral);
+  color: #fff;
+  cursor: not-allowed;
+  border-radius: 10px;
+}
 
 .btn-sm {
   padding: 7px 12px;
@@ -448,6 +455,10 @@ body {
   color: var(--coral-text);
 }
 .status-tag.refunded{
+  background: rgb(158, 202, 197);
+  color: var(--ink-soft);
+}
+.status-tag.refundRequested{
   background: rgb(158, 202, 197);
   color: var(--ink-soft);
 }
