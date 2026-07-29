@@ -124,6 +124,49 @@ if (phoneInput) {
   });
 }
 
+// [추가] 전화번호 실시간 형식 안내 (프론트 전용 — 서버 호출 없이 즉시 표시)
+const phoneCheckMsg = document.getElementById('phone-check-msg');
+
+function setPhoneCheckMsg(message, ok) {
+  if (!phoneCheckMsg) return;
+  phoneCheckMsg.textContent = message;
+  phoneCheckMsg.classList.remove('ok', 'error');
+  if (message) phoneCheckMsg.classList.add(ok ? 'ok' : 'error');
+}
+
+if (phoneInput) {
+  phoneInput.addEventListener('input', () => {
+    const value = phoneInput.value.trim();
+    if (!value) {
+      setPhoneCheckMsg('', false);
+    } else if (!isValidPhone(value)) {
+      setPhoneCheckMsg('010-1111-1111 형식으로 입력되어야 합니다.', false);
+    } else {
+      setPhoneCheckMsg('올바른 형식이에요.', true);
+    }
+  });
+}
+
+/* ---------------------- 회원가입: 비밀번호 실시간 규칙 안내 ---------------------- */
+// 프론트 전용 — 서버 호출 없이 즉시 표시. 규칙이 바뀌면 validators.js의
+// getPasswordRuleMessage / isValidPassword 두 함수만 고치면 됩니다.
+const passwordInput = document.getElementById('password');
+const passwordCheckMsg = document.getElementById('password-check-msg');
+
+function setPasswordCheckMsg(message, ok) {
+  if (!passwordCheckMsg) return;
+  passwordCheckMsg.textContent = message;
+  passwordCheckMsg.classList.remove('ok', 'error');
+  if (message) passwordCheckMsg.classList.add(ok ? 'ok' : 'error');
+}
+
+if (passwordInput && registerForm) {
+  passwordInput.addEventListener('input', () => {
+    const message = getPasswordRuleMessage(passwordInput.value);
+    setPasswordCheckMsg(message, isValidPassword(passwordInput.value));
+  });
+}
+
 /* ---------------------- 회원가입: 닉네임 중복 확인 ---------------------- */
 const nicknameInput = document.getElementById('nickname');
 const checkNicknameBtn = document.getElementById('check-nickname-btn');
@@ -262,8 +305,8 @@ if (registerForm) {
       showAlert('전화번호는 010-0000-0000 형식으로 입력해주세요.');
       return;
     }
-    if (password.length < 8) {
-      showAlert('비밀번호는 8자 이상이어야 합니다.');
+    if (!isValidPassword(password)) {
+      showAlert('비밀번호는 8자 이상이면서 영문 소문자와 특수문자를 포함해야 합니다.');
       return;
     }
 

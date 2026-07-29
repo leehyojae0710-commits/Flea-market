@@ -6,6 +6,7 @@ import jwt from 'jsonwebtoken';
 import pool from '../config/db.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 import { isHostType, USER_TYPE } from '../middleware/roleGuard.js';
+import { validateRegisterInput } from '../middleware/registerValidationMiddleware.js';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'flea-market-dev-secret-change-me';
@@ -101,18 +102,11 @@ function landingPathFor() {
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
 // 1. 회원가입 API
-router.post('/register', async (req, res) => {
+router.post('/register', validateRegisterInput, async (req, res) => {
+  // [수정] 존재 여부 + 형식(정규식) 검증은 validateRegisterInput 미들웨어에서 끝났으므로,
+  //        여기서는 DB 중복 체크 등 비즈니스 로직만 처리합니다.
   const { userType, email, password, phone, region, nickname } = req.body;
-
-  if (userType === undefined || !email || !password || !phone || !region || !nickname) {
-    return res.status(400).json({ success: false, message: '필수 항목이 누락되었습니다.' });
-  }
-
-  // [C-01] 가입 역할은 0(판매자) / 1(주최자) 두 가지만 허용합니다.
   const userTypeNum = Number(userType);
-  if (userTypeNum !== USER_TYPE.SELLER && userTypeNum !== USER_TYPE.HOST) {
-    return res.status(400).json({ success: false, message: '가입 역할 값이 올바르지 않습니다.' });
-  }
 
   try {
     const [existing] = await pool.query('SELECT email FROM users WHERE email = ?', [email]);
