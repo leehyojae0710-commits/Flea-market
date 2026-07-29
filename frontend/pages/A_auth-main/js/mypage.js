@@ -10,12 +10,12 @@ function showAlert(message, type = 'error') {
 
 /* ---------------------- 로그인 여부 확인 ---------------------- */
 const rawUser = sessionStorage.getItem('loggedInUser');
-const currentUser = rawUser ? JSON.parse(rawUser) : null;
+let currentUser = rawUser ? JSON.parse(rawUser) : null;
 
 if (!currentUser) {
   window.location.href = 'login.html';
 }
-const isHost = currentUser && Number(currentUser.userType) === 1;
+let isHost = currentUser && Number(currentUser.userType) === 1;
 
 /* ---------------------- 프로필 정보 렌더링 ---------------------- */
 function renderProfile(profile) {
@@ -181,7 +181,24 @@ async function loadReviewSummary() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+/* ---------------------- 최신 서버 정보로 세션 동기화 ---------------------- */
+// [수정] sessionStorage 스냅샷(로그인 시점 값)만 믿지 않고, GET /auth/me 로 최신 정보를
+// 다시 받아와서 currentUser/isHost를 갱신합니다. (ensureSession()은 common/js/api.js 참고)
+async function syncCurrentUser() {
+  try {
+    const freshUser = await ensureSession();
+    if (freshUser) {
+      currentUser = freshUser;
+      isHost = Number(currentUser.userType) === 1;
+    }
+  } catch (err) {
+    console.error('세션 동기화 오류:', err);
+    // 실패해도 화면은 기존 sessionStorage 값으로 계속 보여줍니다.
+  }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await syncCurrentUser();
   loadProfile();
   loadStats();
   loadReviewSummary();

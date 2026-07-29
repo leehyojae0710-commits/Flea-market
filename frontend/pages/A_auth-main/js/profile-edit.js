@@ -18,6 +18,19 @@ if (!currentUser) {
   window.location.href = 'login.html';
 }
 
+// [수정] sessionStorage 스냅샷(로그인 시점 값)만 믿지 않고, GET /auth/me 로
+// 최신 phone/region 을 다시 받아와서 currentUser 를 갱신합니다.
+// (ensureSession()은 common/js/api.js 에 이미 정의되어 있던 함수입니다.)
+async function syncCurrentUser() {
+  try {
+    const freshUser = await ensureSession();
+    if (freshUser) currentUser = freshUser;
+  } catch (err) {
+    console.error('세션 동기화 오류:', err);
+    // 실패해도 화면은 기존 sessionStorage 값으로 계속 보여줍니다.
+  }
+}
+
 const phoneInput = document.getElementById('phone');
 const regionInput = document.getElementById('region');
 const profileForm = document.getElementById('profile-form');
@@ -35,6 +48,9 @@ function fillCurrentInfo() {
   if (regionInput) regionInput.value = currentUser.region || '';
 }
 
+// [수정] 예전에는 여기서 fillCurrentInfo()를 바로(동기적으로) 호출해서
+// sessionStorage 스냅샷을 그대로 화면에 뿌렸습니다.
+// 이제는 DOMContentLoaded 시점에 syncCurrentUser()로 서버 최신값을 받은 뒤 채웁니다.
 fillCurrentInfo();
 
 /* ---------------------- 개인정보 수정 (전화번호/지역) ---------------------- */
@@ -432,6 +448,8 @@ editTabButtons.forEach((btn) => {
   });
 });
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  await syncCurrentUser();
+  fillCurrentInfo(); // 서버에서 받은 최신 phone/region으로 다시 채움
   loadProfileForEdit();
 });
