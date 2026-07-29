@@ -14,6 +14,21 @@
 //     3) 401(TOKEN_EXPIRED / SESSION_REVOKED) 이면 한 번만 재발급 후 자동 재시도
 //     4) 재발급까지 실패하면 세션 정리 후 로그인 화면으로 이동 (원래 페이지로 복귀)
 //
+// [로그아웃 처리 보완] 이번 변경분 (파일 아래쪽 "로그아웃 UI" 구역)
+//   기존 문제
+//     1) 로그아웃 버튼이 index.html / profile-edit.html 두 곳에만 있어,
+//        마이마켓·부스 신청·결제 등 다른 화면에서는 로그아웃할 방법이 없었습니다.
+//     2) logoutAllDevices() 와 GET /auth/sessions 는 만들어 놨지만 호출하는 화면이 없어
+//        "코드는 있는데 쓸 수 없는" 상태였습니다.
+//     3) 로그아웃 후 화면 전환이 없어, 로그인 상태로 그려진 UI 잔여물이 남았습니다.
+//     4) 회원 탈퇴 등에서 sessionStorage 를 부분만 지워 refreshToken/viewRole 이 남았습니다.
+//   보완
+//     1) header 가 있는 모든 페이지에 로그아웃 버튼 자동 삽입 (이미 버튼이 있으면 건드리지 않음)
+//     2) 마이페이지 / 내 정보 수정 화면에 「세션 관리」 버튼 + 기기 목록 모달 + 전체 로그아웃
+//     3) 로그아웃 완료 후 홈으로 이동 (중복 실행 방지 플래그 포함)
+//     4) 페이지 로드 시 깨진 세션키(토큰 없이 refreshToken 만 남은 상태) 자동 정리
+//   ※ 이 파일은 모든 페이지가 이미 불러오고 있어서, HTML 을 한 줄도 고칠 필요가 없습니다.
+//
 // 기존 호출 방식은 그대로입니다: callApi('/markets', { method: 'POST', body: payload })
 
 const API_BASE_URL = 'http://localhost:5000/api';
@@ -84,6 +99,25 @@ function clearSession() {
   sessionStorage.removeItem('viewRole'); // 다음 로그인에 화면 모드가 남지 않도록
 }
 
+/**
+ * [로그아웃 처리 보완] 깨진 세션 자동 정리.
+ *
+ * 회원 탈퇴처럼 sessionStorage 를 일부만 지우고 넘어가는 경로가 있어서,
+ * "token/loggedInUser 는 없는데 refreshToken 이나 viewRole 만 남은" 상태가 생길 수 있었습니다.
+ * 이 상태는 다음 로그인 때 엉뚱한 화면 모드로 들어가는 원인이 됩니다.
+ */
+function healBrokenSession() {
+  const hasIdentity = !!getAccessToken() && !!sessionStorage.getItem(SESSION_KEYS.user);
+  const hasLeftover =
+    !!getRefreshToken() ||
+    !!sessionStorage.getItem(SESSION_KEYS.expiresAt) ||
+    !!sessionStorage.getItem('viewRole') ||
+    !!sessionStorage.getItem(SESSION_KEYS.token) ||
+    !!sessionStorage.getItem(SESSION_KEYS.user);
+
+  if (!hasIdentity && hasLeftover) clearSession();
+}
+
 /** 액세스 토큰 만료가 임박했는지 (만료 시각을 모르면 false) */
 function isAccessTokenExpiring() {
   const raw = sessionStorage.getItem(SESSION_KEYS.expiresAt);
@@ -102,8 +136,12 @@ function getSiteRoot() {
   return path.replace(/\/[^/]*$/, '');
 }
 
+function currentFileName() {
+  return (window.location.pathname.split('/').pop() || 'index.html').toLowerCase();
+}
+
 function isAuthPage() {
-  const file = (window.location.pathname.split('/').pop() || '').toLowerCase();
+  const file = currentFileName();
   return file === 'login.html' || file === 'register.html';
 }
 
@@ -206,7 +244,8 @@ async function callApi(path, { method = 'GET', body = null, headers: extraHeader
     }
 
     // 재발급 불가/실패 -> 세션 정리 후 로그인 화면으로
-    if (getAccessToken() || getLoggedInUser()) {
+    // (로그아웃 진행 중이라면 이미 이동 처리 중이므로 중복 알림을 띄우지 않습니다.)
+    if (!isLoggingOut && (getAccessToken() || getLoggedInUser())) {
       clearSession();
       redirectToLogin('로그인 세션이 만료되었습니다. 다시 로그인해 주세요.');
     }
@@ -223,10 +262,17 @@ async function callApi(path, { method = 'GET', body = null, headers: extraHeader
 /* 로그아웃 / 세션 확인                                                */
 /* ------------------------------------------------------------------ */
 
+// [보완] 로그아웃 버튼이 여러 개(페이지 자체 버튼 + 자동 삽입 버튼) 잡혀도
+//        서버 요청과 화면 이동이 두 번 일어나지 않도록 잠금을 둡니다.
+let isLoggingOut = false;
+
 // 공통 로그아웃 처리 (docs/naming-convention.md 함수명 규칙: logoutUser())
 // [보완] 서버가 세션을 실제로 폐기하도록 refreshToken 도 같이 보냅니다.
 //        서버 요청이 실패해도 사용자 입장에서는 로그아웃이 되어야 하므로 로컬 삭제는 항상 수행합니다.
 async function logoutUser() {
+  if (isLoggingOut) return;
+  isLoggingOut = true;
+
   try {
     await callApi('/auth/logout', {
       method: 'POST',
@@ -239,13 +285,29 @@ async function logoutUser() {
   }
 }
 
-/** 모든 기기에서 로그아웃 */
+/** 모든 기기에서 로그아웃 (현재 기기 포함) */
 async function logoutAllDevices() {
+  if (isLoggingOut) return { success: false, data: null, message: '이미 로그아웃 처리 중입니다.' };
+  isLoggingOut = true;
+
+  let result = { success: false, data: null, message: '' };
   try {
-    await callApi('/auth/logout-all', { method: 'POST' });
+    result = await callApi('/auth/logout-all', { method: 'POST' });
+  } catch (error) {
+    console.error('전체 로그아웃 API 호출 오류:', error);
   } finally {
     clearSession();
   }
+  return result;
+}
+
+/**
+ * [보완] 로그아웃 후 화면 정리까지 한 번에 처리합니다.
+ * 기존에는 로그아웃해도 페이지가 그대로 남아, 로그인 상태로 그려진 버튼/목록이 화면에 남았습니다.
+ */
+async function logoutAndGoHome() {
+  await logoutUser();
+  window.location.replace(getSiteRoot() + '/index.html');
 }
 
 /**
@@ -275,6 +337,193 @@ async function ensureSession(redirectIfInvalid = false) {
   return null;
 }
 
+/* ================================================================== */
+/* 로그아웃 UI  [로그아웃 처리 보완 - 신규 구역]                        */
+/*                                                                    */
+/* 이 구역은 화면에 버튼을 "없을 때만" 만들어 붙입니다.                */
+/* 기존 페이지의 로그아웃 버튼(#nav-logout-btn, #logout-btn)이 있으면   */
+/* 아무것도 하지 않으므로 팀원 코드와 충돌하지 않습니다.               */
+/* ================================================================== */
+
+// 페이지가 이미 가지고 있는 로그아웃 버튼을 찾는 선택자
+const EXISTING_LOGOUT_SELECTOR = '#nav-logout-btn, #logout-btn, .btn-logout, [data-logout]';
+
+// 「세션 관리」 버튼을 붙일 화면 (계정 관련 화면에만 노출해 헤더가 복잡해지지 않게 함)
+const SESSION_UI_PAGES = ['mypage.html', 'profile-edit.html'];
+
+function injectSessionUiStyle() {
+  if (document.getElementById('session-ui-style')) return;
+  const style = document.createElement('style');
+  style.id = 'session-ui-style';
+  style.textContent =
+    '.session-logout-btn{display:inline-flex;align-items:center;padding:7px 16px;' +
+    'border:1.5px solid rgba(251,246,236,.45);border-radius:999px;' +
+    'background:transparent;color:var(--paper,#fbf6ec);' +
+    'font-family:"Inter",sans-serif;font-size:13px;font-weight:600;line-height:1.2;' +
+    'cursor:pointer;white-space:nowrap;transition:background .15s ease,border-color .15s ease;}' +
+    '.session-logout-btn:hover{background:rgba(251,246,236,.14);border-color:var(--paper,#fbf6ec);}' +
+    '.session-manage-btn{margin-left:8px;padding:6px 12px;border:1px solid rgba(0,0,0,.18);' +
+    'border-radius:999px;background:transparent;color:inherit;font-size:12px;font-weight:600;cursor:pointer;}' +
+    '.session-manage-btn:hover{background:rgba(0,0,0,.06);}' +
+    '.session-modal-backdrop{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;' +
+    'justify-content:center;background:rgba(0,0,0,.45);padding:16px;}' +
+    '.session-modal{width:100%;max-width:520px;max-height:80vh;overflow:auto;background:#fff;' +
+    'border-radius:14px;padding:22px;box-shadow:0 12px 40px rgba(0,0,0,.25);' +
+    'font-family:"Pretendard","Inter",sans-serif;color:#2b2118;}' +
+    '.session-modal h3{margin:0 0 4px;font-size:18px;}' +
+    '.session-modal .session-modal-desc{margin:0 0 16px;font-size:13px;color:#6d6257;}' +
+    '.session-item{border:1px solid #e6e0d7;border-radius:10px;padding:12px 14px;margin-bottom:10px;font-size:13px;}' +
+    '.session-item.is-current{border-color:#e8a33d;background:rgba(232,163,61,.09);}' +
+    '.session-item .session-item-title{font-weight:700;margin-bottom:4px;}' +
+    '.session-item .session-item-meta{color:#6d6257;font-size:12px;line-height:1.6;}' +
+    '.session-modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;}' +
+    '.session-modal-actions button{padding:9px 16px;border-radius:8px;font-size:13px;' +
+    'font-weight:600;cursor:pointer;border:1px solid #d8d0c5;background:#fff;color:#2b2118;}' +
+    '.session-modal-actions .is-danger{border-color:#c8452c;background:#c8452c;color:#fff;}';
+  document.head.appendChild(style);
+}
+
+function formatSessionDate(value) {
+  if (!value) return '-';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '-';
+  return d.toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+/** userAgent 문자열을 사람이 읽을 수 있는 짧은 이름으로 바꿉니다. */
+function describeDevice(userAgent) {
+  const ua = String(userAgent || '');
+  if (!ua) return '알 수 없는 기기';
+  const os = /Windows/i.test(ua) ? 'Windows'
+    : /Android/i.test(ua) ? 'Android'
+    : /iPhone|iPad/i.test(ua) ? 'iOS'
+    : /Mac OS X/i.test(ua) ? 'macOS'
+    : /Linux/i.test(ua) ? 'Linux' : '기타 OS';
+  const browser = /Edg\//i.test(ua) ? 'Edge'
+    : /Chrome\//i.test(ua) ? 'Chrome'
+    : /Safari\//i.test(ua) ? 'Safari'
+    : /Firefox\//i.test(ua) ? 'Firefox' : '기타 브라우저';
+  return `${os} · ${browser}`;
+}
+
+function closeSessionModal() {
+  document.getElementById('session-modal-backdrop')?.remove();
+}
+
+async function openSessionModal() {
+  injectSessionUiStyle();
+  closeSessionModal();
+
+  const backdrop = document.createElement('div');
+  backdrop.id = 'session-modal-backdrop';
+  backdrop.className = 'session-modal-backdrop';
+  backdrop.innerHTML =
+    '<div class="session-modal" role="dialog" aria-modal="true" aria-label="세션 관리">' +
+    '<h3>로그인 중인 기기</h3>' +
+    '<p class="session-modal-desc">불러오는 중입니다…</p>' +
+    '<div id="session-list"></div>' +
+    '<div class="session-modal-actions">' +
+    '<button type="button" id="session-close-btn">닫기</button>' +
+    '<button type="button" id="session-logout-all-btn" class="is-danger">모든 기기에서 로그아웃</button>' +
+    '</div></div>';
+  document.body.appendChild(backdrop);
+
+  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) closeSessionModal(); });
+  backdrop.querySelector('#session-close-btn').addEventListener('click', closeSessionModal);
+  backdrop.querySelector('#session-logout-all-btn').addEventListener('click', async () => {
+    if (!window.confirm('현재 기기를 포함한 모든 기기에서 로그아웃됩니다. 계속할까요?')) return;
+    await logoutAllDevices();
+    window.location.replace(getSiteRoot() + '/pages/A_auth-main/login.html');
+  });
+
+  const result = await callApi('/auth/sessions');
+  const desc = backdrop.querySelector('.session-modal-desc');
+  const list = backdrop.querySelector('#session-list');
+  if (!desc || !list) return;
+
+  if (!result.success) {
+    desc.textContent = result.message || '세션 목록을 불러오지 못했습니다.';
+    return;
+  }
+
+  const sessions = result.data?.sessions || [];
+  if (sessions.length === 0) {
+    // auth_sessions 테이블이 없는(축소 모드) 환경에서는 목록이 비어 있습니다.
+    desc.textContent = '표시할 세션 정보가 없습니다. (세션 테이블 미적용 환경일 수 있습니다)';
+    return;
+  }
+
+  desc.textContent = `현재 ${sessions.length}개 기기에서 로그인되어 있습니다.`;
+  list.innerHTML = sessions.map((s) => (
+    '<div class="session-item' + (s.current ? ' is-current' : '') + '">' +
+    '<div class="session-item-title">' + describeDevice(s.userAgent) + (s.current ? ' · 현재 기기' : '') + '</div>' +
+    '<div class="session-item-meta">' +
+    '로그인: ' + formatSessionDate(s.issuedAt) + '<br>' +
+    '최근 사용: ' + formatSessionDate(s.lastUsedAt) + '<br>' +
+    '만료 예정: ' + formatSessionDate(s.expiresAt) +
+    '</div></div>'
+  )).join('');
+}
+
+/**
+ * 헤더에 로그아웃 버튼을 자동으로 붙입니다.
+ * - 로그인 상태가 아니면 붙이지 않습니다.
+ * - 페이지에 이미 로그아웃 버튼이 있으면 그대로 두고 아무것도 하지 않습니다.
+ */
+function renderLogoutUi() {
+  if (isAuthPage()) return;
+  if (!getLoggedInUser()) return;
+
+  const existing = document.querySelector(EXISTING_LOGOUT_SELECTOR);
+  injectSessionUiStyle();
+
+  let anchor = existing;
+
+  if (!existing) {
+    const header = document.querySelector('header.nav') || document.querySelector('header');
+    if (!header) return; // 헤더가 없는 화면은 대상이 아닙니다.
+
+    if (!document.getElementById('session-logout-btn')) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.id = 'session-logout-btn';
+      btn.className = 'session-logout-btn';
+      btn.textContent = '로그아웃';
+      btn.addEventListener('click', () => { logoutAndGoHome(); });
+
+      const navLinks = header.querySelector('.nav-links');
+      (navLinks || header).appendChild(btn);
+      anchor = btn;
+    } else {
+      anchor = document.getElementById('session-logout-btn');
+    }
+  }
+
+  // 「세션 관리」 버튼은 계정 관련 화면에만 붙입니다.
+  if (anchor && SESSION_UI_PAGES.indexOf(currentFileName()) >= 0 && !document.getElementById('session-manage-btn')) {
+    const manageBtn = document.createElement('button');
+    manageBtn.type = 'button';
+    manageBtn.id = 'session-manage-btn';
+    manageBtn.className = 'session-manage-btn';
+    manageBtn.textContent = '세션 관리';
+    manageBtn.title = '로그인 중인 기기를 확인하고 모든 기기에서 로그아웃할 수 있습니다.';
+    manageBtn.addEventListener('click', () => { openSessionModal(); });
+    anchor.insertAdjacentElement('afterend', manageBtn);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 초기화                                                              */
+/* ------------------------------------------------------------------ */
+
+healBrokenSession();
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', renderLogoutUi);
+} else {
+  renderLogoutUi();
+}
+
 /* ------------------------------------------------------------------ */
 /* 외부 공개                                                           */
 /* ------------------------------------------------------------------ */
@@ -291,4 +540,11 @@ window.Session = {
   ensureSession,
   isAccessTokenExpiring,
   redirectToLogin,
+  // [로그아웃 처리 보완]
+  logoutUser,
+  logoutAllDevices,
+  logoutAndGoHome,
+  openSessionModal,
+  closeSessionModal,
+  renderLogoutUi,
 };

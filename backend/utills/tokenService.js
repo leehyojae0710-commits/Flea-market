@@ -13,7 +13,15 @@
 // 이 모듈이 하는 일
 //   - 액세스 토큰(짧게) + 리프레시 토큰(길게) 2종 발급
 //   - 리프레시 토큰은 원문을 저장하지 않고 SHA-256 해시만 auth_sessions 테이블에 보관
-//   - 세션 폐기(로그아웃 / 전체 로그아웃 / 비밀번호 변경) 지원
+//   - 세션 폐기(로그아웃 / 전체 로그아웃 / 비밀번호 변경 / 회원 탈퇴) 지원
+//
+// [로그아웃 처리 보완] 이번 변경분
+//   1) deleteUserSessions(userId) 추가
+//      -> 회원 탈퇴 시 세션 행을 실제로 지웁니다. (revoke 는 "폐기 표시"라 행이 남습니다)
+//   2) 만료 세션 자동 정리
+//      -> cleanupExpiredSessions() 를 server.js 에서 호출하지 않고 있어서 죽은 세션이 계속 쌓였습니다.
+//         테이블 준비가 끝나는 시점(서버 기동 후 첫 로그인/인증)에 1회만 백그라운드로 정리합니다.
+//         server.js 를 건드리지 않아도 되도록 이 파일 안에서 처리합니다.
 
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
@@ -43,6 +51,9 @@ export const REFRESH_TOKEN_TTL_DAYS = Number(process.env.JWT_REFRESH_EXPIRES_DAY
 
 // 세션 테이블이 없을 때 자동으로 만들어 볼지 여부 (권한이 없으면 조용히 포기하고 축소 동작)
 const AUTO_CREATE_SESSION_TABLE = String(process.env.AUTH_SESSION_AUTO_CREATE || 'true') !== 'false';
+
+// 만료된 세션을 며칠 지난 뒤 삭제할지
+const SESSION_RETENTION_DAYS = Number(process.env.AUTH_SESSION_RETENTION_DAYS || 30);
 
 const SESSION_TABLE = 'auth_sessions';
 
@@ -91,6 +102,7 @@ function newRefreshToken() {
 
 let sessionTableReady = null;
 let readyPromise = null;
+let cleanupDone = false; // [보완] 만료 세션 정리는 프로세스당 1회만
 
 async function tableExists() {
   const [rows] = await pool.query(
@@ -133,8 +145,27 @@ async function tryCreateTable() {
   `);
 }
 
+/**
+ * [보완] 만료 세션 정리를 백그라운드로 1회만 실행합니다.
+ * await 하지 않기 때문에 로그인 응답이 느려지지 않고, 실패해도 서비스에 영향이 없습니다.
+ */
+function scheduleCleanupOnce() {
+  if (cleanupDone) return;
+  cleanupDone = true;
+  setTimeout(() => {
+    cleanupExpiredSessions()
+      .then((count) => {
+        if (count > 0) console.log(`🧹 만료 세션 ${count}건을 정리했습니다.`);
+      })
+      .catch((error) => console.warn('[tokenService] 만료 세션 정리 실패:', error.message));
+  }, 0);
+}
+
 export async function isSessionStoreReady() {
-  if (sessionTableReady !== null) return sessionTableReady;
+  if (sessionTableReady !== null) {
+    if (sessionTableReady) scheduleCleanupOnce();
+    return sessionTableReady;
+  }
   if (readyPromise) return readyPromise; // 동시 요청이 몰려도 검사는 한 번만
 
   readyPromise = (async () => {
@@ -161,6 +192,9 @@ export async function isSessionStoreReady() {
         `    -> 액세스 토큰 ${ACCESS_TTL_WITHOUT_REFRESH} 발급(기존과 동일)으로 동작합니다.\n` +
         '    켜려면: cd backend && node scripts/migrate-add-auth-sessions.js'
       );
+    } else {
+      // [보완] 테이블이 준비된 첫 시점에 죽은 세션을 한 번 청소합니다.
+      scheduleCleanupOnce();
     }
 
     readyPromise = null;
@@ -369,7 +403,7 @@ export async function revokeSessionByRefreshToken(refreshToken) {
 }
 
 /**
- * 전체 로그아웃 (비밀번호 변경 / 회원 탈퇴 / 다른 기기 로그아웃).
+ * 전체 로그아웃 (비밀번호 변경 / 다른 기기 로그아웃).
  * @param exceptSid 이 세션만 남기고 나머지를 폐기하고 싶을 때 사용
  */
 export async function revokeAllSessions(userId, exceptSid = null) {
@@ -379,6 +413,24 @@ export async function revokeAllSessions(userId, exceptSid = null) {
     : `UPDATE ${SESSION_TABLE} SET revokedAt = CURRENT_TIMESTAMP WHERE userId = ? AND revokedAt IS NULL`;
   const params = exceptSid ? [userId, exceptSid] : [userId];
   const [result] = await pool.query(sql, params);
+  return result.affectedRows;
+}
+
+/**
+ * [신규] 회원 탈퇴용 - 해당 사용자의 세션 행을 실제로 삭제합니다.
+ *
+ * revokeAllSessions 는 "폐기 표시"라서 행이 남습니다.
+ * 탈퇴한 계정은 users 행이 사라지므로 세션만 고아로 남게 되고,
+ * userId 가 재사용되는 스키마라면 남은 행이 오작동의 원인이 될 수 있어 삭제로 처리합니다.
+ *
+ * @returns {Promise<number>} 삭제된 세션 수 (테이블이 없으면 0)
+ */
+export async function deleteUserSessions(userId) {
+  if (!(await isSessionStoreReady())) return 0;
+  const [result] = await pool.query(
+    `DELETE FROM ${SESSION_TABLE} WHERE userId = ?`,
+    [userId]
+  );
   return result.affectedRows;
 }
 
@@ -395,11 +447,12 @@ export async function listActiveSessions(userId) {
   return rows;
 }
 
-/** 만료된 세션 정리 (서버 기동 시 1회 호출용) */
+/** 만료된 세션 정리 (테이블 준비 직후 자동 1회 호출 / 수동 호출도 가능) */
 export async function cleanupExpiredSessions() {
-  if (!(await isSessionStoreReady())) return 0;
+  if (sessionTableReady !== true) return 0;
   const [result] = await pool.query(
-    `DELETE FROM ${SESSION_TABLE} WHERE expiresAt < NOW() - INTERVAL 30 DAY`
+    `DELETE FROM ${SESSION_TABLE} WHERE expiresAt < NOW() - INTERVAL ? DAY`,
+    [SESSION_RETENTION_DAYS]
   );
   return result.affectedRows;
 }
@@ -418,6 +471,7 @@ export default {
   revokeSession,
   revokeSessionByRefreshToken,
   revokeAllSessions,
+  deleteUserSessions,
   listActiveSessions,
   cleanupExpiredSessions,
   isSessionStoreReady,
