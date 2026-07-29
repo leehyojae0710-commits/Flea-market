@@ -7,6 +7,12 @@ import pool from '../config/db.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 import { isHostType, USER_TYPE } from '../middleware/roleGuard.js';
 import { validateRegisterInput } from '../middleware/registerValidationMiddleware.js';
+// [닉네임] 형식/예약어/중복 규칙은 utills/nicknamePolicy.js 한 곳에서 관리합니다.
+import {
+  validateNickname,
+  isNicknameTaken,
+  isDuplicateKeyError,
+} from '../utills/nicknamePolicy.js';
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'flea-market-dev-secret-change-me';
@@ -67,9 +73,10 @@ function landingPathFor() {
  *         application/json:
  *           schema:
  *             type: object
- *             required: [userType, email, password, phone, region]
+ *             required: [userType, email, password, phone, region, nickname]
  *             properties:
  *               userType: { type: integer, description: "0: 판매자, 1: 주최자", example: 0 }
+ *               nickname: { type: string, description: "한글/영문/숫자 2~12자, 중복 불가", example: "바람개비" }
  *               email: { type: string, example: "seller01@example.com" }
  *               password: { type: string, example: "password123!" }
  *               phone: { type: string, example: "010-1234-5678" }
@@ -105,8 +112,15 @@ function landingPathFor() {
 router.post('/register', validateRegisterInput, async (req, res) => {
   // [수정] 존재 여부 + 형식(정규식) 검증은 validateRegisterInput 미들웨어에서 끝났으므로,
   //        여기서는 DB 중복 체크 등 비즈니스 로직만 처리합니다.
-  const { userType, email, password, phone, region, nickname } = req.body;
+  const { userType, email, password, phone, region } = req.body;
   const userTypeNum = Number(userType);
+
+  // [닉네임] 앞뒤 공백 제거 + 형식/예약어 검증 후의 값을 저장합니다.
+  const nicknameCheck = validateNickname(req.body.nickname);
+  if (!nicknameCheck.ok) {
+    return res.status(400).json({ success: false, data: null, message: nicknameCheck.message });
+  }
+  const nickname = nicknameCheck.nickname;
 
   try {
     const [existing] = await pool.query('SELECT email FROM users WHERE email = ?', [email]);
@@ -114,8 +128,7 @@ router.post('/register', validateRegisterInput, async (req, res) => {
       return res.status(409).json({ success: false, message: '이미 가입된 이메일입니다.' });
     }
 
-    const [existingNickname] = await pool.query('SELECT userId FROM users WHERE nickname = ?', [nickname]);
-    if (existingNickname.length > 0) {
+    if (await isNicknameTaken(pool, nickname)) {
       return res.status(409).json({ success: false, message: '이미 사용 중인 닉네임입니다.' });
     }
 
@@ -152,6 +165,12 @@ router.post('/register', validateRegisterInput, async (req, res) => {
       message: '회원가입이 완료되었습니다.',
     });
   } catch (error) {
+    // [닉네임] 동시에 같은 닉네임으로 가입 요청이 들어오면 위 SELECT 검사를 통과할 수 있습니다.
+    //          최종 방어선은 users.nickname UNIQUE 인덱스이고, 그 오류를 409로 바꿔서 내려줍니다.
+    //          (인덱스 생성: node scripts/migrate-add-nickname-unique.js)
+    if (isDuplicateKeyError(error)) {
+      return res.status(409).json({ success: false, message: '이미 사용 중인 닉네임입니다.' });
+    }
     console.error('회원가입 오류:', error.message);
     return res.status(500).json({ success: false, message: '서버 오류로 회원가입에 실패했습니다.' });
   }
@@ -169,6 +188,12 @@ router.post('/register', validateRegisterInput, async (req, res) => {
  *         name: nickname
  *         required: true
  *         schema: { type: string }
+ *         description: 한글/영문/숫자 2~12자
+ *       - in: query
+ *         name: excludeSelf
+ *         required: false
+ *         schema: { type: boolean }
+ *         description: true 이고 Authorization 헤더가 있으면 "본인이 지금 쓰는 닉네임"은 중복으로 보지 않습니다. (프로필 수정 화면용)
  *     responses:
  *       200:
  *         description: 확인 성공
@@ -184,7 +209,7 @@ router.post('/register', validateRegisterInput, async (req, res) => {
  *                       properties:
  *                         available: { type: boolean }
  *       400:
- *         description: nickname 쿼리 파라미터 누락
+ *         description: nickname 쿼리 파라미터 누락 또는 형식 오류
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -195,19 +220,36 @@ router.post('/register', validateRegisterInput, async (req, res) => {
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
 router.get('/check-nickname', async (req, res) => {
-  const nickname = (req.query.nickname || '').trim();
+  // [수정] 존재 여부만 보던 것을 회원가입과 같은 형식 검증(길이/문자/예약어)까지 하도록 맞췄습니다.
+  //        형식이 틀리면 400 + 사유 메시지를 주므로, 프론트는 result.message 를 그대로 보여주면 됩니다.
+  const check = validateNickname(req.query.nickname);
+  if (!check.ok) {
+    return res.status(400).json({ success: false, data: null, message: check.message });
+  }
+  const nickname = check.nickname;
 
-  if (!nickname) {
-    return res.status(400).json({ success: false, data: null, message: 'nickname 쿼리 파라미터는 필수입니다.' });
+  // [추가] 프로필 수정 화면에서는 "지금 내가 쓰는 닉네임"이 중복으로 잡히면 안 되므로,
+  //        excludeSelf=true + 로그인 토큰이 있으면 본인은 검사 대상에서 제외합니다.
+  let excludeUserId = null;
+  if (String(req.query.excludeSelf) === 'true') {
+    const authHeader = req.headers['authorization'] || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (token) {
+      try {
+        excludeUserId = jwt.verify(token, JWT_SECRET).userId;
+      } catch (tokenError) {
+        // 토큰이 만료/위조된 경우엔 그냥 "본인 제외 없이" 검사합니다. (조회 전용 API라 401까지는 두지 않음)
+        excludeUserId = null;
+      }
+    }
   }
 
   try {
-    const [rows] = await pool.query('SELECT userId FROM users WHERE nickname = ?', [nickname]);
-    const available = rows.length === 0;
+    const taken = await isNicknameTaken(pool, nickname, excludeUserId);
     return res.status(200).json({
       success: true,
-      data: { available },
-      message: available ? '사용할 수 있는 닉네임입니다.' : '이미 사용 중인 닉네임입니다.',
+      data: { available: !taken, nickname },
+      message: taken ? '이미 사용 중인 닉네임입니다.' : '사용할 수 있는 닉네임입니다.',
     });
   } catch (error) {
     console.error('닉네임 중복 확인 오류:', error.message);

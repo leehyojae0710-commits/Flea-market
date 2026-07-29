@@ -4,6 +4,8 @@
 //   완전히 새로운 엔드포인트(/users/me/profile, /users/me/stats)로 분리했습니다.
 
 import pool from '../config/db.js';
+// [닉네임] 회원가입과 같은 규칙(형식/예약어/중복)을 프로필 수정에도 적용합니다.
+import { validateNickname, isNicknameTaken, isDuplicateKeyError } from '../utills/nicknamePolicy.js';
 
 // GET /api/users/me/profile (로그인 필요)
 // [추가] 프로필 화면에 필요한 정보(닉네임/프로필사진/한줄소개/소개글/소개이미지 등)를 조회합니다.
@@ -37,7 +39,20 @@ export async function updateMyProfile(req, res) {
 
   const fields = [];
   const values = [];
-  if (nickname !== undefined) { fields.push('nickname = ?'); values.push(nickname || null); }
+
+  // [수정] 기존에는 닉네임을 검증 없이 그대로 UPDATE 했습니다.
+  //        회원가입에서 중복을 막아도 이 API로 남의 닉네임과 똑같이 바꿀 수 있었으므로,
+  //        형식 검증 + 중복 검사(본인 제외)를 여기서도 수행합니다.
+  let nextNickname = null;
+  if (nickname !== undefined) {
+    const check = validateNickname(nickname);
+    if (!check.ok) {
+      return res.status(400).json({ success: false, data: null, message: check.message });
+    }
+    nextNickname = check.nickname;
+    fields.push('nickname = ?');
+    values.push(nextNickname);
+  }
   if (introText !== undefined) { fields.push('introText = ?'); values.push(introText || null); }
   if (bioText !== undefined) { fields.push('bioText = ?'); values.push(bioText || null); }
   if (profileImage !== undefined) { fields.push('profileImage = ?'); values.push(profileImage || null); }
@@ -48,6 +63,11 @@ export async function updateMyProfile(req, res) {
   }
 
   try {
+    // 본인이 지금 쓰는 닉네임을 그대로 저장하는 것은 허용해야 하므로 userId 를 제외하고 검사합니다.
+    if (nextNickname && (await isNicknameTaken(pool, nextNickname, userId))) {
+      return res.status(409).json({ success: false, data: null, message: '이미 사용 중인 닉네임입니다.' });
+    }
+
     values.push(userId);
     await pool.query(`UPDATE users SET ${fields.join(', ')} WHERE userId = ?`, values);
 
@@ -58,6 +78,10 @@ export async function updateMyProfile(req, res) {
     );
     return res.status(200).json({ success: true, data: rows[0], message: '프로필이 수정되었습니다.' });
   } catch (error) {
+    // 동시에 같은 닉네임으로 수정 요청이 들어온 경우 (users.nickname UNIQUE 인덱스가 최종 방어선)
+    if (isDuplicateKeyError(error)) {
+      return res.status(409).json({ success: false, data: null, message: '이미 사용 중인 닉네임입니다.' });
+    }
     console.error('프로필 수정 오류:', error.message);
     return res.status(500).json({ success: false, data: null, message: '서버 오류로 프로필 수정에 실패했습니다.' });
   }

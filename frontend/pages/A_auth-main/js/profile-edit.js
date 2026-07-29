@@ -186,6 +186,59 @@ const bioImageInput = document.getElementById('bio-image');
 const uploadedProfileImagePathInput = document.getElementById('uploaded-profile-image-path');
 const uploadedBioImagePathInput = document.getElementById('uploaded-bio-image-path');
 
+/* ---------------------- 닉네임 중복 확인 (회원가입 화면과 동일한 흐름) ---------------------- */
+const checkNicknameBtn = document.getElementById('check-nickname-btn');
+const nicknameCheckMsg = document.getElementById('nickname-check-msg');
+let originalNickname = '';      // 저장돼 있던 닉네임 (안 바꿨으면 중복 확인 불필요)
+let isNicknameChecked = false;  // 지금 입력값이 "사용 가능" 확인을 받은 상태인지
+
+function setNicknameCheckMsg(message, ok) {
+  if (!nicknameCheckMsg) return;
+  nicknameCheckMsg.textContent = message;
+  nicknameCheckMsg.classList.remove('ok', 'error');
+  if (message) nicknameCheckMsg.classList.add(ok ? 'ok' : 'error');
+}
+
+if (checkNicknameBtn) {
+  checkNicknameBtn.addEventListener('click', async () => {
+    const nickname = nicknameInput ? nicknameInput.value.trim() : '';
+
+    if (!isValidNickname(nickname)) {
+      isNicknameChecked = false;
+      setNicknameCheckMsg('닉네임은 한글/영문/숫자 2~12자로 입력해주세요.', false);
+      return;
+    }
+
+    checkNicknameBtn.disabled = true;
+    try {
+      // excludeSelf=true: 지금 내가 쓰고 있는 닉네임은 중복으로 보지 않습니다.
+      const result = await callApi(
+        `/auth/check-nickname?nickname=${encodeURIComponent(nickname)}&excludeSelf=true`
+      );
+      if (result.success && result.data && result.data.available) {
+        isNicknameChecked = true;
+        setNicknameCheckMsg('사용할 수 있는 닉네임이에요.', true);
+      } else {
+        isNicknameChecked = false;
+        setNicknameCheckMsg(result.message || '이미 사용 중인 닉네임이에요.', false);
+      }
+    } catch (err) {
+      isNicknameChecked = false;
+      setNicknameCheckMsg('서버에 연결할 수 없습니다.', false);
+    } finally {
+      checkNicknameBtn.disabled = false;
+    }
+  });
+}
+
+// 닉네임을 다시 고치면 이전 확인 결과는 무효 (확인 안 한 값으로 저장되는 것 방지)
+if (nicknameInput) {
+  nicknameInput.addEventListener('input', () => {
+    isNicknameChecked = false;
+    setNicknameCheckMsg('', false);
+  });
+}
+
 // 기존 마켓/부스 이미지와 동일한 "현재 등록된 이미지" 미리보기 패턴 (marketcorrection.js / boothedit.js 참고)
 function renderCurrentImagePreview(statusElId, imagePath) {
   const statusEl = document.getElementById(statusElId);
@@ -210,6 +263,9 @@ async function loadProfileForEdit() {
     const profile = res.data;
 
     if (nicknameInput) nicknameInput.value = profile.nickname || '';
+    originalNickname = profile.nickname || '';
+    isNicknameChecked = false;
+    setNicknameCheckMsg('', false);
     if (introTextInput) introTextInput.value = profile.introText || '';
     if (bioTextInput) bioTextInput.value = profile.bioText || '';
 
@@ -261,6 +317,17 @@ if (profileBasicForm) {
     e.preventDefault();
     hideAlertBox();
 
+    // [추가] 닉네임 형식 검증 + "바꿨으면 중복 확인 필수"
+    const nicknameValue = nicknameInput ? nicknameInput.value.trim() : '';
+    if (!isValidNickname(nicknameValue)) {
+      showAlert('닉네임은 한글/영문/숫자 2~12자로 입력해주세요.');
+      return;
+    }
+    if (nicknameValue !== originalNickname && !isNicknameChecked) {
+      showAlert('닉네임 중복 확인을 먼저 해주세요.');
+      return;
+    }
+
     const submitBtn = document.getElementById('profile-basic-submit-btn');
     if (submitBtn) submitBtn.disabled = true;
 
@@ -275,7 +342,7 @@ if (profileBasicForm) {
       }
 
       const body = {
-        nickname: nicknameInput.value.trim(),
+        nickname: nicknameValue,
         introText: introTextInput.value.trim(),
         profileImage: uploadedProfileImagePathInput.value || null,
       };
@@ -285,6 +352,15 @@ if (profileBasicForm) {
       if (result.success) {
         showAlert(result.message || '프로필이 저장되었습니다.', 'success');
         renderCurrentImagePreview('profile-image-status', result.data?.profileImage);
+
+        // [추가] 헤더/마이페이지가 sessionStorage 의 loggedInUser 를 쓰므로 닉네임을 같이 갱신합니다.
+        originalNickname = result.data?.nickname || nicknameValue;
+        isNicknameChecked = false;
+        setNicknameCheckMsg('', false);
+        if (currentUser) {
+          currentUser.nickname = originalNickname;
+          sessionStorage.setItem('loggedInUser', JSON.stringify(currentUser));
+        }
       } else {
         showAlert(result.message || '프로필 저장에 실패했습니다.');
       }

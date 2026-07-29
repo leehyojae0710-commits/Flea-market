@@ -36,7 +36,12 @@
             <form id="profile-basic-form" novalidate>
               <div class="form-field">
                 <label for="nickname">닉네임</label>
-                <input type="text" id="nickname" class="form-input" placeholder="마이페이지에 표시될 닉네임" maxlength="50" />
+                <!-- [수정] 회원가입 화면(register.html)과 동일하게 중복 확인 버튼을 추가했습니다. -->
+                <div class="form-inline">
+                  <input type="text" id="nickname" class="form-input" placeholder="2~12자로 입력해주세요" maxlength="12" />
+                  <button type="button" id="check-nickname-btn" class="btn btn-secondary">중복 확인</button>
+                </div>
+                <p id="nickname-check-msg" class="field-msg"></p>
               </div>
               <div class="form-field">
                 <label for="intro-text">프로필 한 줄 소개</label>

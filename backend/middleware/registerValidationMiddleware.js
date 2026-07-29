@@ -7,12 +7,13 @@
 //   (프론트 검증은 우회 가능하므로, 서버 검증이 최종 방어선입니다.)
 
 import { USER_TYPE } from './roleGuard.js';
+// [수정] 닉네임 규칙은 utills/nicknamePolicy.js 로 옮겼습니다.
+//        (회원가입 / 중복확인 API / 프로필 수정이 같은 규칙을 쓰도록 하기 위함)
+import { validateNickname } from '../utills/nicknamePolicy.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // 010-0000-0000 형식 (010~019, 하이픈 필수, 중간 3~4자리)
 const PHONE_REGEX = /^01[0-9]-\d{3,4}-\d{4}$/;
-// 한글/영문/숫자 2~12자 (공백 불가)
-const NICKNAME_REGEX = /^[가-힣a-zA-Z0-9]{2,12}$/;
 
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_LOWERCASE_REGEX = /[a-z]/;
@@ -64,11 +65,10 @@ export function validateRegisterInput(req, res, next) {
     errors.push(`거주 지역은 ${REGION_MAX_LENGTH}자를 초과할 수 없습니다.`);
   }
 
-  // 6) 닉네임
-  if (!nickname || String(nickname).trim().length === 0) {
-    errors.push('닉네임을 입력해주세요.');
-  } else if (!NICKNAME_REGEX.test(String(nickname).trim())) {
-    errors.push('닉네임은 한글/영문/숫자 2~12자로 입력해주세요.');
+  // 6) 닉네임 (형식 + 예약어)
+  const nicknameCheck = validateNickname(nickname);
+  if (!nicknameCheck.ok) {
+    errors.push(nicknameCheck.message);
   }
 
   if (errors.length > 0) {

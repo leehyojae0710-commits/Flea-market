@@ -324,7 +324,7 @@ function renderApplicationList(applications) {
         <div class="item-card-top">
           <div>
             <div class="item-card-title">${a.itemName || '이름 미입력'} · ${a.boothNumber}번 부스${a.title ? ` · ${a.title}` : ''}</div>
-            <div class="item-card-meta">신청자: ${a.sellerId || '-'}</div>
+            <div class="item-card-meta">신청자: ${a.sellerNickname || (a.sellerId ? '#' + a.sellerId : '-')}</div>
           </div>
           <span class="status-tag ${STATUS_CLASS[status] || 'pending'}">${STATUS_LABEL[status] || status}</span>
         </div>

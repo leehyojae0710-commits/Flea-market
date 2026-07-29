@@ -211,7 +211,10 @@ export async function getApplicationsByMarket(req, res) {
 
       // 수정 — 평가하기 버튼 표시에 필요한 정보(행사 시작 여부/결제여부/이미 평가했는지) 같이 내려줌
       const [rows] = await pool.query(
+        // [닉네임] 신청자 목록에 sellerId(숫자)만 내려가서 화면에 "신청자: 12"처럼 보였습니다.
+        //          users 를 조인해 sellerNickname 을 같이 내려줍니다.
         `SELECT a.*,
+          su.nickname AS sellerNickname,
           (m.eventDate_min <= CURDATE()) AS eventStarted,
           EXISTS(
             SELECT 1 FROM payments p WHERE p.applicationId = a.applicationId AND p.status = 'Paid'
@@ -219,6 +222,7 @@ export async function getApplicationsByMarket(req, res) {
           sr.rating AS mySellerRating
         FROM applications a
         JOIN markets m ON m.marketId = a.marketId
+        LEFT JOIN users su ON su.userId = a.sellerId
         LEFT JOIN seller_reviews sr ON sr.applicationId = a.applicationId
         WHERE a.marketId = ?
         ORDER BY a.applicationId DESC`,
