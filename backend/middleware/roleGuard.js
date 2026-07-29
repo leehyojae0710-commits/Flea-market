@@ -1,5 +1,5 @@
 // backend/middleware/roleGuard.js
-// [C-01 신규] 판매자 계정의 주최자 영역 접근 차단 (단방향 역할 정책)
+// [C-01] 판매자 계정의 주최자 영역 접근 차단 (단방향 역할 정책)
 //
 // 정책
 //   userType 1 = 주최자 : 주최자 API + 판매자 API 모두 사용 가능
@@ -8,11 +8,12 @@
 // 프론트 가드(role-routing.js)만으로는 주소창 직접 입력 / API 직접 호출을 막을 수 없어서
 // 서버에서도 같은 규칙을 한 번 더 검사합니다.
 //
-// 신규 파일이라 기존 authMiddleware.js / hostOnlyMiddleware.js 는 건드리지 않습니다.
+// [세션/토큰 발급 보완] 변경점
+//   - JWT_SECRET 하드코딩과 jwt.verify 직접 호출을 제거하고 utills/tokenService.js 를 사용합니다.
+//     (시크릿이 3개 파일에 흩어져 있어 한 곳만 바꾸면 인증이 어긋나던 문제를 정리)
+//   - 그 외 가드 로직/내보내는 함수는 기존과 동일합니다.
 
-import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'flea-market-dev-secret-change-me';
+import { verifyAccessToken, extractBearerToken } from '../utills/tokenService.js';
 
 export const USER_TYPE = { SELLER: 0, HOST: 1 };
 
@@ -27,7 +28,7 @@ export function isHostType(userType) {
  */
 export function requireHostAccount(req, res, next) {
   if (!req.user) {
-    return res.status(401).json({ success: false, data: null, message: '로그인이 필요합니다.' });
+    return res.status(401).json({ success: false, data: null, code: 'TOKEN_MISSING', message: '로그인이 필요합니다.' });
   }
   if (!isHostType(req.user.userType)) {
     return res.status(403).json({
@@ -71,21 +72,18 @@ export function hostAreaGuard(req, res, next) {
   const path = req.path.replace(/^\/api/, '');
   if (!matchesHostOnly(req.method, path)) return next();
 
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const token = extractBearerToken(req);
   if (!token) return next(); // 인증 실패 처리는 라우터에 위임
 
-  try {
-    const payload = jwt.verify(token, JWT_SECRET);
-    if (!isHostType(payload.userType)) {
-      return res.status(403).json({
-        success: false,
-        data: null,
-        message: '판매자 계정은 주최자 기능을 이용할 수 없습니다.',
-      });
-    }
-  } catch (err) {
-    return next(); // 만료/위조 토큰도 라우터의 401 처리에 맡깁니다.
+  const result = verifyAccessToken(token);
+  if (!result.ok) return next(); // 만료/위조 토큰도 라우터의 401 처리에 맡깁니다.
+
+  if (!isHostType(result.payload.userType)) {
+    return res.status(403).json({
+      success: false,
+      data: null,
+      message: '판매자 계정은 주최자 기능을 이용할 수 없습니다.',
+    });
   }
 
   next();

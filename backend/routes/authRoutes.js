@@ -1,8 +1,22 @@
 // backend/routes/authRoutes.js
+//
+// [세션/토큰 발급 보완] 변경 요약
+//   기존: 로그인/회원가입 시 7일짜리 액세스 토큰 1개만 발급. 로그아웃은 형식적(서버 무효화 없음).
+//         만료 시 재발급 수단이 없고, 프론트가 세션을 확인할 API도 없었음.
+//   보완:
+//     1) 액세스 토큰(기본 2h) + 리프레시 토큰(기본 14일) 2종 발급, 응답에 expiresIn/expiresAt 포함
+//     2) POST /auth/refresh   - 리프레시 토큰으로 재발급 (리프레시 토큰도 매번 교체)
+//     3) GET  /auth/me        - 현재 세션 확인 + 최신 회원정보 재동기화
+//     4) POST /auth/logout    - 서버측 세션 실제 폐기 (토큰 즉시 무효)
+//     5) POST /auth/logout-all- 모든 기기 로그아웃
+//     6) GET  /auth/sessions  - 로그인 중인 기기 목록
+//     7) JWT_SECRET 하드코딩 제거 -> utills/tokenService.js 로 일원화
+//
+// 회원가입/로그인/닉네임 중복확인/역할전환의 기존 동작과 응답 필드는 그대로 유지했습니다.
+// (기존 필드에 refreshToken, expiresIn, expiresAt 가 "추가"만 된 형태라 기존 프론트도 그대로 동작합니다.)
+
 import express from 'express';
-import crypto from 'crypto';
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
 import pool from '../config/db.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 import { isHostType, USER_TYPE } from '../middleware/roleGuard.js';
@@ -13,9 +27,21 @@ import {
   isNicknameTaken,
   isDuplicateKeyError,
 } from '../utills/nicknamePolicy.js';
+// [세션/토큰] 발급·검증·폐기는 utills/tokenService.js 한 곳에서 관리합니다.
+import {
+  issueSession,
+  refreshSession,
+  revokeSession,
+  revokeSessionByRefreshToken,
+  revokeAllSessions,
+  listActiveSessions,
+  verifyAccessToken,
+  extractBearerToken,
+  ACCESS_TOKEN_TTL,
+  REFRESH_TOKEN_TTL_DAYS,
+} from '../utills/tokenService.js';
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'flea-market-dev-secret-change-me';
 const SALT_ROUNDS = 10;
 
 function publicUser(row) {
@@ -54,10 +80,43 @@ function landingPathFor() {
 }
 
 /**
+ * [세션/토큰 발급] 인증 성공 응답을 한 곳에서 만듭니다.
+ * 로그인 / 회원가입 / 재발급이 모두 같은 형태의 data 를 내려주도록 통일했습니다.
+ */
+function authPayload(session, user) {
+  return {
+    token: session.token,                       // 액세스 토큰
+    refreshToken: session.refreshToken,         // 재발급용 (auth_sessions 미생성 시 null)
+    tokenType: 'Bearer',
+    expiresIn: session.expiresIn,               // 초 단위 남은 시간
+    expiresAt: session.expiresAt,               // ISO 문자열 (프론트 사전 갱신용)
+    refreshExpiresAt: session.refreshExpiresAt,
+    sessionId: session.sessionId,
+    user: user ? publicUser(user) : undefined,
+    landingPath: landingPathFor(),
+  };
+}
+
+/**
  * @swagger
  * tags:
  *   name: Auth
- *   description: 회원가입 / 로그인 / 역할 전환
+ *   description: 회원가입 / 로그인 / 세션·토큰 발급 / 역할 전환
+ *
+ * components:
+ *   schemas:
+ *     AuthSessionData:
+ *       type: object
+ *       properties:
+ *         token: { type: string, description: "액세스 토큰 (기본 2시간)" }
+ *         refreshToken: { type: string, nullable: true, description: "재발급용 토큰 (기본 14일). auth_sessions 테이블이 없으면 null" }
+ *         tokenType: { type: string, example: "Bearer" }
+ *         expiresIn: { type: integer, example: 7200, description: "액세스 토큰 남은 초" }
+ *         expiresAt: { type: string, format: date-time }
+ *         refreshExpiresAt: { type: string, format: date-time, nullable: true }
+ *         sessionId: { type: string, nullable: true }
+ *         user: { $ref: '#/components/schemas/User' }
+ *         landingPath: { type: string, example: "/index.html" }
  */
 
 /**
@@ -83,7 +142,7 @@ function landingPathFor() {
  *               region: { type: string, example: "서울시 강남구" }
  *     responses:
  *       201:
- *         description: 회원가입 성공 (토큰 발급)
+ *         description: 회원가입 성공 (세션/토큰 발급)
  *         content:
  *           application/json:
  *             schema:
@@ -91,14 +150,14 @@ function landingPathFor() {
  *                 - $ref: '#/components/schemas/ApiEnvelope'
  *                 - type: object
  *                   properties:
- *                     data: { $ref: '#/components/schemas/AuthData' }
+ *                     data: { $ref: '#/components/schemas/AuthSessionData' }
  *       400:
  *         description: 필수 항목 누락
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *       409:
- *         description: 이미 가입된 이메일
+ *         description: 이미 가입된 이메일 / 닉네임
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -110,8 +169,8 @@ function landingPathFor() {
  */
 // 1. 회원가입 API
 router.post('/register', validateRegisterInput, async (req, res) => {
-  // [수정] 존재 여부 + 형식(정규식) 검증은 validateRegisterInput 미들웨어에서 끝났으므로,
-  //        여기서는 DB 중복 체크 등 비즈니스 로직만 처리합니다.
+  // 존재 여부 + 형식(정규식) 검증은 validateRegisterInput 미들웨어에서 끝났으므로,
+  // 여기서는 DB 중복 체크 등 비즈니스 로직만 처리합니다.
   const { userType, email, password, phone, region } = req.body;
   const userTypeNum = Number(userType);
 
@@ -135,8 +194,7 @@ router.post('/register', validateRegisterInput, async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
     const [result] = await pool.query(
-      // [수정] activeRole 은 users 테이블에 없을 수도 있는 선택 컬럼이라 INSERT 대상에서 제외합니다.
-      //        (역할은 userType 으로 판정하고, activeRole 은 화면 모드 표시용일 뿐입니다.)
+      // activeRole 은 users 테이블에 없을 수도 있는 선택 컬럼이라 INSERT 대상에서 제외합니다.
       `INSERT INTO users (userType, password, phone, email, region, nickname)
        VALUES (?, ?, ?, ?, ?, ?)`,
       [userTypeNum, hashedPassword, phone, email, region, nickname]
@@ -144,30 +202,24 @@ router.post('/register', validateRegisterInput, async (req, res) => {
 
     const userId = result.insertId;
 
-    const token = jwt.sign({ userId, userType: userTypeNum }, JWT_SECRET, { expiresIn: '7d' });
+    // [세션/토큰 발급] 가입 즉시 세션을 만들고 액세스 + 리프레시 토큰을 함께 내려줍니다.
+    const session = await issueSession({ userId, userType: userTypeNum, req });
 
     return res.status(201).json({
       success: true,
-      data: {
-        token,
-        user: {
-          userId,
-          userType: userTypeNum,
-          email,
-          phone,
-          region,
-          nickname,
-          activeRole: normalizeActiveRole(userTypeNum, null),
-          canBeHost: isHostType(userTypeNum),
-        },
-        landingPath: landingPathFor(userTypeNum),
-      },
+      data: authPayload(session, {
+        userId,
+        userType: userTypeNum,
+        email,
+        phone,
+        region,
+        nickname,
+        activeRole: null,
+      }),
       message: '회원가입이 완료되었습니다.',
     });
   } catch (error) {
-    // [닉네임] 동시에 같은 닉네임으로 가입 요청이 들어오면 위 SELECT 검사를 통과할 수 있습니다.
-    //          최종 방어선은 users.nickname UNIQUE 인덱스이고, 그 오류를 409로 바꿔서 내려줍니다.
-    //          (인덱스 생성: node scripts/migrate-add-nickname-unique.js)
+    // [닉네임] 동시 가입 요청은 users.nickname UNIQUE 인덱스가 최종 방어선이며, 그 오류를 409로 바꿔 내려줍니다.
     if (isDuplicateKeyError(error)) {
       return res.status(409).json({ success: false, message: '이미 사용 중인 닉네임입니다.' });
     }
@@ -220,27 +272,21 @@ router.post('/register', validateRegisterInput, async (req, res) => {
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
 router.get('/check-nickname', async (req, res) => {
-  // [수정] 존재 여부만 보던 것을 회원가입과 같은 형식 검증(길이/문자/예약어)까지 하도록 맞췄습니다.
-  //        형식이 틀리면 400 + 사유 메시지를 주므로, 프론트는 result.message 를 그대로 보여주면 됩니다.
   const check = validateNickname(req.query.nickname);
   if (!check.ok) {
     return res.status(400).json({ success: false, data: null, message: check.message });
   }
   const nickname = check.nickname;
 
-  // [추가] 프로필 수정 화면에서는 "지금 내가 쓰는 닉네임"이 중복으로 잡히면 안 되므로,
-  //        excludeSelf=true + 로그인 토큰이 있으면 본인은 검사 대상에서 제외합니다.
+  // 프로필 수정 화면에서는 "지금 내가 쓰는 닉네임"이 중복으로 잡히면 안 되므로,
+  // excludeSelf=true + 로그인 토큰이 있으면 본인은 검사 대상에서 제외합니다.
   let excludeUserId = null;
   if (String(req.query.excludeSelf) === 'true') {
-    const authHeader = req.headers['authorization'] || '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const token = extractBearerToken(req);
     if (token) {
-      try {
-        excludeUserId = jwt.verify(token, JWT_SECRET).userId;
-      } catch (tokenError) {
-        // 토큰이 만료/위조된 경우엔 그냥 "본인 제외 없이" 검사합니다. (조회 전용 API라 401까지는 두지 않음)
-        excludeUserId = null;
-      }
+      const verified = verifyAccessToken(token);
+      // 토큰이 만료/위조면 그냥 "본인 제외 없이" 검사합니다. (조회 전용 API라 401까지는 두지 않음)
+      if (verified.ok) excludeUserId = verified.payload.userId;
     }
   }
 
@@ -261,7 +307,7 @@ router.get('/check-nickname', async (req, res) => {
  * @swagger
  * /auth/login:
  *   post:
- *     summary: 로그인
+ *     summary: 로그인 (세션/토큰 발급)
  *     tags: [Auth]
  *     security: []
  *     requestBody:
@@ -276,7 +322,7 @@ router.get('/check-nickname', async (req, res) => {
  *               password: { type: string, example: "password123!" }
  *     responses:
  *       200:
- *         description: 로그인 성공 (토큰 발급)
+ *         description: 로그인 성공
  *         content:
  *           application/json:
  *             schema:
@@ -284,7 +330,7 @@ router.get('/check-nickname', async (req, res) => {
  *                 - $ref: '#/components/schemas/ApiEnvelope'
  *                 - type: object
  *                   properties:
- *                     data: { $ref: '#/components/schemas/AuthData' }
+ *                     data: { $ref: '#/components/schemas/AuthSessionData' }
  *       400:
  *         description: 이메일/비밀번호 누락
  *         content:
@@ -327,16 +373,12 @@ router.post('/login', async (req, res) => {
     //        (DB 쓰기를 하지 않으므로 activeRole 컬럼이 없는 DB에서도 로그인이 실패하지 않습니다.)
     user.activeRole = normalizeActiveRole(user.userType, user.activeRole);
 
-    const token = jwt.sign({ userId: user.userId, userType: user.userType }, JWT_SECRET, { expiresIn: '7d' });
+    // [세션/토큰 발급] 기기별 세션을 만들고 토큰 2종을 발급합니다.
+    const session = await issueSession({ userId: user.userId, userType: user.userType, req });
 
     return res.status(200).json({
       success: true,
-      data: {
-        token,
-        user: publicUser(user),
-        // 프론트는 이 값을 그대로 써도 되고, role-routing.js 규칙을 써도 됩니다.
-        landingPath: landingPathFor(user.userType),
-      },
+      data: authPayload(session, user),
       message: '로그인 성공!',
     });
   } catch (error) {
@@ -347,12 +389,152 @@ router.post('/login', async (req, res) => {
 
 /**
  * @swagger
- * /auth/logout:
+ * /auth/refresh:
  *   post:
- *     summary: 로그아웃
- *     description: JWT는 서버에 상태를 저장하지 않으므로(stateless), 이 API는 토큰 유효성만 확인하고 로그아웃 처리를 승인합니다. 실제 토큰/세션 삭제는 클라이언트(sessionStorage)에서 수행합니다.
+ *     summary: 액세스 토큰 재발급
+ *     description: 리프레시 토큰으로 새 액세스 토큰을 받습니다. 보안을 위해 리프레시 토큰도 매번 새 값으로 교체됩니다.
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [refreshToken]
+ *             properties:
+ *               refreshToken: { type: string }
+ *     responses:
+ *       200:
+ *         description: 재발급 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiEnvelope'
+ *                 - type: object
+ *                   properties:
+ *                     data: { $ref: '#/components/schemas/AuthSessionData' }
+ *       400:
+ *         description: refreshToken 누락
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       401:
+ *         description: 리프레시 토큰 만료/폐기/위조 (재로그인 필요)
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ */
+// 3. 액세스 토큰 재발급 API [신규]
+router.post('/refresh', async (req, res) => {
+  const refreshToken = req.body?.refreshToken;
+
+  if (!refreshToken) {
+    return res.status(400).json({
+      success: false, data: null, code: 'REFRESH_REQUIRED', message: '리프레시 토큰이 필요합니다.',
+    });
+  }
+
+  try {
+    const result = await refreshSession(refreshToken, req);
+
+    if (!result.ok) {
+      // REFRESH_UNAVAILABLE = auth_sessions 테이블 미생성 (마이그레이션 안내)
+      const message = result.code === 'REFRESH_UNAVAILABLE'
+        ? '서버에 세션 저장소가 준비되지 않았습니다. (node scripts/migrate-add-auth-sessions.js 실행 필요)'
+        : '세션이 만료되었습니다. 다시 로그인해 주세요.';
+      return res.status(401).json({ success: false, data: null, code: result.code, message });
+    }
+
+    // 재발급 시 최신 회원정보도 함께 내려줘서, 프론트의 loggedInUser 가 오래된 값으로 남지 않게 합니다.
+    const [rows] = await pool.query('SELECT * FROM users WHERE userId = ?', [result.userId]);
+    const user = rows[0] || null;
+
+    return res.status(200).json({
+      success: true,
+      data: authPayload(result, user),
+      message: '토큰이 재발급되었습니다.',
+    });
+  } catch (error) {
+    console.error('토큰 재발급 오류:', error.message);
+    return res.status(500).json({ success: false, data: null, message: '서버 오류로 토큰 재발급에 실패했습니다.' });
+  }
+});
+
+/**
+ * @swagger
+ * /auth/me:
+ *   get:
+ *     summary: 현재 세션 확인 (로그인 상태 및 회원정보 재동기화)
+ *     description: 프론트가 sessionStorage 값만 믿지 않고 실제 세션이 살아 있는지 확인할 때 사용합니다.
  *     tags: [Auth]
  *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: 유효한 세션
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiEnvelope'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         user: { $ref: '#/components/schemas/User' }
+ *                         sessionId: { type: string, nullable: true }
+ *                         expiresAt: { type: string, format: date-time }
+ *       401:
+ *         description: 토큰 없음/만료/폐기
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ */
+// 4. 세션 확인 API [신규]
+router.get('/me', authenticateToken, async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM users WHERE userId = ?', [req.user.userId]);
+    if (rows.length === 0) {
+      return res.status(401).json({
+        success: false, data: null, code: 'USER_NOT_FOUND', message: '탈퇴했거나 존재하지 않는 계정입니다.',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        user: publicUser(rows[0]),
+        sessionId: req.user.sid || null,
+        // exp 는 초 단위라 1000을 곱해 ISO 로 바꿔 내려줍니다.
+        expiresAt: req.user.exp ? new Date(req.user.exp * 1000).toISOString() : null,
+        landingPath: landingPathFor(),
+      },
+      message: '유효한 세션입니다.',
+    });
+  } catch (error) {
+    console.error('세션 확인 오류:', error.message);
+    return res.status(500).json({ success: false, data: null, message: '서버 오류로 세션 확인에 실패했습니다.' });
+  }
+});
+
+/**
+ * @swagger
+ * /auth/logout:
+ *   post:
+ *     summary: 로그아웃 (서버 세션 폐기)
+ *     description: 해당 세션을 서버에서 폐기해 액세스 토큰을 즉시 무효화합니다. 액세스 토큰이 이미 만료된 경우에도 body 에 refreshToken 을 보내면 폐기할 수 있습니다.
+ *     tags: [Auth]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               refreshToken: { type: string, description: "선택. 액세스 토큰이 만료된 상태에서 로그아웃할 때 사용" }
  *     responses:
  *       200:
  *         description: 로그아웃 성공
@@ -364,18 +546,136 @@ router.post('/login', async (req, res) => {
  *                 - type: object
  *                   properties:
  *                     data: { nullable: true, example: null }
+ */
+// 5. 로그아웃 API
+// [보완] 기존에는 토큰 유효성만 확인하고 끝나서, 로그아웃 뒤에도 토큰이 만료 전까지 그대로 통했습니다.
+//        이제 auth_sessions 의 해당 세션을 폐기해 서버가 그 토큰을 거부합니다.
+//        (액세스 토큰이 만료된 상태여도 로그아웃은 되어야 하므로 authenticateToken 을 강제하지 않습니다.)
+router.post('/logout', async (req, res) => {
+  try {
+    let revoked = false;
+
+    const token = extractBearerToken(req);
+    if (token) {
+      const verified = verifyAccessToken(token);
+      if (verified.ok && verified.payload.sid) {
+        revoked = await revokeSession(verified.payload.sid);
+      }
+    }
+
+    if (!revoked && req.body?.refreshToken) {
+      revoked = await revokeSessionByRefreshToken(req.body.refreshToken);
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: { revoked },
+      message: '로그아웃되었습니다.',
+    });
+  } catch (error) {
+    console.error('로그아웃 오류:', error.message);
+    // 로그아웃은 실패해도 사용자 입장에선 로그아웃이 되어야 하므로 200 으로 응답합니다.
+    return res.status(200).json({ success: true, data: { revoked: false }, message: '로그아웃되었습니다.' });
+  }
+});
+
+/**
+ * @swagger
+ * /auth/logout-all:
+ *   post:
+ *     summary: 모든 기기에서 로그아웃
+ *     tags: [Auth]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: 폐기된 세션 수 반환
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiEnvelope'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         revokedCount: { type: integer }
  *       401:
- *         description: 인증 필요 (토큰 없음 또는 만료)
+ *         description: 인증 필요
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
-// 3. 로그아웃 API
-// [수정] 기존에는 서버 라우트가 없어 logoutUser()가 sessionStorage만 지웠음.
-//        JWT는 stateless라 서버가 토큰을 별도로 무효화하지는 않지만,
-//        토큰 유효성 검증 + 요청 흐름 확인용으로 라우트를 신설함.
-router.post('/logout', authenticateToken, (req, res) => {
-  return res.status(200).json({ success: true, data: null, message: '로그아웃되었습니다.' });
+// 6. 전체 로그아웃 API [신규]
+router.post('/logout-all', authenticateToken, async (req, res) => {
+  try {
+    const revokedCount = await revokeAllSessions(req.user.userId);
+    return res.status(200).json({
+      success: true,
+      data: { revokedCount },
+      message: `${revokedCount}개 기기에서 로그아웃했습니다.`,
+    });
+  } catch (error) {
+    console.error('전체 로그아웃 오류:', error.message);
+    return res.status(500).json({ success: false, data: null, message: '서버 오류로 전체 로그아웃에 실패했습니다.' });
+  }
+});
+
+/**
+ * @swagger
+ * /auth/sessions:
+ *   get:
+ *     summary: 로그인 중인 기기(세션) 목록
+ *     tags: [Auth]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: 조회 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiEnvelope'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         sessions:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               sessionId: { type: string }
+ *                               userAgent: { type: string, nullable: true }
+ *                               ipAddress: { type: string, nullable: true }
+ *                               issuedAt: { type: string, format: date-time }
+ *                               lastUsedAt: { type: string, format: date-time }
+ *                               expiresAt: { type: string, format: date-time }
+ *                               current: { type: boolean }
+ *       401:
+ *         description: 인증 필요
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ */
+// 7. 세션 목록 API [신규]
+router.get('/sessions', authenticateToken, async (req, res) => {
+  try {
+    const sessions = await listActiveSessions(req.user.userId);
+    return res.status(200).json({
+      success: true,
+      data: {
+        sessions: sessions.map((s) => ({ ...s, current: s.sessionId === req.user.sid })),
+        accessTokenTtl: ACCESS_TOKEN_TTL,
+        refreshTokenTtlDays: REFRESH_TOKEN_TTL_DAYS,
+      },
+      message: '로그인 중인 기기 목록입니다.',
+    });
+  } catch (error) {
+    console.error('세션 목록 조회 오류:', error.message);
+    return res.status(500).json({ success: false, data: null, message: '서버 오류로 세션 목록 조회에 실패했습니다.' });
+  }
 });
 
 /**
@@ -465,3 +765,4 @@ router.patch('/toggle-role', authenticateToken, async (req, res) => {
 });
 
 export default router;
+export { USER_TYPE };
