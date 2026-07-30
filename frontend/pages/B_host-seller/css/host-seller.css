@@ -1064,3 +1064,126 @@ a.btn {
   border-radius: 6px;
   display: inline-block;
 }
+.refund-policy-box {
+  margin-top: 12px;
+  padding: 16px 18px;
+  background: #fdfaf3;
+  border: 1.5px dashed #d8cbb5;
+  border-radius: 9px;
+}
+
+.refund-policy-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
+  margin-bottom: 10px;
+}
+
+.refund-policy-table {
+  border: 1.5px solid #ece1cd;
+  border-radius: 7px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.refund-policy-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 14px;
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  color: var(--ink);
+  border-bottom: 1px solid #ece1cd;
+  background: #fff;
+}
+.refund-policy-row:last-child {
+  border-bottom: none;
+}
+
+.refund-policy-header {
+  background: #f3ead9;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.refund-rate {
+  font-family: "IBM Plex Mono", monospace;
+  font-weight: 500;
+  padding: 2px 9px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.refund-rate.full { background: var(--sage-bg); color: var(--sage-text); }
+.refund-rate.half { background: #fdf1d6; color: var(--mustard-text); }
+.refund-rate.none { background: var(--coral-bg); color: var(--coral-text); }
+
+.refund-confirm-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.refund-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  color: var(--ink);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.refund-checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--mustard);
+  cursor: pointer;
+}
+
+.refund-input {
+  flex: 1;
+  min-width: 160px;
+  padding: 9px 12px;
+  font-size: 13px;
+}
+.bulk-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: #f3ead9;
+  border: 1.5px solid #ece1cd;
+  border-radius: 8px;
+  margin-bottom: 14px;
+}
+
+.bulk-select-all {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.bulk-count {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.bulk-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}

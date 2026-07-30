@@ -103,6 +103,7 @@ const STATUS_CLASS = { Pending: 'pending', Approved: 'approved', Rejected: 'reje
 let currentApplications = [];
 let sellerReviewOpenId = null;
 let sellerReviewDraftRating = 0;
+let selectedApplicationIds = new Set();
 
 // ---------- 마켓 등록 ----------
 
@@ -320,15 +321,22 @@ function renderApplicationList(applications) {
       const status = a.status || 'Pending';
       const id = a.applicationId;
       const canShowReview = status === 'Paid'; // 결제 완료된 건만 평가 대상
+      const canSelect = status === 'Pending' || status === 'Paid'; // 승인/반려/환불 대상만 선택 가능
       return `
       <div class="item-card" data-application-id="${id}">
-        <div class="item-card-top">
-          <div>
-            <div class="item-card-title">${a.itemName || '이름 미입력'} · ${a.boothNumber}번 부스${a.title ? ` · ${a.title}` : ''}</div>
-            <div class="item-card-meta">신청자: ${a.sellerNickname || (a.sellerId ? '#' + a.sellerId : '-')}</div>
-          </div>
-          <span class="status-tag ${STATUS_CLASS[status] || 'pending'}">${STATUS_LABEL[status] || status}</span>
+    <div class="item-card-top">
+      <div style="display:flex; align-items:flex-start; gap:8px;">
+        ${canSelect ? `
+          <input type="checkbox" class="application-select-checkbox" data-id="${id}"
+            ${selectedApplicationIds.has(String(id)) ? 'checked' : ''} style="margin-top:3px;" />
+        ` : '<span style="width:16px; display:inline-block;"></span>'}
+        <div>
+          <div class="item-card-title">${a.itemName || '이름 미입력'} · ${a.boothNumber}번 부스${a.title ? ` · ${a.title}` : ''}</div>
+          <div class="item-card-meta">신청자: ${a.sellerNickname || (a.sellerId ? '#' + a.sellerId : '-')}</div>
         </div>
+      </div>
+      <span class="status-tag ${STATUS_CLASS[status] || 'pending'}">${STATUS_LABEL[status] || status}</span>
+    </div>
         ${status === 'Pending' ? `
         <div class="item-card-actions">
           <button type="button" class="btn btn-sage btn-sm" data-action="approve" data-id="${id}">승인</button>
@@ -390,6 +398,111 @@ function renderApplicationList(applications) {
   wrap.querySelectorAll('[data-action="refundRequested"]').forEach((btn) => {
     btn.addEventListener('click', () => refundPayment_seller(btn.dataset.id,));
   });
+  wrap.querySelectorAll('.application-select-checkbox').forEach((cb) => {
+  cb.addEventListener('change', (e) => {
+    const id = e.target.dataset.id;
+    if (e.target.checked) selectedApplicationIds.add(id);
+    else selectedApplicationIds.delete(id);
+    renderBulkToolbar();
+  });
+});
+
+renderBulkToolbar();
+}
+function renderBulkToolbar() {
+  const el = document.getElementById('bulk-actions-toolbar');
+  if (!el) return;
+
+  const count = selectedApplicationIds.size;
+
+  el.innerHTML = `
+    <div class="bulk-toolbar">
+      <label class="bulk-select-all">
+        <input type="checkbox" id="select-all-checkbox" />
+        <span>전체 선택</span>
+      </label>
+      <span class="bulk-count">${count}건 선택됨</span>
+      <div class="bulk-actions">
+        <button type="button" class="btn btn-sage btn-sm" id="bulk-approve-btn" ${count === 0 ? 'disabled' : ''}>일괄 승인</button>
+        <button type="button" class="btn btn-danger btn-sm" id="bulk-reject-btn" ${count === 0 ? 'disabled' : ''}>일괄 반려</button>
+        <button type="button" class="btn btn-outline btn-sm" id="bulk-refund-btn" ${count === 0 ? 'disabled' : ''}>일괄 결제취소</button>
+      </div>
+    </div>`;
+
+  document.getElementById('select-all-checkbox')?.addEventListener('change', (e) => {
+    handleSelectAll(e.target.checked);
+  });
+  document.getElementById('bulk-approve-btn')?.addEventListener('click', () => handleBulkAction('approve'));
+  document.getElementById('bulk-reject-btn')?.addEventListener('click', () => handleBulkAction('reject'));
+  document.getElementById('bulk-refund-btn')?.addEventListener('click', () => handleBulkAction('refund'));
+}
+function handleSelectAll(checked) {
+  document.querySelectorAll('.application-select-checkbox').forEach((cb) => {
+    cb.checked = checked;
+    const id = cb.dataset.id;
+    if (checked) selectedApplicationIds.add(id);
+    else selectedApplicationIds.delete(id);
+  });
+  renderBulkToolbar();
+}
+async function handleBulkAction(action) {
+  if (selectedApplicationIds.size === 0) return;
+  const ids = Array.from(selectedApplicationIds);
+
+  const confirmMsgMap = {
+    approve: `선택한 ${ids.length}건을 일괄 승인하시겠습니까?`,
+    reject: `선택한 ${ids.length}건을 일괄 반려하시겠습니까?`,
+    refund: `선택한 ${ids.length}건을 일괄 결제취소(환불) 처리하시겠습니까?`,
+  };
+  if (!confirm(confirmMsgMap[action])) return;
+
+  let reason = '';
+  if (action === 'refund') {
+    reason = prompt('환불 사유를 입력해주세요.', '주최자 요청에 의한 일괄 환불') || '';
+    if (!reason.trim()) {
+      renderAlert('환불 사유를 입력해야 합니다.');
+      return;
+    }
+  }
+
+  hideAlert();
+
+  // 각 id마다 상태를 확인해서, 맞는 상태일 때만 실제 API 호출 (섞여 있어도 안전하게 처리)
+  const results = await Promise.allSettled(
+    ids.map((id) => {
+      const app = currentApplications.find((a) => String(a.applicationId) === String(id));
+      if (!app) return Promise.resolve({ success: false, message: '데이터 없음' });
+
+      if (action === 'approve') {
+        if (app.status !== 'Pending') return Promise.resolve({ success: false, message: '대기중 상태가 아님' });
+        return approveSellerApplication(id);
+      }
+      if (action === 'reject') {
+        if (app.status !== 'Pending') return Promise.resolve({ success: false, message: '대기중 상태가 아님' });
+        return rejectSellerApplication(id);
+      }
+      if (action === 'refund') {
+        if (app.status !== 'Paid') return Promise.resolve({ success: false, message: '결제완료 상태가 아님' });
+        return refundPayment(id, reason);
+      }
+    })
+  );
+
+  const successCount = results.filter((r) => r.status === 'fulfilled' && r.value?.success).length;
+  const failCount = ids.length - successCount;
+
+  selectedApplicationIds.clear();
+
+  if (failCount === 0) {
+    renderAlert(`${successCount}건 처리 완료했어요.`, 'success');
+  } else {
+    renderAlert(
+      `${successCount}건 처리 완료, ${failCount}건은 상태가 맞지 않아 처리되지 않았어요.`,
+      successCount > 0 ? 'success' : 'error'
+    );
+  }
+
+  await loadApplicationList(); // 목록 새로고침 (선택 상태도 자연스럽게 초기화됨)
 }
 
 function renderStaticStars(rating) {

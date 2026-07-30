@@ -20,8 +20,8 @@ async function submitBoothReview(applicationId, rating, comment) {
     body: { applicationId: Number(applicationId), rating, comment },
   });
 }
-async function requestRefund(applicationId,reason) {
-    return callApi('/payments/request-refund', {
+async function requestRefund(applicationId, reason) {
+  return callApi('/payments/request-refund', {
     method: 'POST',
     body: { applicationId, reason },
   });
@@ -52,7 +52,7 @@ const STATUS_LABEL = {
   Rejected: '반려됨',
   Paid: '결제됨',
   Refunded: '결제 취소',
-  RefundRequested:'환불 요청'
+  RefundRequested: '환불 요청'
 };
 const STATUS_CLASS = {
   Pending: 'pending',
@@ -128,7 +128,7 @@ function renderBoothList() {
 function renderBoothCard(a) {
   const id = a.applicationId;
   const status = a.status || 'Pending';
-  const refundAmount =a.refundAmount;
+  const refundAmount = a.refundAmount;
   const isPending = status === 'Pending';
   const isApproved = status === 'Approved' || status === 'Paid';
   const isExpanded = expandedId === String(id) || expandedId === id;
@@ -150,48 +150,67 @@ function renderBoothCard(a) {
       ? renderPaymentArea(a)
       : ''
     }
+    ${(status === 'Approved' || status === 'Paid') ? renderReviewTrigger(a) : ''}
+    </div>
     ${status === 'Paid'
-      ?`
+      ? `
     <span class="payment-area">
       <button type="button" class="btn btn-sage btn-sm" data-action="refunded"
-      onclick="requestRefund_btn(${id}, '${status}',${refundAmount})">결제 취소 요청</button>
+      onclick="requestRefund_btn(${id}, '${status}',${refundAmount})" id = "refunded_btn">환불 요청</button>
     </span>
-    <div id="inputContainer" style="display: none; margin-top: 10px;">
-      <div>
-        환불 규정
-        <div>
-          <span>내용</span>
-          <span>환불 범위</span>
-        </div>
-      </div>
-      <div>
-        <div>
-          <span>개최 7일 전까지 결제 취소</span>
-          <span>100%</span>
-        </div>
-        <div>
-          <span>개최 5일 전까지 결제 취소</span>
-          <span>50%</span>
-        </div>
-        <div>
-          <span>개최 3일 전까지 결제 취소</span>
-          <span>0%</span>
-        </div>
-      </div>
-      <label for="subscribeNews">동의하십니까?</label>
-      <input type="checkbox" id ="myCheckbox">
-      <input type="text" id="userInput" placeholder="취소 내용을 입력하세요">
-      <button type="button" class="btn btn-sage btn-sm" data-action="refunded"
-        onclick="requestRefund_(${id}, '${status}')">
-        입력 확인
-      </button>
+<div id="inputContainer" class="refund-policy-box" style="display: none;">
+  <div class="refund-policy-title">환불 규정</div>
+
+  <div class="refund-policy-table">
+    <div class="refund-policy-row refund-policy-header">
+      <span>내용</span>
+      <span>환불 범위</span>
     </div>
+    <div class="refund-policy-row">
+      <span>개최 7일 전까지 결제 취소</span>
+      <span class="refund-rate full">
+      <span>
+      예상 환불 금액 ${a.boothPrice} |
+      </span>
+      100%
+      </span>
+    </div>
+    <div class="refund-policy-row">
+      <span>개최 5일 전까지 결제 취소</span>
+      <span class="refund-rate half">
+      <span>
+      예상 환불 금액 ${a.boothPrice * 0.5} |
+      </span>
+      50%
+      </span>
+    </div>
+    <div class="refund-policy-row">
+      <span>개최 3일 전까지 결제 취소</span>
+      <span class="refund-rate none">
+      <span>
+      환불 불가 |
+      </span>
+      0%
+      </span>
+    </div>
+  </div>
+
+  <div class="refund-confirm-row">
+    <label class="refund-checkbox-label">
+      <span>동의하십니까?</span>
+      <input type="checkbox" id="myCheckbox" />
+    </label>
+    <input type="text" id="userInput" class="form-input refund-input" placeholder="취소 내용을 입력하세요" />
+    <button type="button" class="btn btn-sage btn-sm" data-action="refunded"
+      onclick="requestRefund_(${id}, '${status}')">
+      입력 확인
+    </button>
+  </div>
+</div>
       `
       :
       ''
     }
-      </div>
-      ${(status === 'Approved' || status === 'Paid') ? renderReviewTrigger(a) : ''}
     </div>
 
       ${(status === 'Approved' || status === 'Paid') && reviewOpenId === String(id) ? renderReviewForm(id) : ''}
@@ -422,32 +441,39 @@ async function handleReviewSubmit(id) {
     renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
   }
 }
-function requestRefund_btn(a_id,a_status,p_refundAmount){
+function requestRefund_btn(a_id, a_status, p_refundAmount) {
   const inputContainer = document.getElementById('inputContainer');
-  inputContainer.style.display = 'block'
+  const btnText = document.getElementById('refunded_btn');
+  if (inputContainer.style.display === 'none') {
+    btnText.textContent  = '환불 요청 취소';
+    inputContainer.style.display = 'block'
+  }
+  else {
+    btnText.textContent  = '환불 요청';
+    inputContainer.style.display = 'none'
+  }
 }
 // 결제 환불 요청
-async function requestRefund_(a_id,a_status) {
+async function requestRefund_(a_id, a_status) {
   const checkbox = document.getElementById('myCheckbox');
   const inputContainer = document.getElementById('inputContainer');
-  if(!checkbox.checked)
-    {
-      alert('약관에 동의하셔야 알림을 보낼 수 있습니다.');
-      return;
-    }
-  if(a_status != 'Paid')
+  if (!checkbox.checked) {
+    alert('약관에 동의하셔야 요청을 보낼 수 있습니다.');
     return;
-  try{
-    const data = await requestRefund(a_id,'환불 요청')
-    if(data && data.success){
-      renderAlert('환불 요청이 접수 되었습니다.','success')
+  }
+  if (a_status != 'Paid')
+    return;
+  try {
+    const data = await requestRefund(a_id, '환불 요청')
+    if (data && data.success) {
+      renderAlert('환불 요청이 접수 되었습니다.', 'success')
       await loadMyBoothList();
     }
-    else{
+    else {
       renderAlert(data.message);
     }
   }
-  catch(err){
+  catch (err) {
     renderAlert("서버에 연결할 수 없어요 잠시 후 다시 시도해주세요.");
   }
   inputContainer.style.display = 'none'
