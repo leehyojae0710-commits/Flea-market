@@ -15,7 +15,23 @@ let currentUser = rawUser ? JSON.parse(rawUser) : null;
 if (!currentUser) {
   window.location.href = 'login.html';
 }
-let isHost = currentUser && Number(currentUser.userType) === 1;
+// [수정] 예전에는 계정 종류(userType)만 보고 주최자 화면을 그렸습니다.
+//        주최자 계정은 「판매자 모드」로 전환할 수 있으므로(role-routing.js), 마이페이지도
+//        계정 종류가 아니라 지금의 화면 모드(viewRole)를 기준으로 나눠 보여줍니다.
+//          accountIsHost : 계정 종류 (users.userType, 바뀌지 않음)
+//          isHost        : 지금 보고 있는 화면 모드가 주최자인지
+function getViewRoleSafe() {
+  if (window.RoleRouting && typeof window.RoleRouting.getViewRole === 'function') {
+    return window.RoleRouting.getViewRole();
+  }
+  // role-routing.js 가 아직 로드되지 않은 경우를 위한 폴백 (같은 판정 규칙)
+  const account = currentUser && Number(currentUser.userType) === 1 ? 'host' : 'seller';
+  if (account !== 'host') return 'seller';
+  return sessionStorage.getItem('viewRole') === 'seller' ? 'seller' : 'host';
+}
+
+let accountIsHost = currentUser && Number(currentUser.userType) === 1;
+let isHost = getViewRoleSafe() === 'host';
 
 /* ---------------------- 프로필 정보 렌더링 ---------------------- */
 function renderProfile(profile) {
@@ -24,6 +40,19 @@ function renderProfile(profile) {
 
   const badgeEl = document.getElementById('profile-title-badge');
   if (badgeEl) badgeEl.textContent = titleText;
+
+  // [추가] 같은 계정이라도 지금 보는 프로필이 주최자용인지 판매자용인지 한눈에 보이게 표시합니다.
+  const roleChipEl = document.getElementById('profile-role-chip');
+  if (roleChipEl) {
+    roleChipEl.textContent = isHost ? '주최자 프로필' : '판매자 프로필';
+    roleChipEl.classList.toggle('is-seller', !isHost);
+    // 주최자 계정이 판매자 모드로 보고 있는 경우를 툴팁으로 한 번 더 안내합니다.
+    roleChipEl.title =
+      accountIsHost && !isHost
+        ? '주최자 계정에서 판매자 모드로 보는 중입니다. 헤더의 「주최자로 전환」을 누르면 주최자 프로필로 돌아갑니다.'
+        : '';
+    roleChipEl.hidden = false;
+  }
 
   const introEl = document.getElementById('profile-intro');
   if (introEl) introEl.textContent = profile.introText || '한 줄 소개를 등록해보세요.';
@@ -44,6 +73,8 @@ function renderProfile(profile) {
 
 /* ---------------------- 주최자: 행사현황 + 성공율 ---------------------- */
 function renderHostStats(stats) {
+  // 판매자 모드에서는 호출되지 않지만, 혹시 모를 오호출을 막아둡니다.
+  if (!isHost) return;
   document.getElementById('host-stats-block').hidden = false;
   document.getElementById('host-success-block').hidden = false;
 
@@ -201,7 +232,8 @@ async function loadProfile() {
 
 async function loadStats() {
   try {
-    const res = await callApi('/users/me/stats');
+    // [수정] 화면 모드를 서버에 알려서, 주최자 계정이 판매자 모드일 때는 참여 이력을 받습니다.
+    const res = await callApi(`/users/me/stats?role=${isHost ? 'host' : 'seller'}`);
     if (res && res.success && res.data) {
       isHost ? renderHostStats(res.data) : renderSellerStats(res.data);
     }
@@ -265,7 +297,9 @@ async function syncCurrentUser() {
     const freshUser = await ensureSession();
     if (freshUser) {
       currentUser = freshUser;
-      isHost = Number(currentUser.userType) === 1;
+      accountIsHost = Number(currentUser.userType) === 1;
+      // 계정 종류가 갱신됐으니 화면 모드도 다시 계산합니다.
+      isHost = getViewRoleSafe() === 'host';
     }
   } catch (err) {
     console.error('세션 동기화 오류:', err);

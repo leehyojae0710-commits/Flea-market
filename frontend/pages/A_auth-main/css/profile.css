@@ -411,3 +411,25 @@ a.edit-tab-btn {
   font-weight: 600;
   color: #a1957f;
 }
+
+/* ===== [추가] 주최자 / 판매자 프로필 구분 칩 ===== */
+.profile-role-chip {
+  display: block;
+  width: fit-content;
+  margin-bottom: 9px;
+  padding: 4px 11px;
+  border: 1.5px solid #2f6b8f;
+  border-radius: 999px;
+  background: rgba(47, 107, 143, 0.12);
+  color: #2f6b8f;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+}
+/* 판매자 모드일 때는 헤더 전환 버튼(coral)과 같은 계열로 맞춥니다. */
+.profile-role-chip.is-seller {
+  border-color: #c98b7a;
+  background: rgba(201, 139, 122, 0.14);
+  color: #a9614c;
+}

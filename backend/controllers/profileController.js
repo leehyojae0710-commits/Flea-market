@@ -96,8 +96,27 @@ export async function updateMyProfile(req, res) {
 export async function getMyEventStats(req, res) {
   const { userId, userType } = req.user;
 
+  // [수정] 주최자 계정은 "판매자 모드"로도 마이페이지를 볼 수 있습니다.
+  //        따라서 계정 종류(userType)가 아니라 화면 모드(role 쿼리)를 기준으로 통계를 나눕니다.
+  //          role=host   -> 주최 행사 현황 (주최자 계정만 가능)
+  //          role=seller -> 참여 이력 (주최자 계정이 판매자 모드로 볼 때도 여기)
+  //          role 없음   -> 예전처럼 계정 종류를 그대로 따름 (기존 호출 하위 호환)
+  const accountIsHost = Number(userType) === 1;
+  const requestedRole = String(req.query.role || '').toLowerCase();
+
+  if (requestedRole === 'host' && !accountIsHost) {
+    return res.status(403).json({
+      success: false,
+      data: null,
+      message: '주최자만 조회할 수 있습니다.',
+    });
+  }
+
+  const viewAsHost =
+    requestedRole === 'host' ? true : requestedRole === 'seller' ? false : accountIsHost;
+
   try {
-    if (Number(userType) === 1) {
+    if (viewAsHost) {
       const [[upcoming]] = await pool.query(
         'SELECT COUNT(*) AS cnt FROM markets WHERE hostId = ? AND isExpired = 0',
         [userId]
@@ -117,7 +136,8 @@ export async function getMyEventStats(req, res) {
       });
     }
 
-    // 수정 — [참여 마켓] 결제 완료(Paid) 건수, [후기] 주최자에게 받은 평가 건수
+    // [판매자 모드] 참여 마켓 = 결제 완료(Paid) 건수, 받은 후기 = 주최자에게 받은 평가 건수
+    // 주최자 계정이 판매자 모드로 볼 때도 같은 쿼리를 그대로 씁니다.
     const [[participated]] = await pool.query(
       `SELECT COUNT(*) AS cnt FROM applications WHERE sellerId = ? AND status = 'Paid'`,
       [userId]

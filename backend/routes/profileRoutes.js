@@ -63,9 +63,14 @@ router.patch('/me/profile', authenticateToken, updateMyProfile);
  * @swagger
  * /users/me/stats:
  *   get:
- *     summary: 내 행사 현황 (진행중/예정, 지난 행사, 취소 이력 건수)
+ *     summary: 내 행사 현황 - 화면 모드(role)에 따라 주최자/판매자 통계를 나눠 반환
  *     tags: [Profile]
  *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: role
+ *         schema: { type: string, enum: [host, seller] }
+ *         description: "host = 주최 행사 현황(주최자 계정만), seller = 참여 이력. 생략 시 계정 종류를 따름"
  *     responses:
  *       200:
  *         description: 조회 성공
