@@ -14,16 +14,19 @@
     <!-- 페이지 폭이 넓은 .page-wrap/.nav/.panel 레이아웃은 B_host-seller 쪽에 이미 있어 그대로 가져다 씁니다. -->
     <link rel="stylesheet" href="../B_host-seller/css/host-seller.css" />
     <link rel="stylesheet" href="css/auth.css" />
-    <link rel="stylesheet" href="css/profile.css" />
-  <!-- [C-01/C-02] 역할별 화면 분기 · 주최자 역할 전환 버튼 -->
-  <script src="../../common/js/role-routing.js?v=3"></script>
+    <link rel="stylesheet" href="css/profile.css?v=2" />
+    <!-- [C-01/C-02] 역할별 화면 분기 · 주최자 역할 전환 버튼 -->
+    <script src="../../common/js/role-routing.js?v=3"></script>
+  <!-- [공통] 상단 고정 네비게이션 바 (모든 화면 공통) -->
+  <link rel="stylesheet" href="../../common/css/global-nav.css?v=1" />
+  <script src="../../common/js/global-nav.js?v=1" defer></script>
 </head>
 
 <body class="profile-body">
     <div class="page-wrap">
         <header class="nav">
             <a href="../../index.html" class="brand"><span class="pin-dot" aria-hidden="true"></span>플리마켓</a>
-            <a href="profile-edit.html" class="link-ghost">내 정보 수정</a>
+            <!-- [UI] 상단에 있던 '내 정보 수정' 링크는 좌측 메뉴 목록으로 이동했습니다. -->
         </header>
 
         <div class="panel">
@@ -31,120 +34,118 @@
 
             <div id="alert-box" class="alert alert-error" role="alert"></div>
 
-            <div class="profile-top">
-                <div id="profile-avatar" class="profile-avatar">프로필<br />사진란</div>
-                <div class="profile-top-info">
-                    <div id="profile-title-badge" class="profile-title-badge">불러오는 중...</div>
-                    <p id="profile-intro" class="profile-intro"></p>
+            <!-- [UI] profile-edit.html 과 동일한 좌측 목록(.edit-tabs) 레이아웃을 그대로 사용합니다. -->
+            <div class="edit-layout">
+                <div class="edit-tabs">
+                    <a href="mypage.html" class="edit-tab-btn active" aria-current="page">내 프로필</a>
+                    <a href="profile-edit.html" class="edit-tab-btn">내 정보수정</a>
+                    <!-- [UI 전용] 화면만 만든 항목입니다. 동작은 연결하지 않았습니다. -->
+                    <button type="button" class="edit-tab-btn is-soon" aria-disabled="true">결제내역 확인</button>
+                </div>
+
+                <div class="edit-panels">
+
+                    <div class="profile-top">
+                        <div id="profile-avatar" class="profile-avatar">프로필<br />사진란</div>
+                        <div class="profile-top-info">
+                            <div id="profile-title-badge" class="profile-title-badge">불러오는 중...</div>
+                            <p id="profile-intro" class="profile-intro"></p>
+                        </div>
+                    </div>
+
+                    <hr class="section-divider" />
+
+                    <div class="profile-section">
+                        <div class="profile-section-label">소개글</div>
+                        <div class="profile-bio-row">
+                            <p id="profile-bio-text" class="profile-bio-text">등록된 소개글이 없어요.</p>
+                            <div id="profile-bio-image" class="profile-bio-image">소개 이미지</div>
+                        </div>
+                    </div>
+
+                    <!-- 주최자 전용: 성공율 -->
+                    <div class="profile-section" id="host-success-block" hidden>
+                        <div class="success-rate-card">
+                            <div class="success-rate-info">
+                                <div class="success-rate-title">주최행사 성공율</div>
+                                <p class="success-rate-desc">종료된 행사 기준</p>
+                                <ul class="success-rate-legend">
+                                    <li><i class="lg lg-ok"></i>정상 개최 <b id="rate-success">-</b></li>
+                                    <li><i class="lg lg-cancel"></i>취소 <b id="rate-cancelled">-</b></li>
+                                </ul>
+                                <p class="success-rate-note" id="rate-pending"></p>
+                            </div>
+                            <div class="success-rate-donut" id="stat-donut">
+                                <span class="success-rate-center" id="stat-donut-rate">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 주최자 전용: 행사 현황 3종 -->
+                    <div class="profile-section" id="host-stats-block" hidden>
+                        <div class="profile-section-label">행사 현황</div>
+                        <div class="profile-stats-row">
+                            <div class="profile-stat">
+                                <span id="stat-upcoming" class="profile-stat-num">-</span>
+                                <span class="profile-stat-label">진행 중 / 예정</span>
+                            </div>
+                            <div class="profile-stat">
+                                <span id="stat-past" class="profile-stat-num">-</span>
+                                <span class="profile-stat-label">지난 행사</span>
+                            </div>
+                            <div class="profile-stat">
+                                <span id="stat-cancelled" class="profile-stat-num">-</span>
+                                <span class="profile-stat-label">취소 이력</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 판매자 전용: 참여 이력 2종 -->
+                    <div class="profile-section" id="seller-stats-block" hidden>
+                        <div class="profile-section-label">참여 이력</div>
+                        <div class="profile-stats-row">
+                            <div class="profile-stat">
+                                <span id="stat-participated" class="profile-stat-num">-</span>
+                                <span class="profile-stat-label">참여 마켓</span>
+                            </div>
+                            <div class="profile-stat">
+                                <span id="stat-review-count" class="profile-stat-num">-</span>
+                                <span class="profile-stat-label">받은 후기</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 주최자 전용: 판매자가 남긴 평가 -->
+                    <div class="profile-section" id="review-section" hidden>
+                        <div class="profile-section-label">판매자 평가</div>
+                        <div class="review-summary-card">
+                            <span class="review-summary-score" id="review-avg-score">-</span>
+                            <div class="review-summary-meta">
+                                <span class="review-summary-stars" id="review-avg-stars">☆☆☆☆☆</span>
+                                <span class="review-summary-count" id="review-count-text"></span>
+                            </div>
+                        </div>
+                        <ul class="review-list" id="review-list"></ul>
+                    </div>
+
+                    <!-- 판매자 전용: 주최자가 남긴 평가 -->
+                    <div class="profile-section" id="seller-review-section" hidden>
+                        <div class="profile-section-label">주최자 평가</div>
+                        <div class="review-summary-card">
+                            <span class="review-summary-score" id="seller-review-avg-score">-</span>
+                            <div class="review-summary-meta">
+                                <span class="review-summary-stars" id="seller-review-avg-stars">☆☆☆☆☆</span>
+                                <span class="review-summary-count" id="seller-review-count-text"></span>
+                            </div>
+                        </div>
+                        <ul class="review-list" id="seller-review-list"></ul>
+                    </div>
+
                 </div>
             </div>
+        </div>
 
-            <hr class="section-divider" />
-
-            <div class="profile-section">
-                <div class="profile-section-label">소개글</div>
-                <div class="profile-bio-row">
-                    <p id="profile-bio-text" class="profile-bio-text">등록된 소개글이 없어요.</p>
-                    <div id="profile-bio-image" class="profile-bio-image">소개 이미지</div>
-                </div>
-            </div>
-
-            <!-- 주최자 전용: 성공율 -->
-<div class="profile-section" id="host-success-block" hidden>
-    <div class="success-rate-card">
-        <div class="success-rate-info">
-            <div class="success-rate-title">주최행사 성공율</div>
-            <p class="success-rate-desc">종료된 행사 기준</p>
-            <ul class="success-rate-legend">
-                <li><i class="lg lg-ok"></i>정상 개최 <b id="rate-success">-</b></li>
-                <li><i class="lg lg-cancel"></i>취소 <b id="rate-cancelled">-</b></li>
-            </ul>
-            <p class="success-rate-note" id="rate-pending"></p>
-        </div>
-        <div class="success-rate-donut" id="stat-donut">
-            <span class="success-rate-center" id="stat-donut-rate">-</span>
-        </div>
-    </div>
-</div>
-
-<!-- 주최자 전용: 행사 현황 3종 -->
-<div class="profile-section" id="host-stats-block" hidden>
-    <div class="profile-section-label">행사 현황</div>
-    <div class="profile-stats-row">
-        <div class="profile-stat">
-            <span id="stat-upcoming" class="profile-stat-num">-</span>
-            <span class="profile-stat-label">진행 중 / 예정</span>
-        </div>
-        <div class="profile-stat">
-            <span id="stat-past" class="profile-stat-num">-</span>
-            <span class="profile-stat-label">지난 행사</span>
-        </div>
-        <div class="profile-stat">
-            <span id="stat-cancelled" class="profile-stat-num">-</span>
-            <span class="profile-stat-label">취소 이력</span>
-        </div>
-    </div>
-</div>
-
-<!-- 판매자 전용: 참여 이력 2종 -->
-<div class="profile-section" id="seller-stats-block" hidden>
-    <div class="profile-section-label">참여 이력</div>
-    <div class="profile-stats-row">
-        <div class="profile-stat">
-            <span id="stat-participated" class="profile-stat-num">-</span>
-            <span class="profile-stat-label">참여 마켓</span>
-        </div>
-        <div class="profile-stat">
-            <span id="stat-review-count" class="profile-stat-num">-</span>
-            <span class="profile-stat-label">받은 후기</span>
-        </div>
-    </div>
-</div>
-
-<!-- 주최자 전용: 판매자가 남긴 평가 -->
-<div class="profile-section" id="review-section" hidden>
-    <div class="profile-section-label">판매자 평가</div>
-    <div class="review-summary-card">
-        <span class="review-summary-score" id="review-avg-score">-</span>
-        <div class="review-summary-meta">
-            <span class="review-summary-stars" id="review-avg-stars">☆☆☆☆☆</span>
-            <span class="review-summary-count" id="review-count-text"></span>
-        </div>
-    </div>
-    <ul class="review-list" id="review-list"></ul>
-</div>
-
-<!-- 판매자 전용: 주최자가 남긴 평가 -->
-<div class="profile-section" id="seller-review-section" hidden>
-    <div class="profile-section-label">주최자 평가</div>
-    <div class="review-summary-card">
-        <span class="review-summary-score" id="seller-review-avg-score">-</span>
-        <div class="review-summary-meta">
-            <span class="review-summary-stars" id="seller-review-avg-stars">☆☆☆☆☆</span>
-            <span class="review-summary-count" id="seller-review-count-text"></span>
-        </div>
-    </div>
-    <ul class="review-list" id="seller-review-list"></ul>
-</div>
-
-            <div class="profile-section" id="review-section" hidden>
-    <div class="profile-section-label">판매자 평가</div>
-    <div class="review-summary-card">
-        <span class="review-summary-score" id="review-avg-score">-</span>
-        <div class="review-summary-meta">
-            <span class="review-summary-stars" id="review-avg-stars">☆☆☆☆☆</span>
-            <span class="review-summary-count" id="review-count-text"></span>
-        </div>
-    </div>
-    <ul class="review-list" id="review-list"></ul>
-</div>
-
-            <a href="../../index.html" class="back-link">← 마켓 목록으로</a>
-        </div>
-    </div>
-
-            <a href="../../index.html" class="back-link">← 마켓 목록으로</a>
-        </div>
+        <a href="../../index.html" class="back-link">← 마켓 목록으로</a>
     </div>
 
     <script src="../../common/js/api.js?v=2"></script>
