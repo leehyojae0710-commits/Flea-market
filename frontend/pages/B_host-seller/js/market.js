@@ -399,15 +399,15 @@ function renderApplicationList(applications) {
     btn.addEventListener('click', () => refundPayment_seller(btn.dataset.id,));
   });
   wrap.querySelectorAll('.application-select-checkbox').forEach((cb) => {
-  cb.addEventListener('change', (e) => {
-    const id = e.target.dataset.id;
-    if (e.target.checked) selectedApplicationIds.add(id);
-    else selectedApplicationIds.delete(id);
-    renderBulkToolbar();
+    cb.addEventListener('change', (e) => {
+      const id = e.target.dataset.id;
+      if (e.target.checked) selectedApplicationIds.add(id);
+      else selectedApplicationIds.delete(id);
+      renderBulkToolbar();
+    });
   });
-});
 
-renderBulkToolbar();
+  renderBulkToolbar();
 }
 function renderBulkToolbar() {
   const el = document.getElementById('bulk-actions-toolbar');
@@ -417,7 +417,7 @@ function renderBulkToolbar() {
 
   el.innerHTML = `
     <div class="bulk-toolbar">
-      <label class="bulk-select-all">
+    <label class="bulk-select-all">
         <input type="checkbox" id="select-all-checkbox" />
         <span>전체 선택</span>
       </label>
@@ -443,7 +443,15 @@ function handleSelectAll(checked) {
     if (checked) selectedApplicationIds.add(id);
     else selectedApplicationIds.delete(id);
   });
-  renderBulkToolbar();
+  updateToolbar();
+}
+function updateToolbar()
+{
+  const count =selectedApplicationIds.size;
+  document.querySelector('.bulk-count').textContent = `${count}건 선택됨`;
+  const isDisabled = count === 0;
+  const buttons = document.querySelectorAll('.bulk-actions button');
+  buttons.forEach(btn => btn.disabled = isDisabled);
 }
 async function handleBulkAction(action) {
   if (selectedApplicationIds.size === 0) return;
@@ -1308,7 +1316,7 @@ async function refundMemoBtn() {
 }
 async function refundPayment_(a) {
   const inputContainer = document.getElementById('inputContainer');
-  const memotxt =document.getElementById('userInput').value;
+  const memotxt = document.getElementById('userInput').value;
   if (!memotxt)
     return;
   if (memotxt.length <= 0) {
