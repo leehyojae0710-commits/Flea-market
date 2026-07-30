@@ -79,6 +79,69 @@ function renderHostStats(stats) {
   if (cancelEl) cancelEl.textContent = `${cancel} / ${settled}`;
 }
 
+/* ---------------------- 주최자: 활동 현황 분포 도넛 ---------------------- */
+// [추가] WBS 3.1.5.2 - 내가 등록한 마켓을 모집중/진행/종료/취소 4가지로 나눠
+// 하나의 도넛(conic-gradient)에 이어 붙여 그립니다. 색은 아래 순서대로 시계방향입니다.
+const ACTIVITY_SEGMENTS = [
+  { key: 'recruitingCount', label: '모집중', color: '#2f6b8f', legendId: 'act-recruiting' },
+  { key: 'ongoingCount', label: '진행', color: '#7fa9c4', legendId: 'act-ongoing' },
+  { key: 'closedCount', label: '종료', color: '#cfc6b8', legendId: 'act-closed' },
+  { key: 'cancelledCount', label: '취소', color: '#c98b7a', legendId: 'act-cancelled' },
+];
+
+function renderActivityDonut(data) {
+  const block = document.getElementById('host-activity-block');
+  const donut = document.getElementById('act-donut');
+  if (!block || !donut) return;
+  block.hidden = false;
+
+  const counts = ACTIVITY_SEGMENTS.map((seg) => Number(data[seg.key]) || 0);
+  const total = counts.reduce((sum, n) => sum + n, 0);
+
+  const totalEl = document.getElementById('act-total');
+  if (totalEl) totalEl.textContent = total;
+
+  const noteEl = document.getElementById('act-note');
+
+  // 마켓이 하나도 없을 때는 회색 빈 도넛으로 둡니다.
+  if (total === 0) {
+    ACTIVITY_SEGMENTS.forEach((seg) => {
+      const el = document.getElementById(seg.legendId);
+      if (el) el.textContent = '0건';
+    });
+    donut.style.background = 'conic-gradient(#e5ded2 0 100%)';
+    donut.setAttribute('aria-label', '등록한 마켓이 없습니다.');
+    if (noteEl) noteEl.textContent = '아직 등록한 마켓이 없어요.';
+    return;
+  }
+
+  // 범례에는 건수와 비율을 함께 표시합니다.
+  ACTIVITY_SEGMENTS.forEach((seg, i) => {
+    const el = document.getElementById(seg.legendId);
+    if (el) el.textContent = `${counts[i]}건 (${Math.round((counts[i] / total) * 100)}%)`;
+  });
+
+  // 0건인 구간은 stop을 만들지 않아야 경계선이 생기지 않습니다.
+  let acc = 0;
+  const stops = [];
+  ACTIVITY_SEGMENTS.forEach((seg, i) => {
+    if (counts[i] === 0) return;
+    const start = (acc / total) * 100;
+    acc += counts[i];
+    const end = (acc / total) * 100;
+    stops.push(`${seg.color} ${start.toFixed(2)}% ${end.toFixed(2)}%`);
+  });
+  donut.style.background = `conic-gradient(${stops.join(', ')})`;
+
+  // 도넛은 그림이라 스크린리더가 읽을 수 있게 수치를 넣어둡니다.
+  donut.setAttribute(
+    'aria-label',
+    `전체 ${total}건 중 ` +
+      ACTIVITY_SEGMENTS.map((seg, i) => `${seg.label} ${counts[i]}건`).join(', ')
+  );
+  if (noteEl) noteEl.textContent = `전체 ${total}건 기준`;
+}
+
 /* ---------------------- 판매자: 참여 이력 ---------------------- */
 function renderSellerStats(stats) {
   document.getElementById('seller-stats-block').hidden = false;
@@ -147,6 +210,19 @@ async function loadStats() {
   }
 }
 
+async function loadActivity() {
+  // 주최한 마켓의 분포이므로 주최자 계정에서만 호출합니다.
+  if (!isHost) return;
+  try {
+    const res = await callApi('/users/me/activity');
+    if (res && res.success && res.data) {
+      renderActivityDonut(res.data);
+    }
+  } catch (err) {
+    console.error('활동 현황 분포 조회 오류:', err);
+  }
+}
+
 async function loadReviewSummary() {
   try {
     if (isHost) {
@@ -201,5 +277,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   await syncCurrentUser();
   loadProfile();
   loadStats();
+  loadActivity();
   loadReviewSummary();
 });

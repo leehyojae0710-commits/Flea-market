@@ -138,3 +138,72 @@ export async function getMyEventStats(req, res) {
     return res.status(500).json({ success: false, data: null, message: '서버 오류로 행사 현황 조회에 실패했습니다.' });
   }
 }
+
+// GET /api/users/me/activity (로그인 필요, 주최자 전용)
+// [추가] WBS 3.1.5.2 - 마이페이지 "활동 현황" 분포 도넛 차트용 집계.
+// 기존 /users/me/stats(진행중·지난·취소 3숫자)는 그대로 두고, 도넛 전용 엔드포인트를 따로 만들었습니다.
+//
+// 상태 분류(서로 겹치지 않게 4개로 나눕니다. 합계 = 내가 등록한 전체 마켓 수)
+//   - 취소   : isExpired = 2 (주최자가 삭제/취소한 마켓)
+//   - 종료   : isExpired = 1 (마감 처리) 또는 개최 종료일(eventDate_max)이 오늘보다 이전
+//   - 모집중 : 취소·종료가 아니면서 오늘이 모집 시작일~모집 마감일 사이
+//   - 진행   : 나머지 (모집 시작 전 + 모집 마감 후 개최 대기 + 개최 기간 중)
+export async function getMyActivityBreakdown(req, res) {
+  const { userId, userType } = req.user;
+
+  // 이 도넛은 "내가 주최한 마켓"의 분포이므로 판매자 계정에는 표시하지 않습니다.
+  if (Number(userType) !== 1) {
+    return res.status(403).json({
+      success: false,
+      data: null,
+      message: '주최자만 조회할 수 있습니다.',
+    });
+  }
+
+  try {
+    const [[row]] = await pool.query(
+      `SELECT
+         COUNT(*) AS totalCount,
+         SUM(CASE WHEN isExpired = 2 THEN 1 ELSE 0 END) AS cancelledCount,
+         SUM(CASE
+               WHEN isExpired <> 2
+                AND (isExpired = 1
+                     OR (eventDate_max IS NOT NULL AND eventDate_max < CURDATE()))
+               THEN 1 ELSE 0 END) AS closedCount,
+         SUM(CASE
+               WHEN isExpired = 0
+                AND NOT (eventDate_max IS NOT NULL AND eventDate_max < CURDATE())
+                AND recruitmentDate_min IS NOT NULL
+                AND recruitmentDate_max IS NOT NULL
+                AND CURDATE() BETWEEN recruitmentDate_min AND recruitmentDate_max
+               THEN 1 ELSE 0 END) AS recruitingCount
+       FROM markets
+       WHERE hostId = ?`,
+      [userId]
+    );
+
+    // 마켓이 한 건도 없으면 SUM()이 NULL을 돌려주므로 숫자로 정리합니다.
+    const totalCount = Number(row?.totalCount) || 0;
+    const cancelledCount = Number(row?.cancelledCount) || 0;
+    const closedCount = Number(row?.closedCount) || 0;
+    const recruitingCount = Number(row?.recruitingCount) || 0;
+    // 나머지를 "진행"으로 계산해 4개 값의 합이 항상 전체와 일치하게 만듭니다.
+    const ongoingCount = Math.max(
+      totalCount - cancelledCount - closedCount - recruitingCount,
+      0
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: { recruitingCount, ongoingCount, closedCount, cancelledCount, totalCount },
+      message: '활동 현황 분포를 조회했습니다.',
+    });
+  } catch (error) {
+    console.error('활동 현황 분포 조회 오류:', error.message);
+    return res.status(500).json({
+      success: false,
+      data: null,
+      message: '서버 오류로 활동 현황 조회에 실패했습니다.',
+    });
+  }
+}
