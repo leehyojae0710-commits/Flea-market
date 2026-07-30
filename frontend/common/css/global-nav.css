@@ -1,0 +1,167 @@
+/* frontend/common/css/global-nav.css
+   [공통] 상단 고정 네비게이션 바
+
+   - 모든 화면에서 같은 헤더가 화면 맨 위에 고정(position: fixed)됩니다.
+   - 실제 메뉴 구성/노출은 common/js/global-nav.js 가 담당합니다.
+   - 신규 파일이라 팀원의 main.css / host-seller.css 를 건드리지 않습니다.
+     (기존 .nav 규칙은 header.nav.gnav 선택자로 덮어씁니다)
+*/
+
+:root {
+  /* 실제 높이는 global-nav.js 가 측정해서 다시 넣어줍니다. */
+  --gnav-h: 64px;
+  --gnav-bg: #241a13;
+}
+
+/* 고정 헤더에 본문이 가려지지 않도록 확보하는 여백 */
+body {
+  padding-top: var(--gnav-h);
+}
+
+/* [보정] profile.css 의 body.profile-body { padding: 0 } 처럼
+   화면 전용 CSS 가 body 여백을 0 으로 덮어쓰는 경우가 있어,
+   우선순위를 한 단계 높인 규칙을 함께 둡니다.
+   (gnav-ready 는 global-nav.js 가 헤더를 만든 뒤 body 에 붙입니다) */
+html body.gnav-ready {
+  padding-top: var(--gnav-h);
+}
+
+/* [보정] 마이페이지는 body 여백이 0 이라 고정 바에 딱 붙어 답답해 보여서
+   숨 쉴 여백을 더 줍니다. */
+html body.profile-body.gnav-ready {
+  padding-top: calc(var(--gnav-h) + 28px);
+}
+
+/* 페이지 내 앵커 이동 시 헤더에 가려지지 않게 */
+html {
+  scroll-padding-top: calc(var(--gnav-h) + 12px);
+}
+
+/* ---------- 고정 바 본체 ---------- */
+header.nav.gnav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+
+  display: block;
+  margin: 0;
+  padding: 0;
+
+  background: var(--gnav-bg);
+  border-bottom: 1px solid rgba(251, 246, 236, 0.12);
+  box-shadow: 0 3px 16px rgba(0, 0, 0, 0.38);
+}
+
+/* 내용은 가운데 정렬 + 최대 폭 제한 (index.html 의 .board 폭과 동일) */
+header.nav.gnav .gnav-inner {
+  max-width: 1760px;
+  margin: 0 auto;
+  padding: 10px 40px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+}
+
+header.nav.gnav .brand {
+  text-decoration: none;
+  flex: 0 0 auto;
+}
+
+header.nav.gnav .nav-links {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+
+/* ---------- 헤더 안 버튼/링크 (host-seller.css 에는 없어서 여기서 보정) ---------- */
+header.nav.gnav .link-ghost {
+  color: #e4d8c5;
+  text-decoration: none;
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+header.nav.gnav .link-ghost:hover {
+  border-bottom-color: #e4d8c5;
+}
+
+/* 현재 보고 있는 화면 표시 */
+header.nav.gnav .link-ghost.is-active,
+header.nav.gnav .btn.is-active {
+  color: #f6d9a4;
+  border-bottom-color: #e8a33d;
+}
+
+header.nav.gnav .btn {
+  font-family: "Inter", sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  border: none;
+  border-radius: 9px;
+  padding: 9px 18px;
+  cursor: pointer;
+}
+
+header.nav.gnav .btn-mustard {
+  background: var(--mustard, #e8a33d);
+  color: var(--mustard-text, #3d2905);
+  box-shadow: 0 3px 0 #a86a1c;
+  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.1s ease;
+}
+header.nav.gnav .btn-mustard:hover {
+  background: #d9922c;
+}
+header.nav.gnav .btn-mustard:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #a86a1c;
+}
+
+header.nav.gnav .btn-logout {
+  background: transparent;
+  color: #e4d8c5;
+  border: 1px solid rgba(228, 216, 197, 0.5);
+  border-radius: 9px;
+  padding: 8px 16px;
+  font-family: "Inter", sans-serif;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+header.nav.gnav .btn-logout:hover {
+  background: rgba(251, 246, 236, 0.12);
+  border-color: #e4d8c5;
+}
+
+/* 로그인/회원가입/내 정보수정 화면은 자체 로고가 따로 있어 중복되므로 숨깁니다. */
+body.gnav-ready .auth-brand {
+  display: none;
+}
+
+/* ---------- 좁은 화면 ---------- */
+@media (max-width: 900px) {
+  header.nav.gnav .gnav-inner {
+    padding: 8px 18px;
+    gap: 8px 12px;
+  }
+  header.nav.gnav .brand {
+    font-size: 18px;
+  }
+  header.nav.gnav .nav-links {
+    gap: 8px 10px;
+  }
+  header.nav.gnav .btn,
+  header.nav.gnav .btn-logout {
+    padding: 7px 12px;
+    font-size: 13px;
+  }
+}

@@ -345,3 +345,29 @@ body.profile-body {
   font-size: 13px;
   color: #8a8375;
 }
+
+/* =========================================================
+   [UI] 마이페이지 좌측 메뉴 목록
+   - 목록/버튼 모양은 auth.css 의 .edit-tabs / .edit-tab-btn 을 그대로 재사용합니다.
+   - 여기서는 <a> 로 쓰기 위한 최소 보정과 '준비중' 항목 처리만 추가합니다.
+   ========================================================= */
+
+/* 좌측 목록(128px)이 들어가는 만큼만 페이지 폭을 넓힙니다. */
+body.profile-body .page-wrap {
+  max-width: 880px;
+}
+
+/* .edit-tab-btn 은 원래 <button> 용이라, <a> 에 맞춰 밑줄/블록만 보정 */
+a.edit-tab-btn {
+  display: block;
+  text-decoration: none;
+}
+
+/* 화면만 만든 '결제내역 확인' 항목 */
+.edit-tab-btn.is-soon {
+  opacity: 0.55;
+  cursor: default;
+}
+.edit-tab-btn.is-soon:hover {
+  border-color: #d8cbb5;
+}
