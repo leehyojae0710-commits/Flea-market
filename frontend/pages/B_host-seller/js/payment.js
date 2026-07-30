@@ -1,8 +1,8 @@
 // 담당 B/D: 포트원 실결제 프론트 로직
 
 // 📌 포트원 콘솔에서 발급받은 값으로 교체하세요
-const PORTONE_STORE_ID="store-6187aa03-b350-43a3-96c7-31c846d1aa1c";
-const PORTONE_CHANNEL_KEY="channel-key-15892876-53e7-45a8-8a44-923ec53d5ae1";
+const PORTONE_STORE_ID = "store-6187aa03-b350-43a3-96c7-31c846d1aa1c";
+const PORTONE_CHANNEL_KEY = "channel-key-15892876-53e7-45a8-8a44-923ec53d5ae1";
 
 // ============================================
 // 백엔드 API 호출 함수들
@@ -15,6 +15,35 @@ async function confirmPayment(applicationId, paymentId) {
     body: { applicationId, paymentId },
   });
 }
+
+// //테스트
+// async function historys(applicationId) {
+//   console.log("눌림");
+//   console.log(applicationId);
+//   return callApi('/payments/history', {
+//     method: 'POST',
+//     body: { applicationId }
+//   })
+// }
+// async function payment_history(applicationId) {
+//   console.log("클릭");
+//   console.log(applicationId);
+//   if(!applicationId)
+//     return;
+//   try{
+//     const data = await historys(applicationId)
+//     if(data && data.success)
+//     {
+//       console.log(data);
+//     }
+//     else{
+//       console.log("없음");
+//     }
+//   }
+//   catch(error){
+//     renderAlert("오류");
+//   }
+// }
 
 // ============================================
 // 알림 관련 유틸
@@ -92,7 +121,7 @@ function handlePaymentClick() {
   btn.addEventListener('click', async () => {
     hideAlert();
 
-    const { applicationId, amount ,orderName} = getPaymentParamsFromUrl();
+    const { applicationId, amount, orderName } = getPaymentParamsFromUrl();
 
     if (!applicationId) {
       renderAlert('신청 정보를 찾을 수 없어요. 부스 신청 화면부터 다시 진행해주세요.');
@@ -167,7 +196,7 @@ function handlePaymentClick() {
       btn.textContent = original;
     }
     setTimeout(() => {
-      window.location.href ='../B_host-seller/mybooth';
+      window.location.href = '../B_host-seller/mybooth';
     }, 1000);
   });
 }

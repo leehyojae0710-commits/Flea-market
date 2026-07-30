@@ -263,3 +263,56 @@ export async function requestRefund(req, res) {
     return res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
+
+// export async function paymentHistory(req, res) {
+//   console.log("들어옴");
+//   const { hostId } = req.userId;
+//   const { applicationId } = req.body;
+
+//   try {
+//     const [dataA] = await pool.query(
+//       `SELECT * FROM users WHERE userId =?`, [hostId]
+//     );
+//     if (dataA.userType === 1) {
+//       const [mergedData] = await pool.query(
+//         `SELECT a.* 
+//         CASE
+//         WHEN a.status = 'Paid' THEN p.amount
+//         ELSE p.refundAmount
+//         END AS price
+//         FROM applications a
+//          INNER JOIN markets m ON a.marketId = m.marketId
+//          LEFT JOIN payment p ON a.applicationId = p.applicationId
+//          WHERE m.hostId = ? AND a.status IN ('Paid','Refunded')`,
+//         [hostId]
+//       );
+
+//       if (mergedData.length === 0) {
+//         return res.status(500).json({ success: false, message: '마켓을 찾을 수 없거나 결제된 내역이 없습니다.' });
+//       }
+//       console.log(mergedData);
+//       return res.status(200).json({
+//       success: true,
+//       data: mergedData,
+//       message: "데이터 보내기 성공"
+//     });
+//     }
+//     else {
+//       console.log("이곳이 눌림")
+//     }
+//   }
+//   catch (error) {
+//     console.log("에러")
+//   }
+// }
+
+/*
+결제 내역 필요한 기능
+<주최자>
+내가 주최한 마켓에 대한 마켓 타이틀과 총 금액을 보이게 
+상세보기 -> 유저 닉네임과 금액
+<판매자>
+내가 참가한 마켓에 대한 마켓 타이틀과 금액이 보이게
+상세보기 -> 영수증 html 보이게
+영수증 -> 결제한 시간 , 마켓 이름, 회사명, 닉네임. 금액
+ */

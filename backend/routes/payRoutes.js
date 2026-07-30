@@ -72,5 +72,6 @@ const router = express.Router();
 router.post('/confirm', authenticateToken, confirmPayment);
 router.post('/request-refund', authenticateToken, requestRefund);
 router.post('/refund',authenticateToken, refundPayment);
+//router.post('/history',authenticateToken, paymentHistory);
 
 export default router;
