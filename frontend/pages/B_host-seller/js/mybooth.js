@@ -52,6 +52,7 @@ const STATUS_LABEL = {
   Rejected: '반려됨',
   Paid: '결제됨',
   Refunded: '결제 취소',
+  RefundRequested:'환불 요청'
 };
 const STATUS_CLASS = {
   Pending: 'pending',
@@ -59,7 +60,7 @@ const STATUS_CLASS = {
   Rejected: 'rejected',
   Paid: 'paid',
   Refunded: 'refunded',
-
+  RefundRequested: 'RefundRequested'
 };
 
 // ---------- 상태 ----------
@@ -450,6 +451,7 @@ async function requestRefund_(a_id,a_status) {
     renderAlert("서버에 연결할 수 없어요 잠시 후 다시 시도해주세요.");
   }
   inputContainer.style.display = 'none'
+  renderBoothList();
 }
 
 // ---------- 필터 ----------
