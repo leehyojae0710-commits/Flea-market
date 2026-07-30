@@ -271,6 +271,15 @@ function renderMarketDetail(market) {
   infoEl.textContent = [market.eventDate, market.locationName, formatPrice(market.boothPrice)]
     .filter(Boolean)
     .join(' · ');
+
+  // [추가] 주최자 닉네임 + 「프로필 보기」 버튼.
+  //        판매자가 이 마켓을 누가 여는지 확인하고 프로필로 넘어갈 수 있는 유일한 진입점입니다.
+  const hostEl = document.getElementById('market-host');
+  if (hostEl && market.hostId) {
+    // 닉네임 자체가 링크입니다. (별도 「프로필 보기」 버튼은 두지 않습니다)
+    hostEl.innerHTML = '주최자 ' + ProfileLink.html(market.hostId, market.hostNickname);
+    hostEl.style.display = '';
+  }
 }
 
 async function loadMarketDetail() {
@@ -332,7 +341,7 @@ function renderApplicationList(applications) {
         ` : '<span style="width:16px; display:inline-block;"></span>'}
         <div>
           <div class="item-card-title">${a.itemName || '이름 미입력'} · ${a.boothNumber}번 부스${a.title ? ` · ${a.title}` : ''}</div>
-          <div class="item-card-meta">신청자: ${a.sellerNickname || (a.sellerId ? '#' + a.sellerId : '-')}</div>
+          <div class="item-card-meta">신청자: ${ProfileLink.html(a.sellerId, a.sellerNickname)}</div>
         </div>
       </div>
       <span class="status-tag ${STATUS_CLASS[status] || 'pending'}">${STATUS_LABEL[status] || status}</span>
@@ -770,6 +779,9 @@ function prefillBoothApplyForm() {
     backLink.href = `market-detail?marketId=${params.get('marketId') || ''}`;
   }
 
+  // [추가] 어떤 주최자의 마켓에 신청하는지 닉네임으로 보여주고, 클릭하면 프로필로 이동합니다.
+  renderBoothApplyHost(marketIdInput.value);
+
   // [추가] marketId 없이 이 페이지로 들어온 경우, 폼을 다 채워도 서버에서
   // "마켓, 부스 번호, 물품명은 필수입니다"로 실패하게 되므로 미리 안내하고 제출을 막습니다.
   if (!marketIdInput.value) {
@@ -1037,7 +1049,10 @@ function renderCommentNode(c, isReply) {
   return `
     <div class="${classNames}" data-comment-id="${c.commentId}">
       <div class="comment-item-top">
-        <div class="comment-nickname">${c.nickname || '알 수 없음'}</div>
+        <!-- [추가] 댓글 작성자 닉네임을 눌러 프로필로 이동 (주최자 문의 답변 확인용) -->
+        <div class="comment-nickname">${isMasked
+          ? ProfileLink.escapeHtml(c.nickname || '알 수 없음')
+          : ProfileLink.html(c.userId, c.nickname)}</div>
         ${isMine ? `
           <div class="comment-item-actions">
             <button type="button" class="comment-edit-btn" data-comment-id="${c.commentId}">수정</button>
@@ -1340,6 +1355,7 @@ async function refundPayment_seller(a) {
 
 document.addEventListener('DOMContentLoaded', () => {
   handleMarketCreateSubmit();
+  wireCreateMarketImageRemove(); // [추가] 마켓 등록 화면 이미지 삭제 버튼
   loadMarketDetail();
   handleBoothSelectClick();
   loadApplicationList();
@@ -1353,3 +1369,46 @@ document.addEventListener('DOMContentLoaded', () => {
   handleProductImagePreview();
   handleBoothApplySubmit();
 });
+
+/* ---------------------- [추가] 마켓 등록 화면: 이미지 삭제 ---------------------- */
+// [수정] market-create.html 은 market.js 를 <head> 에서 불러옵니다.
+//        즉시 실행(IIFE)으로 두면 <body> 가 아직 없어서 버튼을 못 찾고 그냥 종료됩니다.
+//        그래서 아래 DOMContentLoaded 블록에서 호출하도록 일반 함수로 바꿨습니다.
+function wireCreateMarketImageRemove() {
+  const btn = document.getElementById('remove-market-image-btn');
+  const fileInput = document.getElementById('market-image');
+  const hidden = document.getElementById('uploadedImagePath');
+  // 수정 화면(correctionMarket)은 marketcorrection.js 가 따로 처리하므로 여기서는 제외합니다.
+  if (!btn || !fileInput || !hidden || !document.getElementById('market-create-form')) return;
+
+  fileInput.addEventListener('change', () => {
+    btn.hidden = !(fileInput.files && fileInput.files[0]);
+  });
+
+  btn.addEventListener('click', () => {
+    fileInput.value = '';
+    hidden.value = '';
+    const statusEl = document.getElementById('image-upload-status');
+    if (statusEl) statusEl.innerHTML = '';
+    btn.hidden = true;
+  });
+}
+
+/* ---------------------- [추가] 부스 신청 화면: 주최자 닉네임 ---------------------- */
+async function renderBoothApplyHost(marketId) {
+  const hostEl = document.getElementById('booth-apply-host');
+  if (!hostEl || !marketId) return;
+
+  try {
+    const res = await getMarketDetail(marketId);
+    if (!res || !res.success || !res.data) return;
+
+    const market = res.data;
+    hostEl.innerHTML =
+      '주최자 ' + ProfileLink.html(market.hostId, market.hostNickname) +
+      (market.title ? ` · ${ProfileLink.escapeHtml(market.title)}` : '');
+    hostEl.style.display = '';
+  } catch (err) {
+    console.error('주최자 정보 조회 오류:', err);
+  }
+}

@@ -74,6 +74,7 @@ function renderProfile(profile) {
     document.getElementById('stat-upcoming').textContent = stats.upcomingCount ?? 0;
     document.getElementById('stat-past').textContent = stats.pastCount ?? 0;
     document.getElementById('stat-cancelled').textContent = stats.cancelledCount ?? 0;
+    renderHostSuccessRate(stats);
   } else {
     document.getElementById('seller-stats-block').hidden = false;
     document.getElementById('stat-participated').textContent = stats.participatedCount ?? 0;
@@ -97,6 +98,61 @@ function renderProfile(profile) {
   }
 
   document.title = `${nickname}님의 프로필 - 플리마켓`;
+}
+
+// [추가] 주최행사 성공율 도넛.
+// 마이페이지(mypage.js renderHostStats)와 같은 계산식을 씁니다.
+//   종료된 행사 = 지난 행사 + 취소,  성공율 = 지난 행사 / 종료된 행사
+// 진행 중인 행사는 아직 결과가 안 나왔으므로 분모에서 뺍니다.
+function renderHostSuccessRate(stats) {
+  const block = document.getElementById('host-success-block');
+  const donut = document.getElementById('stat-donut');
+  const rateEl = document.getElementById('stat-donut-rate');
+  if (!block || !donut || !rateEl) return;
+  block.hidden = false;
+
+  const upcoming = Number(stats.upcomingCount) || 0;
+  const past = Number(stats.pastCount) || 0;
+  const cancel = Number(stats.cancelledCount) || 0;
+  const settled = past + cancel;
+
+  const successEl = document.getElementById('rate-success');
+  const cancelEl = document.getElementById('rate-cancelled');
+  const pendingEl = document.getElementById('rate-pending');
+
+  // 종료된 행사가 없으면 비율을 계산할 수 없습니다.
+  // 표본이 0인데 0%로 보여주면 오해를 사므로 '–' 로 둡니다.
+  if (settled === 0) {
+    rateEl.textContent = '–';
+    donut.style.background = 'conic-gradient(#e5ded2 0 100%)';
+    donut.setAttribute('aria-label', '아직 종료된 행사가 없어 성공율을 집계할 수 없습니다.');
+    if (successEl) successEl.textContent = '0 / 0';
+    if (cancelEl) cancelEl.textContent = '0 / 0';
+    if (pendingEl) {
+      pendingEl.textContent = upcoming > 0
+        ? `아직 종료된 행사가 없어요. 진행 중 ${upcoming}건은 종료 후 집계돼요.`
+        : '아직 종료된 행사가 없어요.';
+    }
+    return;
+  }
+
+  const successPct = (past / settled) * 100;
+  donut.style.background = `conic-gradient(#2f6b8f 0 ${successPct}%, #cfc6b8 ${successPct}% 100%)`;
+  rateEl.textContent = `${successPct.toFixed(1)}%`;
+  if (successEl) successEl.textContent = `${past} / ${settled}`;
+  if (cancelEl) cancelEl.textContent = `${cancel} / ${settled}`;
+  donut.setAttribute(
+    'aria-label',
+    `종료된 행사 ${settled}건 중 정상 개최 ${past}건, 취소 ${cancel}건`
+  );
+
+  // 표본이 적을 때 비율만 보고 오해하지 않도록 건수를 함께 알려줍니다.
+  if (pendingEl) {
+    const parts = [`종료된 행사 ${settled}건 기준`];
+    if (settled < 3) parts.push('표본이 적어 참고용이에요');
+    if (upcoming > 0) parts.push(`진행 중 ${upcoming}건은 집계 예정`);
+    pendingEl.textContent = parts.join(' · ');
+  }
 }
 
 function renderReviews(reviews) {
@@ -124,8 +180,22 @@ function renderReviews(reviews) {
 
 async function load() {
   const userId = getTargetUserId();
+
+  // [수정] 이 화면은 주소 끝에 ?userId=번호 가 반드시 있어야 동작합니다.
+  //        번호 없이 파일을 직접 연 경우가 가장 흔해서, 무엇이 빠졌는지 알려줍니다.
   if (!userId) {
-    showAlert('잘못된 주소예요. 프로필을 열 사용자를 찾을 수 없습니다.');
+    const raw = new URLSearchParams(window.location.search).get('userId');
+    console.error('[프로필] userId 파라미터가 없습니다. 현재 주소:', window.location.href);
+
+    showAlert(
+      raw === null
+        ? '주소에 사용자 번호가 없어요. 이 화면은 마켓 상세나 신청자 목록에서 닉네임을 눌러 들어와야 합니다. (주소 형식: user-profile.html?userId=번호)'
+        : `사용자 번호가 올바르지 않아요. (받은 값: "${raw}")`
+    );
+
+    // 파일을 직접 열어본 경우를 위해 되돌아갈 곳을 안내합니다.
+    const badgeEl = document.getElementById('profile-title-badge');
+    if (badgeEl) badgeEl.textContent = '프로필을 열 수 없어요';
     return;
   }
 

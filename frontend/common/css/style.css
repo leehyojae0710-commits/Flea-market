@@ -38,3 +38,41 @@ body {
   margin-bottom: 12px;
   background: #fff;
 }
+
+
+/* ===== [추가] 닉네임 -> 프로필 링크 ===== */
+.profile-link {
+  color: #2f6b8f;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.profile-link:hover {
+  color: #1f4d69;
+}
+.profile-link:focus-visible {
+  outline: 2px solid #2f6b8f;
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* ===== [추가] 이미지 삭제 버튼 줄 (마켓 등록/수정 화면) ===== */
+.image-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 14px;
+  flex-wrap: wrap;
+}
+.image-removed-msg {
+  font-size: 12px;
+  font-weight: 600;
+  color: #a9614c;
+}
+
+
+/* [수정] display 를 지정한 요소는 HTML 의 hidden 속성이 무시됩니다. 전역 안전장치. */
+[hidden] {
+  display: none !important;
+}

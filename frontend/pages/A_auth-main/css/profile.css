@@ -433,3 +433,12 @@ a.edit-tab-btn {
   background: rgba(201, 139, 122, 0.14);
   color: #a9614c;
 }
+
+
+/* ===== [수정] hidden 속성 우선 처리 =====
+   .profile-role-chip 에 display:block 을 주는 바람에, HTML 의 hidden 속성이
+   무시되어 프로필을 못 불러온 화면에서도 칩이 보이고 있었습니다.
+   (브라우저 기본 [hidden]{display:none} 보다 클래스 선택자가 우선하기 때문입니다) */
+[hidden] {
+  display: none !important;
+}

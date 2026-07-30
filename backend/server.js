@@ -17,6 +17,7 @@ import upload, { uploadItemImage, uploadProfileImage } from './middleware/multer
 import profileRoutes from './routes/profileRoutes.js';
 import publicProfileRoutes from './routes/publicProfileRoutes.js'; // [추가] 다른 사람 프로필 열람
 import { handleUpload } from './middleware/uploadErrorHandler.js'; // [추가] 업로드 실패를 400 + 메시지로
+import { marketUploadDir, sellerUploadDir, profileUploadDir } from './config/uploadPaths.js';
 import reviewRoutes from './routes/reviewRoutes.js';
 import { authenticateToken } from './middleware/authMiddleware.js';
 import { hostAreaGuard } from './middleware/roleGuard.js'; // [C-01] 판매자의 주최자 API 접근 차단
@@ -43,9 +44,11 @@ app.use('/api/schedules', scheduleRoutes);
 app.use('/api/checkins', checkinRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec)); // http://localhost:5000/api-docs
-app.use('/api/uploads', express.static('Z:/markets/'));
-app.use('/api/uploads', express.static('Z:/seller/'));
-app.use('/api/uploads', express.static('Z:/profile/'));
+// [수정] 업로드 경로를 config/uploadPaths.js 한 곳에서 관리합니다.
+//        (Z: 드라이브가 없으면 backend/uploads/ 로 자동 대체됩니다)
+app.use('/api/uploads', express.static(marketUploadDir()));
+app.use('/api/uploads', express.static(sellerUploadDir()));
+app.use('/api/uploads', express.static(profileUploadDir()));
 app.use('/api/search', searchRoutes);
 
 // 🌐 http://localhost:5000 접속 시 DB 데이터를 HTML 표로 보여주는 라우터

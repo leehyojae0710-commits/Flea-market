@@ -60,6 +60,9 @@ async function loadMarketForEdit(marketId) {
         <img src="http://localhost:5000/api${market.marketImage}" alt="현재 마켓 이미지"
              style="max-width:100%; max-height:180px; border-radius:8px; margin-top:6px;" />
       `;
+      // [추가] 등록된 이미지가 있을 때만 삭제 버튼을 보여줍니다.
+      const removeBtn = document.getElementById('remove-market-image-btn');
+      if (removeBtn) removeBtn.hidden = false;
     }
 
   } catch (err) {
@@ -224,3 +227,34 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadMarketForEdit(marketId);   // 기존 값 채우기
   correctionMarketClick(marketId); 
 });
+
+/* ---------------------- [추가] 마켓 이미지 삭제 ---------------------- */
+// hidden input(uploadedImagePath)을 비워 두면 저장 시 marketImage: null 이 전송되어
+// 서버에서 이미지가 지워집니다. (예전에는 기존 경로가 계속 남아 되돌릴 수 없었습니다)
+(function wireRemoveMarketImage() {
+  const btn = document.getElementById('remove-market-image-btn');
+  if (!btn) return;
+
+  btn.addEventListener('click', () => {
+    const hidden = document.getElementById('uploadedImagePath');
+    const fileInput = document.getElementById('market-image');
+    const statusEl = document.getElementById('image-upload-status');
+    const msg = document.getElementById('market-image-removed-msg');
+
+    if (hidden) hidden.value = '';
+    if (fileInput) fileInput.value = '';
+    if (statusEl) statusEl.innerHTML = '';
+    btn.hidden = true;
+    if (msg) msg.hidden = false;
+  });
+
+  // 새 이미지를 고르면 삭제 예약 문구는 지웁니다.
+  const fileInput = document.getElementById('market-image');
+  if (fileInput) {
+    fileInput.addEventListener('change', () => {
+      const msg = document.getElementById('market-image-removed-msg');
+      if (msg) msg.hidden = true;
+      if (fileInput.files && fileInput.files[0]) btn.hidden = false;
+    });
+  }
+})();

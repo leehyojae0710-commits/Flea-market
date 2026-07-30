@@ -8,12 +8,11 @@
 // 안전장치
 //   삭제 대상은 "/uploads/{본인 userId}/파일명" 형태만 허용합니다.
 //   다른 사람 폴더(/uploads/99/...)나 상위 경로(../)를 가리키는 값은 전부 무시합니다.
-//   multer.js 의 profileImageStorage 와 같은 폴더 규칙(Z:/profile/{userId}/)을 씁니다.
+//   multer.js 의 profileImageStorage 와 같은 폴더 규칙({업로드루트}/profile/{userId}/)을 씁니다.
 
 import fs from 'fs';
 import path from 'path';
-
-export const PROFILE_UPLOAD_ROOT = 'Z:/profile/';
+import { profileUploadDir } from '../config/uploadPaths.js';
 
 /**
  * 공개 경로(/uploads/{userId}/{파일명})를 실제 파일 경로로 바꿉니다.
@@ -30,7 +29,7 @@ export function resolveProfileImagePath(userId, publicPath) {
   if (!fileName) return null;
   if (fileName.includes('/') || fileName.includes('\\') || fileName.includes('..')) return null;
 
-  const dir = path.resolve(PROFILE_UPLOAD_ROOT, String(userId));
+  const dir = path.resolve(profileUploadDir(), String(userId));
   const full = path.resolve(dir, fileName);
 
   // 한 번 더 확인: 반드시 본인 폴더 안이어야 합니다.

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../../common/css/style.css" />
-  <link rel="stylesheet" href="css/host-seller.css?v=4" />
+  <link rel="stylesheet" href="css/host-seller.css?v=2" />
   <!-- [C-01/C-02] 역할별 화면 분기 · 주최자 역할 전환 버튼 -->
   <script src="../../common/js/role-routing.js?v=3"></script>
   <!-- [공통] 상단 고정 네비게이션 바 (모든 화면 공통) -->
@@ -31,6 +31,8 @@
         <span id="market-status" class="status-tag" style="display:none;"></span>
       </div>
       <p class="panel-sub" id="market-info"></p>
+      <!-- [추가] 주최자 닉네임 (클릭하면 프로필로 이동) -->
+      <p class="panel-sub" id="market-host" style="display:none;"></p>
       <p class="panel-sub" id="market-dday" style="display:none;"></p>
 
       <img id="market-image" class="market-image" alt="마켓 대표 이미지" style="display:none;" />
@@ -71,8 +73,9 @@
     <a href="../../index.html" class="back-link">← 마켓 목록으로</a>
   </div>
 
-  <script src="../../common/js/api.js?v=2"></script>
-  <script src="js/market.js?v=5"></script>
+  <script src="../../common/js/api.js?v=4"></script>
+  <script src="../../common/js/profile-link.js?v=1"></script>
+  <script src="js/market.js?v=9"></script>
   <script src="js/market-detail-extra.js?v=2"></script>
   <script src="js/market-role-view.js?v=2"></script>
 </body>

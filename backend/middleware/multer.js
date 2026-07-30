@@ -1,10 +1,16 @@
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+// [수정] 'Z:/...' 하드코딩 제거. Z: 드라이브가 없는 PC에서 mkdirSync 가 그대로 throw 되어
+//        백엔드 프로세스가 죽던 문제(ENOENT: mkdir 'Z:\profile\1')를 막습니다.
+import { marketUploadDir, sellerUploadDir, profileUploadDir, ensureDir } from '../config/uploadPaths.js';
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, 'Z:/markets/');
+        const dir = marketUploadDir();
+        const err = ensureDir(dir);
+        if (err) return cb(err);
+        cb(null, dir);
     },
     filename: (req, file, cb) => {
         const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
@@ -37,8 +43,9 @@ function sanitizeFolderName(name) {
 const itemImageStorage = multer.diskStorage({
     destination: (req, file, cb) => {
         const folderName = sanitizeFolderName(req.body?.title);
-        const dir = path.join('Z:/seller/', folderName);
-        fs.mkdirSync(dir, { recursive: true });
+        const dir = path.join(sellerUploadDir(), folderName);
+        const err = ensureDir(dir);
+        if (err) return cb(err);
         // 실제 업로드 경로를 라우트 핸들러에서도 그대로 쓸 수 있도록 req에 기록해둡니다.
         req.uploadedItemFolder = folderName;
         cb(null, dir);
@@ -69,8 +76,9 @@ const profileImageStorage = multer.diskStorage({
         if (!userId) {
             return cb(new Error('로그인이 필요합니다.'));
         }
-        const dir = path.join('Z:/profile/', String(userId));
-        fs.mkdirSync(dir, { recursive: true });
+        const dir = path.join(profileUploadDir(), String(userId));
+        const err = ensureDir(dir);
+        if (err) return cb(err);
         cb(null, dir);
     },
     filename: (req, file, cb) => {

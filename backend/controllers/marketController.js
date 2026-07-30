@@ -11,6 +11,7 @@ export async function getMarketList(req, res) {
   try {
     let sql = `
       SELECT m.*,
+        u.nickname AS hostNickname,
         (SELECT COUNT(*) FROM applications a
           WHERE a.marketId = m.marketId
             AND a.status IN ('Pending', 'Approved', 'Paid')
@@ -51,7 +52,14 @@ export async function getMarketDetail(req, res) {
 
   try {
     // isExpired=2(주최자가 삭제함)인 마켓은 삭제된 것처럼 조회되지 않도록 제외합니다.
-    const [rows] = await pool.query('SELECT * FROM markets WHERE marketId = ? AND isExpired <> 2', [marketId]);
+    // [수정] 상세 화면에 주최자 닉네임을 노출하기 위해 users 를 조인합니다.
+    const [rows] = await pool.query(
+      `SELECT m.*, u.nickname AS hostNickname
+       FROM markets m
+       JOIN users u ON u.userId = m.hostId
+       WHERE m.marketId = ? AND m.isExpired <> 2`,
+      [marketId]
+    );
     if (rows.length === 0) {
       return res.status(404).json({ success: false, data: null, message: '해당 마켓을 찾을 수 없습니다.' });
     }
@@ -143,7 +151,8 @@ export async function updateMarketStatus(req, res) {
     if (latitude !== undefined) { fields.push('latitude = ?'); values.push(latitude); }
     if (longitude !== undefined) { fields.push('longitude = ?'); values.push(longitude); }
     if (maxParticipants !== undefined) { fields.push('maxParticipants = ?'); values.push(maxParticipants); }
-    if (marketImage) { fields.push('marketImage = ?'); values.push(marketImage); }
+    // [수정] 예전에는 `if (marketImage)` 라서 null/'' 이 무시됐고, 이미지 삭제가 불가능했습니다.
+    if (marketImage !== undefined) { fields.push('marketImage = ?'); values.push(marketImage || null); }
 
     if (fields.length === 0) {
       return res.status(400).json({ success: false, data: null, message: '수정할 내용이 없습니다.' });
@@ -253,8 +262,10 @@ export async function getBoothLayout(req, res) {
 
     const [rows] = await pool.query(
       `SELECT a.applicationId, a.boothNumber, a.itemName, a.status,
+              a.sellerId, su.nickname AS sellerNickname,
               bl.positionX AS positionX, bl.positionY AS positionY
        FROM applications a
+       LEFT JOIN users su ON su.userId = a.sellerId
        LEFT JOIN booth_layouts bl ON bl.applicationId = a.applicationId AND bl.marketId = a.marketId
        WHERE a.marketId = ? AND a.status = 'Approved'
        ORDER BY a.applicationId ASC`,

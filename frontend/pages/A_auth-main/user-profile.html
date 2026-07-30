@@ -11,9 +11,9 @@
         href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap"
         rel="stylesheet" />
     <link rel="stylesheet" href="../../common/css/style.css" />
-    <link rel="stylesheet" href="../B_host-seller/css/host-seller.css" />
+    <link rel="stylesheet" href="../B_host-seller/css/host-seller.css?v=2" />
     <link rel="stylesheet" href="css/auth.css" />
-    <link rel="stylesheet" href="css/profile.css?v=4" />
+    <link rel="stylesheet" href="css/profile.css?v=5" />
     <script src="../../common/js/role-routing.js?v=3"></script>
     <!-- [공통] 상단 고정 네비게이션 바 (모든 화면 공통) -->
     <link rel="stylesheet" href="../../common/css/global-nav.css?v=1" />
@@ -47,6 +47,26 @@
                 <div class="profile-bio-row">
                     <p id="profile-bio-text" class="profile-bio-text">등록된 소개글이 없어요.</p>
                     <div id="profile-bio-image" class="profile-bio-image">소개 이미지</div>
+                </div>
+            </div>
+
+            <!-- [추가] 주최자 프로필: 주최행사 성공율 -->
+            <!-- 판매자가 이 주최자를 믿고 신청할지 판단하는 핵심 지표라 공개 프로필에도 넣습니다. -->
+            <div class="profile-section" id="host-success-block" hidden>
+                <div class="success-rate-card">
+                    <div class="success-rate-info">
+                        <div class="success-rate-title">주최행사 성공율</div>
+                        <p class="success-rate-desc">종료된 행사 기준</p>
+                        <ul class="success-rate-legend">
+                            <li><i class="lg lg-ok"></i>정상 개최 <b id="rate-success">-</b></li>
+                            <li><i class="lg lg-cancel"></i>취소 <b id="rate-cancelled">-</b></li>
+                        </ul>
+                        <p class="success-rate-note" id="rate-pending"></p>
+                    </div>
+                    <div class="success-rate-donut" id="stat-donut" role="img"
+                        aria-label="주최행사 성공율">
+                        <span class="success-rate-center" id="stat-donut-rate">-</span>
+                    </div>
                 </div>
             </div>
 
@@ -101,8 +121,8 @@
         <a href="../../index.html" class="back-link">← 마켓 목록으로</a>
     </div>
 
-    <script src="../../common/js/api.js?v=2"></script>
-    <script src="js/user-profile.js?v=1"></script>
+    <script src="../../common/js/api.js?v=4"></script>
+    <script src="js/user-profile.js?v=3"></script>
 </body>
 
 </html>

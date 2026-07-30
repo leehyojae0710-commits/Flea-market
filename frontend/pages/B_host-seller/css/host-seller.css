@@ -1187,3 +1187,32 @@ a.btn {
   gap: 8px;
   margin-left: auto;
 }
+
+
+/* ===== [추가] 프로필 진입 UI ===== */
+/* 마켓 상세 상단의 "주최자 OOO [프로필 보기]" 줄 */
+#market-host {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 신청자 카드의 "신청자: OOO [프로필 보기]" 줄
+   (다른 화면의 .item-card-meta 레이아웃에 영향이 없도록 신청자 목록 안으로만 한정합니다) */
+#application-list .item-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+#application-list .item-card-meta .btn {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  font-size: 11.5px;
+}
+
+/* 댓글 작성자 닉네임 */
+.comment-nickname .profile-link {
+  font-weight: 700;
+}

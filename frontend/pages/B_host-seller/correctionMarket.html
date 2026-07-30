@@ -11,13 +11,13 @@
         href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap"
         rel="stylesheet" />
     <link rel="stylesheet" href="../../common/css/style.css" />
-    <link rel="stylesheet" href="css/host-seller.css" />
+    <link rel="stylesheet" href="css/host-seller.css?v=2" />
     <script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=19f0092b5cdea100b70fdb607cc3ddd0&libraries=services"></script>
     <script type="module" src="js/marketmap.js?v=2"></script>
     <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
-    <script src="../../common/js/api.js?v=2"></script>
+    <script src="../../common/js/api.js?v=4"></script>
     <script type="module" src="js/marketdate.js?v=2"></script>
-    <script type="module" src="js/marketcorrection.js?v=2"></script>
+    <script type="module" src="js/marketcorrection.js?v=3"></script>
     <!-- <script src="../../common/js/api.js"></script> -->
   <!-- [C-01] 역할별 첫 화면 분기 / 주최자 전용 화면 접근 차단 -->
   <script src="../../common/js/role-routing.js?v=3"></script>
@@ -81,6 +81,11 @@
                 </div>
                 <!-- <button type="button" id="image-upload-btn" class="form-input" style="margin-bottom: 15px;">사진 등록하기</button> -->
                 <div id="image-upload-status"></div>
+                <!-- [추가] 등록된 마켓 이미지를 다시 없앨 수 있는 삭제 버튼 -->
+                <div class="image-actions">
+                    <button type="button" id="remove-market-image-btn" class="btn btn-outline btn-sm" hidden>이미지 삭제</button>
+                    <span id="market-image-removed-msg" class="image-removed-msg" hidden>수정하기를 누르면 이미지가 삭제돼요.</span>
+                </div>
                 <input type="hidden" id="uploadedImagePath" name="uploadedImagePath" />
 
                 <div class="form-field">
