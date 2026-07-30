@@ -995,3 +995,72 @@ a.btn {
   cursor: not-allowed;
   pointer-events: none;
 }
+
+/* ---------- 댓글 비공개(주최자 전용 / 판매자 전용) ---------- */
+
+.comment-item-private {
+  background: #fbf7ef;
+  border-left: 3px solid #d9b26a;
+  padding-left: 10px;
+  border-radius: 4px;
+}
+
+.comment-privacy-badge {
+  display: inline-block;
+  margin: 2px 0 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+.comment-privacy-host_only {
+  background: #efe6d4;
+  color: #8a6b2f;
+}
+
+.comment-privacy-seller_only {
+  background: #e2ebe0;
+  color: #4d6b48;
+}
+
+.comment-privacy-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 10px;
+  font-size: 12px;
+  color: #7a6a55;
+  cursor: pointer;
+  user-select: none;
+}
+
+.comment-privacy-toggle .comment-privacy-input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: #c99a3f;
+  cursor: pointer;
+}
+
+.comment-privacy-inherit {
+  margin: 6px 0 8px;
+  font-size: 12px;
+  color: #8a6b2f;
+}
+
+/* 열람 권한이 없어 본문이 가려진 댓글 */
+.comment-item-masked {
+  opacity: 0.75;
+}
+
+.comment-content-masked {
+  color: #9b8b74;
+  font-size: 13px;
+  font-style: italic;
+  padding: 6px 10px;
+  background: #f4efe6;
+  border-radius: 6px;
+  display: inline-block;
+}

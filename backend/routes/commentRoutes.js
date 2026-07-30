@@ -3,7 +3,7 @@
 import express from 'express';
 import { createComment, getCommentList, updateComment } from '../controllers/commentController.js';
 import { deleteComment } from '../controllers/dbdeleteController.js';
-import { authenticateToken } from '../middleware/authMiddleware.js';
+import { authenticateToken, optionalAuth } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -33,6 +33,14 @@ const router = express.Router();
  *               targetId: { type: integer }
  *               content: { type: string }
  *               parentId: { type: integer, nullable: true, description: '대댓글일 경우 부모 댓글의 commentId' }
+ *               visibility:
+ *                 type: string
+ *                 enum: [public, host_only, seller_only]
+ *                 default: public
+ *                 description: >-
+ *                   public=전체공개 / host_only=주최자 외 비공개(판매자가 작성) /
+ *                   seller_only=판매자 외 비공개(주최자가 판매자 댓글에 답글). 
+ *                   비공개 댓글의 답글은 서버가 부모 값을 자동 상속하므로 이 값은 무시됩니다.
  *     responses:
  *       201:
  *         description: 등록 성공
@@ -55,9 +63,10 @@ const router = express.Router();
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *   get:
- *     summary: 댓글 목록 조회
+ *     summary: 댓글 목록 조회 (비공개 댓글은 열람 권한자에게만 반환)
+ *     description: 로그인 토큰이 있으면 본인/주최자에게 허용된 비공개 댓글까지 함께 반환합니다.
  *     tags: [Comments]
- *     security: []
+ *     security: [{ bearerAuth: [] }, {}]
  *     parameters:
  *       - in: query
  *         name: targetType
@@ -90,7 +99,7 @@ const router = express.Router();
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
 router.post('/', authenticateToken, createComment);
-router.get('/', getCommentList);
+router.get('/', optionalAuth, getCommentList);
 
 /**
  * @swagger

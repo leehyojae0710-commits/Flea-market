@@ -41,11 +41,13 @@ async function submitSellerReview(applicationId, rating, comment) {
 }
 
 async function createComment(payload) {
-  // payload: { targetType, targetId, content }
+  // payload: { targetType, targetId, content, parentId?, visibility? }
+  //   visibility: 'public' | 'host_only'(주최자 외 비공개) | 'seller_only'(판매자 외 비공개)
   return callApi('/comments', { method: 'POST', body: payload });
 }
 
 async function getCommentList(targetType, targetId) {
+  // 로그인 토큰이 있으면 본인/주최자에게 허용된 비공개 댓글도 함께 내려옵니다.
   return callApi(`/comments?targetType=${targetType}&targetId=${targetId}`);
 }
 
@@ -765,6 +767,28 @@ function handleBoothApplySubmit() {
 }
 
 // ---------- 댓글 ----------
+//
+// [비공개 댓글] 공개범위 3종
+//   public      : 전체 공개
+//   host_only   : 판매자가 작성 -> "주최자만 볼 수 있는 댓글입니다."
+//   seller_only : 주최자가 판매자 댓글에 답글 -> "판매자만 볼 수 있는 댓글입니다."
+//
+// 체크박스 노출 규칙
+//   · 새 댓글  : 판매자(=주최자가 아닌 로그인 사용자)에게만 「주최자 외 비공개」 노출
+//   · 답글     : 주최자 -> 판매자 댓글에만 「판매자 외 비공개」 노출
+//                판매자 -> 주최자 댓글에만 「주최자 외 비공개」 노출
+//   · 주최자가 "본인 댓글"에 댓글/답글을 달 때는 노출하지 않음
+//   · 이미 비공개인 댓글의 답글은 부모 설정을 서버가 자동 상속하므로 체크박스 대신 안내만 표시
+//
+// 최종 판정은 서버(commentController.js)가 하며, 여기서는 화면 노출만 담당합니다.
+
+const VISIBILITY_LABEL = {
+  host_only: '🔒 주최자만 볼 수 있는 댓글 입니다.',
+  seller_only: '🔒 판매자만 볼 수 있는 댓글 입니다.',
+};
+
+let commentMeta = { hostId: null, viewerId: null, isHost: false };
+let commentById = new Map();
 
 function escapeAttr(str) {
   return String(str || '')
@@ -772,6 +796,86 @@ function escapeAttr(str) {
     .replace(/"/g, '&quot;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+}
+
+/** 현재 로그인 사용자 id (없으면 null) */
+function getCommentViewerId() {
+  if (commentMeta.viewerId !== null && commentMeta.viewerId !== undefined) {
+    return Number(commentMeta.viewerId);
+  }
+  const user = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
+  return user ? Number(user.userId) : null;
+}
+
+/** 내가 이 마켓의 주최자인가 */
+function isCommentHost() {
+  return Boolean(commentMeta.isHost);
+}
+
+/**
+ * 이 위치에 비공개 체크박스를 띄울지 판단합니다.
+ * parent 가 null 이면 최상위 댓글 입력폼입니다.
+ * 반환: null(노출 안 함) 또는 { value, label }
+ */
+function resolvePrivacyOption(parent) {
+  const viewerId = getCommentViewerId();
+  if (!viewerId) return null;                       // 비로그인은 공개 댓글만
+  if (commentMeta.privacySupported === false) return null; // DB 마이그레이션 전이면 숨김
+  if (commentMeta.hostId === null || commentMeta.hostId === undefined) return null;
+
+  const isHost = isCommentHost();
+
+  // 부모가 이미 비공개면 서버가 자동 상속 -> 선택지 없음
+  if (parent && (parent.visibility || 'public') !== 'public') return null;
+
+  if (!parent) {
+    // 최상위 댓글: 주최자는 비공개 옵션 없음
+    if (isHost) return null;
+    return { value: 'host_only', label: '주최자 외 비공개' };
+  }
+
+  const parentUserId = Number(parent.userId);
+
+  if (isHost) {
+    // 주최자가 자기 댓글에 답글 -> 노출 안 함
+    if (parentUserId === Number(commentMeta.hostId)) return null;
+    return { value: 'seller_only', label: '판매자 외 비공개' };
+  }
+
+  // 판매자: 주최자 댓글에 답글일 때만
+  if (parentUserId === Number(commentMeta.hostId)) {
+    return { value: 'host_only', label: '주최자 외 비공개' };
+  }
+  return null;
+}
+
+/** 부모가 비공개일 때 답글폼에 띄우는 안내 문구 */
+function resolveInheritNotice(parent) {
+  if (!parent) return '';
+  const v = parent.visibility || 'public';
+  if (v === 'public') return '';
+  const text = isCommentHost()
+    ? '이 답글은 해당 판매자와 주최자에게만 보입니다.'
+    : '이 답글은 주최자에게만 보입니다.';
+  return `<p class="comment-privacy-inherit">🔒 ${text}</p>`;
+}
+
+function renderPrivacyCheckbox(option, idSuffix) {
+  if (!option) return '';
+  const id = `comment-private-${idSuffix}`;
+  return `
+      <label class="comment-privacy-toggle" for="${id}">
+        <input type="checkbox" id="${id}" class="comment-privacy-input" data-visibility="${option.value}" />
+        <span>(${option.label})</span>
+      </label>`;
+}
+
+/** 입력폼(폼 엘리먼트)에서 선택된 visibility 값을 읽습니다. */
+function readVisibilityFrom(formEl) {
+  if (!formEl) return 'public';
+  const box = formEl.querySelector('.comment-privacy-input');
+  if (!box || !box.checked) return 'public';
+  return box.dataset.visibility || 'public';
 }
 
 function buildCommentTree(comments) {
@@ -790,11 +894,35 @@ function buildCommentTree(comments) {
 }
 
 function renderCommentNode(c, isReply) {
-  const currentUser = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
-  const isMine = currentUser && currentUser.userId === c.userId;
+  const viewerId = getCommentViewerId();
+  const visibility = c.visibility || 'public';
+
+  // masked: 서버가 본문을 지우고 껍데기만 내려준 댓글.
+  // 자리는 남기되 내용/수정삭제/답글 기능은 모두 막습니다.
+  const isMasked = Boolean(c.masked);
+  const isMine = !isMasked && viewerId !== null && Number(viewerId) === Number(c.userId);
+
+  const noticeText = VISIBILITY_LABEL[visibility] || '🔒 비공개 댓글 입니다.';
+
+  // 내가 볼 수 있는 비공개 댓글 -> 본문 위에 배지
+  const badge = !isMasked && VISIBILITY_LABEL[visibility]
+    ? `<div class="comment-privacy-badge comment-privacy-${visibility}">${noticeText}</div>`
+    : '';
+
+  // 볼 수 없는 댓글 -> 본문 자리에 안내 문구만
+  const bodyHtml = isMasked
+    ? `<div class="comment-content comment-content-masked">${noticeText}</div>`
+    : `<div class="comment-content" data-content-for="${c.commentId}">${c.content ?? ''}</div>`;
+
+  const classNames = [
+    'comment-item',
+    isReply ? 'comment-item-reply' : '',
+    visibility !== 'public' ? 'comment-item-private' : '',
+    isMasked ? 'comment-item-masked' : '',
+  ].filter(Boolean).join(' ');
 
   return `
-    <div class="comment-item${isReply ? ' comment-item-reply' : ''}" data-comment-id="${c.commentId}">
+    <div class="${classNames}" data-comment-id="${c.commentId}">
       <div class="comment-item-top">
         <div class="comment-nickname">${c.nickname || '알 수 없음'}</div>
         ${isMine ? `
@@ -803,10 +931,11 @@ function renderCommentNode(c, isReply) {
             <button type="button" class="btn btn-danger btn-sm comment-delete-btn" data-comment-id="${c.commentId}">삭제</button>
           </div>` : ''}
       </div>
-      <div class="comment-content" data-content-for="${c.commentId}">${c.content}</div>
-      <div class="comment-edit-form-slot" data-edit-slot-for="${c.commentId}"></div>
-      ${!isReply ? `<button type="button" class="comment-reply-btn" data-comment-id="${c.commentId}">답글달기</button>` : ''}
-      <div class="comment-reply-form-slot" data-slot-for="${c.commentId}"></div>
+      ${badge}
+      ${bodyHtml}
+      ${!isMasked ? `<div class="comment-edit-form-slot" data-edit-slot-for="${c.commentId}"></div>` : ''}
+      ${!isReply && !isMasked ? `<button type="button" class="comment-reply-btn" data-comment-id="${c.commentId}">답글달기</button>` : ''}
+      ${!isMasked ? `<div class="comment-reply-form-slot" data-slot-for="${c.commentId}"></div>` : ''}
       ${(c.replies || []).map((r) => renderCommentNode(r, true)).join('')}
     </div>`;
 }
@@ -814,6 +943,8 @@ function renderCommentNode(c, isReply) {
 function renderCommentList(comments) {
   const wrap = document.getElementById('comment-list');
   if (!wrap) return;
+
+  commentById = new Map((comments || []).map((c) => [Number(c.commentId), c]));
 
   if (!comments || comments.length === 0) {
     wrap.innerHTML = '<p class="list-empty">아직 댓글이 없어요. 첫 댓글을 남겨보세요.</p>';
@@ -825,11 +956,16 @@ function renderCommentList(comments) {
 }
 
 function renderReplyForm(parentId) {
+  const parent = commentById.get(Number(parentId)) || null;
+  const option = resolvePrivacyOption(parent);
+
   return `
     <form class="comment-reply-form" data-parent-id="${parentId}">
       <div class="form-field">
         <input type="text" class="form-input comment-reply-input" placeholder="답글을 입력하세요" required />
       </div>
+      ${resolveInheritNotice(parent)}
+      ${renderPrivacyCheckbox(option, `reply-${parentId}`)}
       <button type="submit" class="btn btn-outline btn-sm">답글 등록</button>
       <button type="button" class="btn btn-outline btn-sm comment-reply-cancel">취소</button>
     </form>`;
@@ -844,6 +980,30 @@ function renderEditForm(commentId, content) {
       <button type="submit" class="btn btn-outline btn-sm">저장</button>
       <button type="button" class="btn btn-outline btn-sm comment-edit-cancel">취소</button>
     </form>`;
+}
+
+/** 최상위 댓글 입력폼에 「주최자 외 비공개」 체크박스를 붙이거나 떼어냅니다. */
+function syncRootPrivacyToggle() {
+  const form = document.getElementById('comment-form');
+  if (!form) return;
+
+  const existing = form.querySelector('.comment-privacy-toggle');
+  const option = resolvePrivacyOption(null);
+
+  if (!option) {
+    if (existing) existing.remove();
+    return;
+  }
+  if (existing) return; // 이미 붙어 있으면 유지 (체크 상태 보존)
+
+  const holder = document.createElement('div');
+  holder.innerHTML = renderPrivacyCheckbox(option, 'root').trim();
+  const node = holder.firstElementChild;
+  if (!node) return;
+
+  const submitBtn = form.querySelector('button[type="submit"]');
+  if (submitBtn) form.insertBefore(node, submitBtn);
+  else form.appendChild(node);
 }
 
 async function handleCommentDelete(commentId) {
@@ -956,6 +1116,7 @@ function handleCommentReplyClick() {
     const content = input.value.trim();
     if (!content) return;
     const parentId = form.dataset.parentId;
+    const visibility = readVisibilityFrom(form);
 
     try {
       const res = await createComment({
@@ -963,6 +1124,7 @@ function handleCommentReplyClick() {
         targetId: getMarketIdFromUrl(),
         content,
         parentId,
+        visibility,
       });
       if (res && res.success) {
         await loadCommentList();
@@ -983,7 +1145,9 @@ async function loadCommentList() {
   try {
     const res = await getCommentList('market', marketId);
     if (res && res.success) {
+      if (res.meta) commentMeta = res.meta;
       renderCommentList(res.data || []);
+      syncRootPrivacyToggle();
     } else {
       wrap.innerHTML = '<p class="list-empty">댓글을 불러오지 못했어요.</p>';
     }
@@ -1002,11 +1166,19 @@ function handleCommentSubmit() {
     const input = document.getElementById('comment-content');
     const content = input.value.trim();
     if (!content) return;
+    const visibility = readVisibilityFrom(form);
 
     try {
-      const res = await createComment({ targetType: 'market', targetId: getMarketIdFromUrl(), content });
+      const res = await createComment({
+        targetType: 'market',
+        targetId: getMarketIdFromUrl(),
+        content,
+        visibility,
+      });
       if (res && res.success) {
         input.value = '';
+        const box = form.querySelector('.comment-privacy-input');
+        if (box) box.checked = false;
         await loadCommentList();
       } else {
         renderAlert(res?.message || '댓글 등록에 실패했어요.');
