@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../../common/css/style.css" />
-  <link rel="stylesheet" href="css/host-seller.css" />
+  <link rel="stylesheet" href="css/host-seller.css?v=2" />
   <!-- [공통] 상단 고정 네비게이션 바 (모든 화면 공통) -->
   <link rel="stylesheet" href="../../common/css/global-nav.css?v=1" />
   <script src="../../common/js/global-nav.js?v=1" defer></script>
@@ -24,6 +24,8 @@
       <span class="pin" aria-hidden="true"></span>
       <h1>부스 신청</h1>
       <p class="panel-sub" id="booth-apply-sub">신청할 부스 번호와 판매하실 물건을 알려주세요.</p>
+      <!-- [추가] 신청하려는 마켓의 주최자 (클릭하면 프로필로 이동) -->
+      <p class="panel-sub" id="booth-apply-host" style="display:none;"></p>
 
       <div id="alert-box" class="alert alert-error" role="alert"></div>
 
@@ -65,7 +67,8 @@
     <a href="#" id="back-to-market" class="back-link">← 마켓 상세로 돌아가기</a>
   </div>
 
-  <script src="../../common/js/api.js?v=2"></script>
-  <script src="js/market.js?v=2"></script>
+  <script src="../../common/js/api.js?v=4"></script>
+  <script src="../../common/js/profile-link.js?v=1"></script>
+  <script src="js/market.js?v=9"></script>
 </body>
 </html>

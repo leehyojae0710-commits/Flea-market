@@ -255,18 +255,90 @@ if (nicknameInput) {
   });
 }
 
+/* ---------------------- 이미지 업로드 / 삭제 ---------------------- */
+// [추가] 업로드 전에 브라우저에서 먼저 걸러 줍니다. (서버 limits/fileFilter와 같은 기준)
+const IMAGE_MAX_BYTES = 5 * 1024 * 1024; // 5MB
+const IMAGE_ALLOWED_EXT = ['.jpg', '.jpeg', '.png'];
+
+function validateImageFile(file) {
+  const name = String(file.name || '').toLowerCase();
+  if (!IMAGE_ALLOWED_EXT.some((ext) => name.endsWith(ext))) {
+    return 'jpg, jpeg, png 파일만 올릴 수 있어요.';
+  }
+  if (file.size > IMAGE_MAX_BYTES) {
+    return '이미지 용량은 5MB 이하만 올릴 수 있어요.';
+  }
+  return null;
+}
+
+// 미리보기 영역 ID -> 함께 움직여야 하는 삭제 버튼 / 안내 문구
+const IMAGE_FIELD_MAP = {
+  'profile-image-status': { removeBtnId: 'remove-profile-image-btn', removedMsgId: 'profile-image-removed-msg' },
+  'bio-image-status': { removeBtnId: 'remove-bio-image-btn', removedMsgId: 'bio-image-removed-msg' },
+};
+
 // 기존 마켓/부스 이미지와 동일한 "현재 등록된 이미지" 미리보기 패턴 (marketcorrection.js / boothedit.js 참고)
 function renderCurrentImagePreview(statusElId, imagePath) {
   const statusEl = document.getElementById(statusElId);
-  if (!statusEl) return;
-  if (!imagePath) {
-    statusEl.innerHTML = '';
-    return;
-  }
-  statusEl.innerHTML = `
+  if (statusEl) {
+    if (!imagePath) {
+      statusEl.innerHTML = '';
+    } else {
+      statusEl.innerHTML = `
     <p class="form-hint">현재 등록된 이미지</p>
     <img src="${API_BASE_URL}${imagePath}" alt="" class="preview-image" />
   `;
+    }
+  }
+
+  // [추가] 등록된 이미지가 있을 때만 삭제 버튼을 보여줍니다.
+  const map = IMAGE_FIELD_MAP[statusElId];
+  if (map) {
+    const btn = document.getElementById(map.removeBtnId);
+    if (btn) btn.hidden = !imagePath;
+    const msg = document.getElementById(map.removedMsgId);
+    if (msg) msg.hidden = true;
+  }
+}
+
+// [추가] 삭제 버튼: hidden input 을 비워두면 저장 시 서버로 null 이 전달되어 이미지가 지워집니다.
+//        (예전에는 hidden input 에 기존 경로가 계속 남아 한 번 올리면 되돌릴 수 없었습니다.)
+function wireRemoveImageButton({ btnId, fileInputId, hiddenInputId, statusElId, removedMsgId }) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+
+  btn.addEventListener('click', () => {
+    const hidden = document.getElementById(hiddenInputId);
+    const fileInput = document.getElementById(fileInputId);
+    const statusEl = document.getElementById(statusElId);
+    const msg = document.getElementById(removedMsgId);
+
+    if (hidden) hidden.value = '';
+    if (fileInput) fileInput.value = '';
+    if (statusEl) statusEl.innerHTML = '';
+    btn.hidden = true;
+    if (msg) msg.hidden = false;
+  });
+}
+
+// [추가] 파일을 고르는 순간 형식/용량을 검사하고, 삭제 예약 문구는 지웁니다.
+function wireImageInputValidation(fileInputId, removedMsgId) {
+  const input = document.getElementById(fileInputId);
+  if (!input) return;
+
+  input.addEventListener('change', () => {
+    const msg = document.getElementById(removedMsgId);
+    if (msg) msg.hidden = true;
+
+    const file = input.files && input.files[0];
+    if (!file) return;
+
+    const error = validateImageFile(file);
+    if (error) {
+      showAlert(error);
+      input.value = '';
+    }
+  });
 }
 
 async function loadProfileForEdit() {
@@ -318,12 +390,17 @@ async function uploadProfileRelatedImage(fileInput, uploadUrl, fieldName, hidden
 
     if (data.success) {
       hiddenInput.value = data.filePath;
-    } else {
-      showAlert(data.message || '이미지 업로드에 실패했습니다.');
+      return true;
     }
+
+    // [수정] 예전에는 업로드가 실패해도 그대로 진행해서, 사용자는 저장된 줄 알았지만
+    //        실제로는 예전 이미지가 그대로 남았습니다. 이제 실패를 알리고 저장을 중단합니다.
+    showAlert(data.message || '이미지 업로드에 실패했습니다.');
+    return false;
   } catch (err) {
     console.error('이미지 업로드 오류:', err);
     showAlert('이미지 업로드 중 서버에 연결할 수 없습니다.');
+    return false;
   }
 }
 
@@ -349,12 +426,13 @@ if (profileBasicForm) {
 
     try {
       if (profileImageInput.files && profileImageInput.files[0]) {
-        await uploadProfileRelatedImage(
+        const uploaded = await uploadProfileRelatedImage(
           profileImageInput,
           `${API_BASE_URL}/upload/profile-image`,
           'profileImage',
           uploadedProfileImagePathInput
         );
+        if (!uploaded) return; // 업로드 실패 시 저장하지 않습니다.
       }
 
       const body = {
@@ -400,12 +478,13 @@ if (profileBioForm) {
 
     try {
       if (bioImageInput.files && bioImageInput.files[0]) {
-        await uploadProfileRelatedImage(
+        const uploaded = await uploadProfileRelatedImage(
           bioImageInput,
           `${API_BASE_URL}/upload/bio-image`,
           'bioImage',
           uploadedBioImagePathInput
         );
+        if (!uploaded) return; // 업로드 실패 시 저장하지 않습니다.
       }
 
       const body = {
@@ -447,6 +526,24 @@ editTabButtons.forEach((btn) => {
     if (panel) panel.classList.add('active');
   });
 });
+
+// [추가] 이미지 삭제 버튼 / 파일 검증 연결
+wireRemoveImageButton({
+  btnId: 'remove-profile-image-btn',
+  fileInputId: 'profile-image',
+  hiddenInputId: 'uploaded-profile-image-path',
+  statusElId: 'profile-image-status',
+  removedMsgId: 'profile-image-removed-msg',
+});
+wireRemoveImageButton({
+  btnId: 'remove-bio-image-btn',
+  fileInputId: 'bio-image',
+  hiddenInputId: 'uploaded-bio-image-path',
+  statusElId: 'bio-image-status',
+  removedMsgId: 'bio-image-removed-msg',
+});
+wireImageInputValidation('profile-image', 'profile-image-removed-msg');
+wireImageInputValidation('bio-image', 'bio-image-removed-msg');
 
 document.addEventListener('DOMContentLoaded', async () => {
   await syncCurrentUser();

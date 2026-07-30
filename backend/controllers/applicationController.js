@@ -51,6 +51,7 @@ export async function getMyApplications(req, res) {
          a.applicationId, a.marketId, a.boothNumber, a.title, a.itemName,
          a.productDesc, a.itemImage, a.status,a.paymentDueAt,
          m.title AS marketTitle, m.eventDate_min, m.eventDate_max, m.locationName,m.boothPrice,
+         m.hostId, hu.nickname AS hostNickname,
          (m.eventDate_min <= CURDATE()) AS eventEnded,
          r.rating AS myRating,
          EXISTS(
@@ -59,6 +60,7 @@ export async function getMyApplications(req, res) {
           pay.refundAmount AS refundAmount
        FROM applications a
        JOIN markets m ON m.marketId = a.marketId
+       LEFT JOIN users hu ON hu.userId = m.hostId
        LEFT JOIN market_reviews r ON r.applicationId = a.applicationId
        LEFT JOIN payments pay ON pay.applicationId = a.applicationId
        WHERE a.sellerId = ?

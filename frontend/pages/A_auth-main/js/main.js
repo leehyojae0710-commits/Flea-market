@@ -434,6 +434,8 @@ function renderMarketList(pageMarkets, totalCount) {
         <div class="card-body">
           <h3>${m.title || "이름 없는 마켓"}</h3>
           <div class="card-tags">${regionChip}</div>
+          <!-- [추가] 주최자 닉네임 (클릭 시 카드 이동 대신 프로필로 이동) -->
+          <div class="card-host">주최자 ${ProfileLink.html(m.hostId, m.hostNickname)}</div>
 
           <div class="card-meta-grid">
             <div class="meta-item">

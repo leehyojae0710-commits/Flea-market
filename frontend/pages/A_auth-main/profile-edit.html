@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../../common/css/style.css" />
-  <link rel="stylesheet" href="css/auth.css" />
+  <link rel="stylesheet" href="css/auth.css?v=2" />
   <!-- [공통] 상단 고정 네비게이션 바 (모든 화면 공통) -->
   <link rel="stylesheet" href="../../common/css/global-nav.css?v=1" />
   <script src="../../common/js/global-nav.js?v=1" defer></script>
@@ -53,8 +53,13 @@
               <div class="form-field">
                 <label for="profile-image">프로필 사진</label>
                 <input type="file" id="profile-image" accept=".jpg,.jpeg,.png" />
-                <p class="form-hint">jpg, jpeg, png 파일만 업로드할 수 있어요. 바꾸지 않으면 기존 사진이 그대로 유지돼요.</p>
+                <p class="form-hint">jpg, jpeg, png / 5MB 이하만 올릴 수 있어요. 바꾸지 않으면 기존 사진이 그대로 유지돼요.</p>
                 <div id="profile-image-status"></div>
+                <!-- [추가] 등록한 사진을 다시 없앨 수 있는 삭제 버튼 -->
+                <div class="image-actions">
+                  <button type="button" id="remove-profile-image-btn" class="btn btn-outline btn-sm" hidden>사진 삭제</button>
+                  <span id="profile-image-removed-msg" class="image-removed-msg" hidden>저장을 누르면 사진이 삭제돼요.</span>
+                </div>
                 <input type="hidden" id="uploaded-profile-image-path" />
               </div>
               <button type="submit" id="profile-basic-submit-btn" class="btn btn-primary btn-block">프로필 저장</button>
@@ -71,8 +76,13 @@
               <div class="form-field">
                 <label for="bio-image">소개 이미지</label>
                 <input type="file" id="bio-image" accept=".jpg,.jpeg,.png" />
-                <p class="form-hint">jpg, jpeg, png 파일만 업로드할 수 있어요. 바꾸지 않으면 기존 이미지가 그대로 유지돼요.</p>
+                <p class="form-hint">jpg, jpeg, png / 5MB 이하만 올릴 수 있어요. 바꾸지 않으면 기존 이미지가 그대로 유지돼요.</p>
                 <div id="bio-image-status"></div>
+                <!-- [추가] 등록한 이미지를 다시 없앨 수 있는 삭제 버튼 -->
+                <div class="image-actions">
+                  <button type="button" id="remove-bio-image-btn" class="btn btn-outline btn-sm" hidden>이미지 삭제</button>
+                  <span id="bio-image-removed-msg" class="image-removed-msg" hidden>저장을 누르면 이미지가 삭제돼요.</span>
+                </div>
                 <input type="hidden" id="uploaded-bio-image-path" />
               </div>
               <button type="submit" id="profile-bio-submit-btn" class="btn btn-primary btn-block">소개 저장</button>
@@ -127,8 +137,8 @@
     <a href="mypage.html" class="back-home">← 마이페이지로</a>
   </div>
 
-  <script src="../../common/js/api.js?v=2"></script>
+  <script src="../../common/js/api.js?v=4"></script>
   <script src="../../common/js/validators.js?v=2"></script>
-  <script src="js/profile-edit.js?v=3"></script>
+  <script src="js/profile-edit.js?v=4"></script>
 </body>
 </html>

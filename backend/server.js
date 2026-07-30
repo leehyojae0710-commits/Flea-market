@@ -15,6 +15,9 @@ import pool from './config/db.js'; // DB 데이터를 가져오기 위해 연결
 import swaggerSpec from './config/swagger.js';
 import upload, { uploadItemImage, uploadProfileImage } from './middleware/multer.js';
 import profileRoutes from './routes/profileRoutes.js';
+import publicProfileRoutes from './routes/publicProfileRoutes.js'; // [추가] 다른 사람 프로필 열람
+import { handleUpload } from './middleware/uploadErrorHandler.js'; // [추가] 업로드 실패를 400 + 메시지로
+import { marketUploadDir, sellerUploadDir, profileUploadDir } from './config/uploadPaths.js';
 import reviewRoutes from './routes/reviewRoutes.js';
 import { authenticateToken } from './middleware/authMiddleware.js';
 import { hostAreaGuard } from './middleware/roleGuard.js'; // [C-01] 판매자의 주최자 API 접근 차단
@@ -32,6 +35,7 @@ app.use(hostAreaGuard); // [C-01] 라우터 등록 전에 역할 가드를 먼�
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/users', profileRoutes);
+app.use('/api/profiles', publicProfileRoutes); // [추가] GET /api/profiles/:userId (공개 프로필)
 app.use('/api/markets', marketRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/payments', payRoutes);
@@ -40,9 +44,11 @@ app.use('/api/schedules', scheduleRoutes);
 app.use('/api/checkins', checkinRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec)); // http://localhost:5000/api-docs
-app.use('/api/uploads', express.static('Z:/markets/'));
-app.use('/api/uploads', express.static('Z:/seller/'));
-app.use('/api/uploads', express.static('Z:/profile/'));
+// [수정] 업로드 경로를 config/uploadPaths.js 한 곳에서 관리합니다.
+//        (Z: 드라이브가 없으면 backend/uploads/ 로 자동 대체됩니다)
+app.use('/api/uploads', express.static(marketUploadDir()));
+app.use('/api/uploads', express.static(sellerUploadDir()));
+app.use('/api/uploads', express.static(profileUploadDir()));
 app.use('/api/search', searchRoutes);
 
 // 🌐 http://localhost:5000 접속 시 DB 데이터를 HTML 표로 보여주는 라우터
@@ -189,7 +195,7 @@ app.post('/api/upload/item-image', uploadItemImage.single('itemImage'), (req, re
 
 // [추가] 마이페이지 프로필 사진 업로드
 // item-image와 달리 폴더가 "제목"이 아니라 로그인한 사용자 userId라서 로그인이 필요합니다.
-app.post('/api/upload/profile-image', authenticateToken, uploadProfileImage.single('profileImage'), (req, res) => {
+app.post('/api/upload/profile-image', authenticateToken, handleUpload(uploadProfileImage.single('profileImage')), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ success: false, message: '업로드할 이미지가 없습니다.' });
   }
@@ -198,7 +204,7 @@ app.post('/api/upload/profile-image', authenticateToken, uploadProfileImage.sing
 });
 
 // [추가] 마이페이지 소개 이미지 업로드 (프로필 사진과 같은 저장소를 공유합니다)
-app.post('/api/upload/bio-image', authenticateToken, uploadProfileImage.single('bioImage'), (req, res) => {
+app.post('/api/upload/bio-image', authenticateToken, handleUpload(uploadProfileImage.single('bioImage')), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ success: false, message: '업로드할 이미지가 없습니다.' });
   }

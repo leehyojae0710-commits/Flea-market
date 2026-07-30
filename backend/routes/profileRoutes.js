@@ -4,7 +4,7 @@
 //   /me/profile, /me/stats만 새로 추가하므로 userRoutes.js는 건드리지 않습니다.
 
 import express from 'express';
-import { getMyProfile, updateMyProfile, getMyEventStats } from '../controllers/profileController.js';
+import { getMyProfile, updateMyProfile, getMyEventStats, getMyActivityBreakdown } from '../controllers/profileController.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -63,9 +63,14 @@ router.patch('/me/profile', authenticateToken, updateMyProfile);
  * @swagger
  * /users/me/stats:
  *   get:
- *     summary: 내 행사 현황 (진행중/예정, 지난 행사, 취소 이력 건수)
+ *     summary: 내 행사 현황 - 화면 모드(role)에 따라 주최자/판매자 통계를 나눠 반환
  *     tags: [Profile]
  *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: role
+ *         schema: { type: string, enum: [host, seller] }
+ *         description: "host = 주최 행사 현황(주최자 계정만), seller = 참여 이력. 생략 시 계정 종류를 따름"
  *     responses:
  *       200:
  *         description: 조회 성공
@@ -73,5 +78,22 @@ router.patch('/me/profile', authenticateToken, updateMyProfile);
  *         description: 인증 필요
  */
 router.get('/me/stats', authenticateToken, getMyEventStats);
+
+/**
+ * @swagger
+ * /users/me/activity:
+ *   get:
+ *     summary: 내 활동 현황 분포 (모집중/진행/종료/취소 건수) - 주최자 전용
+ *     tags: [Profile]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: 조회 성공
+ *       401:
+ *         description: 인증 필요
+ *       403:
+ *         description: 주최자 전용
+ */
+router.get('/me/activity', authenticateToken, getMyActivityBreakdown);
 
 export default router;

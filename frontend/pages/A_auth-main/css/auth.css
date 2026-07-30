@@ -489,3 +489,23 @@ body {
   .auth-card { padding: 28px 20px 24px; }
   .role-grid { grid-template-columns: 1fr; }
 }
+
+
+/* ===== [추가] 프로필/소개 이미지 삭제 버튼 ===== */
+.image-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.btn.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+  width: auto;
+}
+.image-removed-msg {
+  font-size: 12px;
+  font-weight: 600;
+  color: #a9614c;
+}

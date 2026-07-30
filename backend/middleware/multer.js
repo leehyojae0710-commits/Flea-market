@@ -1,10 +1,16 @@
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+// [수정] 'Z:/...' 하드코딩 제거. Z: 드라이브가 없는 PC에서 mkdirSync 가 그대로 throw 되어
+//        백엔드 프로세스가 죽던 문제(ENOENT: mkdir 'Z:\profile\1')를 막습니다.
+import { marketUploadDir, sellerUploadDir, profileUploadDir, ensureDir } from '../config/uploadPaths.js';
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, 'Z:/markets/');
+        const dir = marketUploadDir();
+        const err = ensureDir(dir);
+        if (err) return cb(err);
+        cb(null, dir);
     },
     filename: (req, file, cb) => {
         const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
@@ -37,8 +43,9 @@ function sanitizeFolderName(name) {
 const itemImageStorage = multer.diskStorage({
     destination: (req, file, cb) => {
         const folderName = sanitizeFolderName(req.body?.title);
-        const dir = path.join('Z:/seller/', folderName);
-        fs.mkdirSync(dir, { recursive: true });
+        const dir = path.join(sellerUploadDir(), folderName);
+        const err = ensureDir(dir);
+        if (err) return cb(err);
         // 실제 업로드 경로를 라우트 핸들러에서도 그대로 쓸 수 있도록 req에 기록해둡니다.
         req.uploadedItemFolder = folderName;
         cb(null, dir);
@@ -69,8 +76,9 @@ const profileImageStorage = multer.diskStorage({
         if (!userId) {
             return cb(new Error('로그인이 필요합니다.'));
         }
-        const dir = path.join('Z:/profile/', String(userId));
-        fs.mkdirSync(dir, { recursive: true });
+        const dir = path.join(profileUploadDir(), String(userId));
+        const err = ensureDir(dir);
+        if (err) return cb(err);
         cb(null, dir);
     },
     filename: (req, file, cb) => {
@@ -86,6 +94,34 @@ const profileImageStorage = multer.diskStorage({
     }
 });
 
-export const uploadProfileImage = multer({ storage: profileImageStorage });
+// [추가] 업로드 검증
+//   기존에는 확장자 검사를 filename 콜백에서만 했습니다. 그 자리에서 던진 에러는
+//   라우트에서 잡히지 않아 500(또는 빈 응답)으로 나갔고, 용량 제한도 없어서
+//   수십 MB 짜리 파일도 그대로 저장됐습니다.
+//   -> fileFilter(형식 검사) + limits(용량 제한)로 옮기고,
+//      에러 응답은 middleware/uploadErrorHandler.js 의 handleUpload 가 처리합니다.
+export const PROFILE_IMAGE_MAX_BYTES = 5 * 1024 * 1024; // 5MB
+const ALLOWED_IMAGE_EXT = ['.jpg', '.jpeg', '.png'];
+const ALLOWED_IMAGE_MIME = ['image/jpeg', 'image/pjpeg', 'image/png'];
+
+function profileImageFileFilter(req, file, cb) {
+    const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    const ext = path.extname(originalName).toLowerCase();
+
+    if (!ALLOWED_IMAGE_EXT.includes(ext)) {
+        return cb(new Error('.jpg, .jpeg, .png 파일만 올릴 수 있습니다.'));
+    }
+    // 확장자만 바꾼 파일을 거르기 위해 MIME 타입도 함께 확인합니다.
+    if (!ALLOWED_IMAGE_MIME.includes(String(file.mimetype).toLowerCase())) {
+        return cb(new Error('이미지 파일(jpg, png)만 올릴 수 있습니다.'));
+    }
+    cb(null, true);
+}
+
+export const uploadProfileImage = multer({
+    storage: profileImageStorage,
+    fileFilter: profileImageFileFilter,
+    limits: { fileSize: PROFILE_IMAGE_MAX_BYTES, files: 1 },
+});
 
 export default upload;

@@ -15,7 +15,23 @@ let currentUser = rawUser ? JSON.parse(rawUser) : null;
 if (!currentUser) {
   window.location.href = 'login.html';
 }
-let isHost = currentUser && Number(currentUser.userType) === 1;
+// [수정] 예전에는 계정 종류(userType)만 보고 주최자 화면을 그렸습니다.
+//        주최자 계정은 「판매자 모드」로 전환할 수 있으므로(role-routing.js), 마이페이지도
+//        계정 종류가 아니라 지금의 화면 모드(viewRole)를 기준으로 나눠 보여줍니다.
+//          accountIsHost : 계정 종류 (users.userType, 바뀌지 않음)
+//          isHost        : 지금 보고 있는 화면 모드가 주최자인지
+function getViewRoleSafe() {
+  if (window.RoleRouting && typeof window.RoleRouting.getViewRole === 'function') {
+    return window.RoleRouting.getViewRole();
+  }
+  // role-routing.js 가 아직 로드되지 않은 경우를 위한 폴백 (같은 판정 규칙)
+  const account = currentUser && Number(currentUser.userType) === 1 ? 'host' : 'seller';
+  if (account !== 'host') return 'seller';
+  return sessionStorage.getItem('viewRole') === 'seller' ? 'seller' : 'host';
+}
+
+let accountIsHost = currentUser && Number(currentUser.userType) === 1;
+let isHost = getViewRoleSafe() === 'host';
 
 /* ---------------------- 프로필 정보 렌더링 ---------------------- */
 function renderProfile(profile) {
@@ -25,12 +41,26 @@ function renderProfile(profile) {
   const badgeEl = document.getElementById('profile-title-badge');
   if (badgeEl) badgeEl.textContent = titleText;
 
+  // [추가] 같은 계정이라도 지금 보는 프로필이 주최자용인지 판매자용인지 한눈에 보이게 표시합니다.
+  const roleChipEl = document.getElementById('profile-role-chip');
+  if (roleChipEl) {
+    roleChipEl.textContent = isHost ? '주최자 프로필' : '판매자 프로필';
+    roleChipEl.classList.toggle('is-seller', !isHost);
+    // 주최자 계정이 판매자 모드로 보고 있는 경우를 툴팁으로 한 번 더 안내합니다.
+    roleChipEl.title =
+      accountIsHost && !isHost
+        ? '주최자 계정에서 판매자 모드로 보는 중입니다. 헤더의 「주최자로 전환」을 누르면 주최자 프로필로 돌아갑니다.'
+        : '';
+    roleChipEl.hidden = false;
+  }
+
   const introEl = document.getElementById('profile-intro');
   if (introEl) introEl.textContent = profile.introText || '한 줄 소개를 등록해보세요.';
 
   const avatarEl = document.getElementById('profile-avatar');
   if (avatarEl && profile.profileImage) {
-    avatarEl.innerHTML = `<img src="${API_BASE_URL}${profile.profileImage}" alt="프로필 사진" />`;
+    // [추가] 파일이 지워졌거나 경로가 깨진 경우, 깨진 이미지 대신 기본 자리표시가 남게 합니다.
+    avatarEl.innerHTML = `<img src="${API_BASE_URL}${profile.profileImage}" alt="프로필 사진" onerror="this.remove()" />`;
   }
 
   const bioTextEl = document.getElementById('profile-bio-text');
@@ -38,12 +68,14 @@ function renderProfile(profile) {
 
   const bioImageEl = document.getElementById('profile-bio-image');
   if (bioImageEl && profile.bioImage) {
-    bioImageEl.innerHTML = `<img src="${API_BASE_URL}${profile.bioImage}" alt="소개 이미지" />`;
+    bioImageEl.innerHTML = `<img src="${API_BASE_URL}${profile.bioImage}" alt="소개 이미지" onerror="this.remove()" />`;
   }
 }
 
 /* ---------------------- 주최자: 행사현황 + 성공율 ---------------------- */
 function renderHostStats(stats) {
+  // 판매자 모드에서는 호출되지 않지만, 혹시 모를 오호출을 막아둡니다.
+  if (!isHost) return;
   document.getElementById('host-stats-block').hidden = false;
   document.getElementById('host-success-block').hidden = false;
 
@@ -77,6 +109,69 @@ function renderHostStats(stats) {
   rateEl.textContent = `${successPct.toFixed(1)}%`;
   if (successEl) successEl.textContent = `${past} / ${settled}`;
   if (cancelEl) cancelEl.textContent = `${cancel} / ${settled}`;
+}
+
+/* ---------------------- 주최자: 활동 현황 분포 도넛 ---------------------- */
+// [추가] WBS 3.1.5.2 - 내가 등록한 마켓을 모집중/진행/종료/취소 4가지로 나눠
+// 하나의 도넛(conic-gradient)에 이어 붙여 그립니다. 색은 아래 순서대로 시계방향입니다.
+const ACTIVITY_SEGMENTS = [
+  { key: 'recruitingCount', label: '모집중', color: '#2f6b8f', legendId: 'act-recruiting' },
+  { key: 'ongoingCount', label: '진행', color: '#7fa9c4', legendId: 'act-ongoing' },
+  { key: 'closedCount', label: '종료', color: '#cfc6b8', legendId: 'act-closed' },
+  { key: 'cancelledCount', label: '취소', color: '#c98b7a', legendId: 'act-cancelled' },
+];
+
+function renderActivityDonut(data) {
+  const block = document.getElementById('host-activity-block');
+  const donut = document.getElementById('act-donut');
+  if (!block || !donut) return;
+  block.hidden = false;
+
+  const counts = ACTIVITY_SEGMENTS.map((seg) => Number(data[seg.key]) || 0);
+  const total = counts.reduce((sum, n) => sum + n, 0);
+
+  const totalEl = document.getElementById('act-total');
+  if (totalEl) totalEl.textContent = total;
+
+  const noteEl = document.getElementById('act-note');
+
+  // 마켓이 하나도 없을 때는 회색 빈 도넛으로 둡니다.
+  if (total === 0) {
+    ACTIVITY_SEGMENTS.forEach((seg) => {
+      const el = document.getElementById(seg.legendId);
+      if (el) el.textContent = '0건';
+    });
+    donut.style.background = 'conic-gradient(#e5ded2 0 100%)';
+    donut.setAttribute('aria-label', '등록한 마켓이 없습니다.');
+    if (noteEl) noteEl.textContent = '아직 등록한 마켓이 없어요.';
+    return;
+  }
+
+  // 범례에는 건수와 비율을 함께 표시합니다.
+  ACTIVITY_SEGMENTS.forEach((seg, i) => {
+    const el = document.getElementById(seg.legendId);
+    if (el) el.textContent = `${counts[i]}건 (${Math.round((counts[i] / total) * 100)}%)`;
+  });
+
+  // 0건인 구간은 stop을 만들지 않아야 경계선이 생기지 않습니다.
+  let acc = 0;
+  const stops = [];
+  ACTIVITY_SEGMENTS.forEach((seg, i) => {
+    if (counts[i] === 0) return;
+    const start = (acc / total) * 100;
+    acc += counts[i];
+    const end = (acc / total) * 100;
+    stops.push(`${seg.color} ${start.toFixed(2)}% ${end.toFixed(2)}%`);
+  });
+  donut.style.background = `conic-gradient(${stops.join(', ')})`;
+
+  // 도넛은 그림이라 스크린리더가 읽을 수 있게 수치를 넣어둡니다.
+  donut.setAttribute(
+    'aria-label',
+    `전체 ${total}건 중 ` +
+      ACTIVITY_SEGMENTS.map((seg, i) => `${seg.label} ${counts[i]}건`).join(', ')
+  );
+  if (noteEl) noteEl.textContent = `전체 ${total}건 기준`;
 }
 
 /* ---------------------- 판매자: 참여 이력 ---------------------- */
@@ -138,12 +233,26 @@ async function loadProfile() {
 
 async function loadStats() {
   try {
-    const res = await callApi('/users/me/stats');
+    // [수정] 화면 모드를 서버에 알려서, 주최자 계정이 판매자 모드일 때는 참여 이력을 받습니다.
+    const res = await callApi(`/users/me/stats?role=${isHost ? 'host' : 'seller'}`);
     if (res && res.success && res.data) {
       isHost ? renderHostStats(res.data) : renderSellerStats(res.data);
     }
   } catch (err) {
     console.error('행사 현황 조회 오류:', err);
+  }
+}
+
+async function loadActivity() {
+  // 주최한 마켓의 분포이므로 주최자 계정에서만 호출합니다.
+  if (!isHost) return;
+  try {
+    const res = await callApi('/users/me/activity');
+    if (res && res.success && res.data) {
+      renderActivityDonut(res.data);
+    }
+  } catch (err) {
+    console.error('활동 현황 분포 조회 오류:', err);
   }
 }
 
@@ -189,7 +298,9 @@ async function syncCurrentUser() {
     const freshUser = await ensureSession();
     if (freshUser) {
       currentUser = freshUser;
-      isHost = Number(currentUser.userType) === 1;
+      accountIsHost = Number(currentUser.userType) === 1;
+      // 계정 종류가 갱신됐으니 화면 모드도 다시 계산합니다.
+      isHost = getViewRoleSafe() === 'host';
     }
   } catch (err) {
     console.error('세션 동기화 오류:', err);
@@ -201,5 +312,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   await syncCurrentUser();
   loadProfile();
   loadStats();
+  loadActivity();
   loadReviewSummary();
 });

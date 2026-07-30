@@ -371,3 +371,74 @@ a.edit-tab-btn {
 .edit-tab-btn.is-soon:hover {
   border-color: #d8cbb5;
 }
+
+/* ===== [추가] 활동 현황 분포 도넛 (모집중/진행/종료/취소) ===== */
+/* 범례 색상 칩 - .lg 공통 크기는 위 .success-rate-legend .lg 규칙을 그대로 씁니다. */
+.lg-act-recruiting {
+  background: #2f6b8f;
+}
+.lg-act-ongoing {
+  background: #7fa9c4;
+}
+.lg-act-closed {
+  background: #cfc6b8;
+}
+.lg-act-cancelled {
+  background: #c98b7a;
+}
+
+/* 성공율 도넛과 달리 4색이 섞이므로 파란 그림자를 중립색으로 바꿉니다. */
+.success-rate-donut.activity-donut {
+  box-shadow: 0 4px 14px rgba(61, 50, 39, 0.14);
+}
+
+/* 가운데에 "전체 n건"을 두 줄로 표시 */
+.success-rate-center.activity-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.15;
+}
+.success-rate-center.activity-center b {
+  font-size: 28px;
+  font-weight: 700;
+  color: #3d3227;
+  font-variant-numeric: tabular-nums;
+}
+.success-rate-center.activity-center em {
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 600;
+  color: #a1957f;
+}
+
+/* ===== [추가] 주최자 / 판매자 프로필 구분 칩 ===== */
+.profile-role-chip {
+  display: block;
+  width: fit-content;
+  margin-bottom: 9px;
+  padding: 4px 11px;
+  border: 1.5px solid #2f6b8f;
+  border-radius: 999px;
+  background: rgba(47, 107, 143, 0.12);
+  color: #2f6b8f;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+}
+/* 판매자 모드일 때는 헤더 전환 버튼(coral)과 같은 계열로 맞춥니다. */
+.profile-role-chip.is-seller {
+  border-color: #c98b7a;
+  background: rgba(201, 139, 122, 0.14);
+  color: #a9614c;
+}
+
+
+/* ===== [수정] hidden 속성 우선 처리 =====
+   .profile-role-chip 에 display:block 을 주는 바람에, HTML 의 hidden 속성이
+   무시되어 프로필을 못 불러온 화면에서도 칩이 보이고 있었습니다.
+   (브라우저 기본 [hidden]{display:none} 보다 클래스 선택자가 우선하기 때문입니다) */
+[hidden] {
+  display: none !important;
+}

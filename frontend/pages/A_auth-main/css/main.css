@@ -859,3 +859,14 @@ body {
 .meta-item .m-label {
   color: #6b5a48;
 }
+
+
+/* ===== [추가] 마켓 카드의 주최자 닉네임 ===== */
+.market-card .card-host {
+  margin: 6px 0 2px;
+  font-size: 13px;
+  color: #6b5f52;
+}
+.market-card .card-host .profile-link {
+  font-size: 13px;
+}

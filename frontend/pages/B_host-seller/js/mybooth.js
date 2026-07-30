@@ -138,6 +138,8 @@ function renderBoothCard(a) {
         <div data-action="toggle" data-id="${id}" style="cursor:pointer;">
           <div class="item-card-title">${a.marketTitle || '마켓 정보 없음'} · ${a.boothNumber}번 부스${a.title ? ` · ${a.title}` : ''}</div>
           <div class="item-card-meta">${a.itemName || '이름 미입력'}</div>
+          <!-- [추가] 이 부스를 신청한 마켓의 주최자 -->
+          <div class="item-card-meta">주최자: ${ProfileLink.html(a.hostId, a.hostNickname)}</div>
         </div>
         <span class="status-tag ${STATUS_CLASS[status] || 'pending'}">${STATUS_LABEL[status] || status}</span>
       </div>

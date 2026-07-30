@@ -6,6 +6,8 @@
 import pool from '../config/db.js';
 // [닉네임] 회원가입과 같은 규칙(형식/예약어/중복)을 프로필 수정에도 적용합니다.
 import { validateNickname, isNicknameTaken, isDuplicateKeyError } from '../utills/nicknamePolicy.js';
+// [이미지 삭제] 바뀌거나 지워진 이미지의 실제 파일을 정리합니다.
+import { removeProfileImageFile } from '../utills/profileImageStore.js';
 
 // GET /api/users/me/profile (로그인 필요)
 // [추가] 프로필 화면에 필요한 정보(닉네임/프로필사진/한줄소개/소개글/소개이미지 등)를 조회합니다.
@@ -68,6 +70,17 @@ export async function updateMyProfile(req, res) {
       return res.status(409).json({ success: false, data: null, message: '이미 사용 중인 닉네임입니다.' });
     }
 
+    // [추가] 이미지를 바꾸거나 삭제하면 예전 파일이 디스크에 그대로 남았습니다.
+    //        UPDATE 전에 기존 경로를 기억해 두었다가, 저장이 끝난 뒤 정리합니다.
+    let previousImages = null;
+    if (profileImage !== undefined || bioImage !== undefined) {
+      const [[before]] = await pool.query(
+        'SELECT profileImage, bioImage FROM users WHERE userId = ?',
+        [userId]
+      );
+      previousImages = before || null;
+    }
+
     values.push(userId);
     await pool.query(`UPDATE users SET ${fields.join(', ')} WHERE userId = ?`, values);
 
@@ -76,6 +89,18 @@ export async function updateMyProfile(req, res) {
        FROM users WHERE userId = ?`,
       [userId]
     );
+
+    // 저장 후에도 여전히 쓰이는 경로는 지우지 않습니다.
+    // (프로필 사진과 소개 이미지에 같은 파일을 쓰는 경우를 대비)
+    if (previousImages) {
+      const current = rows[0] || {};
+      const stillUsed = new Set([current.profileImage, current.bioImage].filter(Boolean));
+      [previousImages.profileImage, previousImages.bioImage]
+        .filter(Boolean)
+        .filter((oldPath) => !stillUsed.has(oldPath))
+        .forEach((oldPath) => removeProfileImageFile(userId, oldPath));
+    }
+
     return res.status(200).json({ success: true, data: rows[0], message: '프로필이 수정되었습니다.' });
   } catch (error) {
     // 동시에 같은 닉네임으로 수정 요청이 들어온 경우 (users.nickname UNIQUE 인덱스가 최종 방어선)
@@ -96,8 +121,27 @@ export async function updateMyProfile(req, res) {
 export async function getMyEventStats(req, res) {
   const { userId, userType } = req.user;
 
+  // [수정] 주최자 계정은 "판매자 모드"로도 마이페이지를 볼 수 있습니다.
+  //        따라서 계정 종류(userType)가 아니라 화면 모드(role 쿼리)를 기준으로 통계를 나눕니다.
+  //          role=host   -> 주최 행사 현황 (주최자 계정만 가능)
+  //          role=seller -> 참여 이력 (주최자 계정이 판매자 모드로 볼 때도 여기)
+  //          role 없음   -> 예전처럼 계정 종류를 그대로 따름 (기존 호출 하위 호환)
+  const accountIsHost = Number(userType) === 1;
+  const requestedRole = String(req.query.role || '').toLowerCase();
+
+  if (requestedRole === 'host' && !accountIsHost) {
+    return res.status(403).json({
+      success: false,
+      data: null,
+      message: '주최자만 조회할 수 있습니다.',
+    });
+  }
+
+  const viewAsHost =
+    requestedRole === 'host' ? true : requestedRole === 'seller' ? false : accountIsHost;
+
   try {
-    if (Number(userType) === 1) {
+    if (viewAsHost) {
       const [[upcoming]] = await pool.query(
         'SELECT COUNT(*) AS cnt FROM markets WHERE hostId = ? AND isExpired = 0',
         [userId]
@@ -117,7 +161,8 @@ export async function getMyEventStats(req, res) {
       });
     }
 
-    // 수정 — [참여 마켓] 결제 완료(Paid) 건수, [후기] 주최자에게 받은 평가 건수
+    // [판매자 모드] 참여 마켓 = 결제 완료(Paid) 건수, 받은 후기 = 주최자에게 받은 평가 건수
+    // 주최자 계정이 판매자 모드로 볼 때도 같은 쿼리를 그대로 씁니다.
     const [[participated]] = await pool.query(
       `SELECT COUNT(*) AS cnt FROM applications WHERE sellerId = ? AND status = 'Paid'`,
       [userId]
@@ -136,5 +181,74 @@ export async function getMyEventStats(req, res) {
   } catch (error) {
     console.error('행사 현황 조회 오류:', error.message);
     return res.status(500).json({ success: false, data: null, message: '서버 오류로 행사 현황 조회에 실패했습니다.' });
+  }
+}
+
+// GET /api/users/me/activity (로그인 필요, 주최자 전용)
+// [추가] WBS 3.1.5.2 - 마이페이지 "활동 현황" 분포 도넛 차트용 집계.
+// 기존 /users/me/stats(진행중·지난·취소 3숫자)는 그대로 두고, 도넛 전용 엔드포인트를 따로 만들었습니다.
+//
+// 상태 분류(서로 겹치지 않게 4개로 나눕니다. 합계 = 내가 등록한 전체 마켓 수)
+//   - 취소   : isExpired = 2 (주최자가 삭제/취소한 마켓)
+//   - 종료   : isExpired = 1 (마감 처리) 또는 개최 종료일(eventDate_max)이 오늘보다 이전
+//   - 모집중 : 취소·종료가 아니면서 오늘이 모집 시작일~모집 마감일 사이
+//   - 진행   : 나머지 (모집 시작 전 + 모집 마감 후 개최 대기 + 개최 기간 중)
+export async function getMyActivityBreakdown(req, res) {
+  const { userId, userType } = req.user;
+
+  // 이 도넛은 "내가 주최한 마켓"의 분포이므로 판매자 계정에는 표시하지 않습니다.
+  if (Number(userType) !== 1) {
+    return res.status(403).json({
+      success: false,
+      data: null,
+      message: '주최자만 조회할 수 있습니다.',
+    });
+  }
+
+  try {
+    const [[row]] = await pool.query(
+      `SELECT
+         COUNT(*) AS totalCount,
+         SUM(CASE WHEN isExpired = 2 THEN 1 ELSE 0 END) AS cancelledCount,
+         SUM(CASE
+               WHEN isExpired <> 2
+                AND (isExpired = 1
+                     OR (eventDate_max IS NOT NULL AND eventDate_max < CURDATE()))
+               THEN 1 ELSE 0 END) AS closedCount,
+         SUM(CASE
+               WHEN isExpired = 0
+                AND NOT (eventDate_max IS NOT NULL AND eventDate_max < CURDATE())
+                AND recruitmentDate_min IS NOT NULL
+                AND recruitmentDate_max IS NOT NULL
+                AND CURDATE() BETWEEN recruitmentDate_min AND recruitmentDate_max
+               THEN 1 ELSE 0 END) AS recruitingCount
+       FROM markets
+       WHERE hostId = ?`,
+      [userId]
+    );
+
+    // 마켓이 한 건도 없으면 SUM()이 NULL을 돌려주므로 숫자로 정리합니다.
+    const totalCount = Number(row?.totalCount) || 0;
+    const cancelledCount = Number(row?.cancelledCount) || 0;
+    const closedCount = Number(row?.closedCount) || 0;
+    const recruitingCount = Number(row?.recruitingCount) || 0;
+    // 나머지를 "진행"으로 계산해 4개 값의 합이 항상 전체와 일치하게 만듭니다.
+    const ongoingCount = Math.max(
+      totalCount - cancelledCount - closedCount - recruitingCount,
+      0
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: { recruitingCount, ongoingCount, closedCount, cancelledCount, totalCount },
+      message: '활동 현황 분포를 조회했습니다.',
+    });
+  } catch (error) {
+    console.error('활동 현황 분포 조회 오류:', error.message);
+    return res.status(500).json({
+      success: false,
+      data: null,
+      message: '서버 오류로 활동 현황 조회에 실패했습니다.',
+    });
   }
 }

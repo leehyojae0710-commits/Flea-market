@@ -548,3 +548,125 @@ window.Session = {
   closeSessionModal,
   renderLogoutUi,
 };
+
+
+/* ==================================================================
+ * [추가] 닉네임 -> 프로필 링크 공통 헬퍼 (ProfileLink)
+ *
+ * 원래 common/js/profile-link.js 라는 별도 파일에 두었는데,
+ * 그 <script> 태그가 빠진 화면에서는 window.ProfileLink 가 undefined 라
+ * 닉네임이 그냥 회색 글씨로만 나오고 클릭이 안 되는 문제가 있었습니다.
+ * 목록을 그리는 화면은 어차피 전부 api.js 를 불러오므로, 여기로 옮겨서
+ * "데이터를 불러올 수 있는 화면이면 링크도 반드시 동작"하게 만듭니다.
+ *
+ * <a> 가 아니라 <span> 을 쓰는 이유
+ *   메인 화면의 마켓 카드는 카드 전체가 이미 <a> 로 감싸여 있습니다.
+ *   그 안에 <a> 를 또 넣으면 잘못된 HTML 이라 브라우저가 태그를 끊어버립니다.
+ *   그래서 링크처럼 보이는 <span data-profile-user-id> 를 쓰고,
+ *   document 에 붙인 클릭 핸들러가 대신 이동시킵니다.
+ * ================================================================== */
+(function () {
+  'use strict';
+  if (window.ProfileLink) return; // 이미 정의돼 있으면 건드리지 않습니다.
+
+  // [수정] 이 프로젝트의 화면 이동 링크는 전부 확장자 없이 씁니다.
+  //          예) market-detail?marketId=8461, booth-apply?marketId=..., payment?applicationId=...
+  //        개발 서버가 'X.html?q=1' 요청을 'X' 로 리다이렉트하면서 쿼리스트링을 떨어뜨리기 때문에,
+  //        user-profile.html?userId=5 로 보내면 userId 가 사라진 채 도착합니다.
+  //        (프로필 화면에서 "주소에 사용자 번호가 없어요" 가 뜨던 원인)
+  //        지금 보고 있는 주소가 .html 을 쓰고 있으면 .html 을, 아니면 확장자 없는 주소를 씁니다.
+  var PROFILE_PAGE_CLEAN = '/pages/A_auth-main/user-profile';
+  var PROFILE_PAGE_HTML = '/pages/A_auth-main/user-profile.html';
+
+  function profilePagePath() {
+    return /\.html$/i.test(window.location.pathname) ? PROFILE_PAGE_HTML : PROFILE_PAGE_CLEAN;
+  }
+
+  // 프론트 루트를 역산합니다. (Live Server 루트가 하위 폴더인 경우도 있어 고정 경로 사용 불가)
+  function getSiteRoot() {
+    var p = window.location.pathname;
+    var idx = p.toLowerCase().indexOf('/pages/');
+    if (idx >= 0) return p.slice(0, idx);
+    return p.replace(/\/[^/]*$/, '');
+  }
+
+  function escapeHtml(value) {
+    return String(value === null || value === undefined ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function profileUrl(userId) {
+    return getSiteRoot() + profilePagePath() + '?userId=' + encodeURIComponent(userId);
+  }
+
+  /** 닉네임 링크 HTML. userId 가 없으면 링크 없이 텍스트만 돌려줍니다. */
+  function profileLinkHtml(userId, nickname, options) {
+    var opts = options || {};
+    var label = nickname || opts.fallback || (userId ? '#' + userId : '알 수 없음');
+    if (!userId) return escapeHtml(label);
+
+    return (
+      '<span class="profile-link" role="link" tabindex="0" ' +
+      'data-profile-user-id="' + escapeHtml(userId) + '" ' +
+      'title="' + escapeHtml(label) + '님의 프로필 보기">' +
+      escapeHtml(label) +
+      '</span>'
+    );
+  }
+
+  /** 「프로필 보기」 버튼 HTML. 닉네임 클릭이 눈에 안 띌 때 함께 씁니다. */
+  function profileButtonHtml(userId, text) {
+    if (!userId) return '';
+    return (
+      '<button type="button" class="btn btn-outline btn-sm" ' +
+      'data-profile-user-id="' + escapeHtml(userId) + '">' +
+      escapeHtml(text || '프로필 보기') +
+      '</button>'
+    );
+  }
+
+  function go(userId) {
+    if (!userId) return;
+    window.location.href = profileUrl(userId);
+  }
+
+  function findTarget(node) {
+    return node && node.closest ? node.closest('[data-profile-user-id]') : null;
+  }
+
+  function bind() {
+    document.addEventListener('click', function (e) {
+      var el = findTarget(e.target);
+      if (!el) return;
+      e.preventDefault();   // 카드 전체 <a> 의 기본 이동을 막습니다.
+      e.stopPropagation();
+      go(el.getAttribute('data-profile-user-id'));
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      var el = findTarget(e.target);
+      if (!el) return;
+      e.preventDefault();
+      e.stopPropagation();
+      go(el.getAttribute('data-profile-user-id'));
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bind);
+  } else {
+    bind();
+  }
+
+  window.ProfileLink = {
+    url: profileUrl,
+    html: profileLinkHtml,
+    button: profileButtonHtml,
+    escapeHtml: escapeHtml,
+  };
+})();
