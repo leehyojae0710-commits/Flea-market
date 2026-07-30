@@ -59,7 +59,8 @@ function renderProfile(profile) {
 
   const avatarEl = document.getElementById('profile-avatar');
   if (avatarEl && profile.profileImage) {
-    avatarEl.innerHTML = `<img src="${API_BASE_URL}${profile.profileImage}" alt="프로필 사진" />`;
+    // [추가] 파일이 지워졌거나 경로가 깨진 경우, 깨진 이미지 대신 기본 자리표시가 남게 합니다.
+    avatarEl.innerHTML = `<img src="${API_BASE_URL}${profile.profileImage}" alt="프로필 사진" onerror="this.remove()" />`;
   }
 
   const bioTextEl = document.getElementById('profile-bio-text');
@@ -67,7 +68,7 @@ function renderProfile(profile) {
 
   const bioImageEl = document.getElementById('profile-bio-image');
   if (bioImageEl && profile.bioImage) {
-    bioImageEl.innerHTML = `<img src="${API_BASE_URL}${profile.bioImage}" alt="소개 이미지" />`;
+    bioImageEl.innerHTML = `<img src="${API_BASE_URL}${profile.bioImage}" alt="소개 이미지" onerror="this.remove()" />`;
   }
 }
 

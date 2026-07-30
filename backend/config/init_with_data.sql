@@ -92,7 +92,16 @@ CREATE TABLE `users` (
   `password` varchar(255) NOT NULL,
   `phone` varchar(20) NOT NULL,
   `email` varchar(100) NOT NULL,
-  `region` varchar(50) NOT NULL
+  `region` varchar(50) NOT NULL,
+  -- [추가] 마이페이지 프로필 컬럼.
+  -- 예전에는 이 파일에 없어서, 새 PC에서 DB를 처음 만들면 닉네임이 없어 회원가입부터 실패했습니다.
+  `nickname` varchar(50) DEFAULT NULL,
+  `profileImage` varchar(255) DEFAULT NULL,
+  `introText` varchar(150) DEFAULT NULL,
+  `bioText` text,
+  `bioImage` varchar(255) DEFAULT NULL,
+  -- 닉네임 중복은 SELECT 검사만으로는 동시 요청을 막지 못하므로 UNIQUE 로 최종 방어합니다.
+  UNIQUE KEY `uk_users_nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -153,3 +162,27 @@ CREATE TABLE IF NOT EXISTS `payments` (
   KEY `applicationId` (`applicationId`),
   CONSTRAINT `payments_ibfk_1` FOREIGN KEY (`applicationId`) REFERENCES `applications` (`applicationId`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ------------------------------------------------------
+-- [추가] 마이페이지 프로필 컬럼 (nickname / profileImage / introText / bioText / bioImage)
+--
+-- 위 CREATE TABLE users 에 이미 포함되어 있으므로, DB를 새로 만드는 경우엔 아래를 실행할 필요가 없습니다.
+-- 이미 DB를 만들어 둔 사람만 아래 중 하나를 선택해서 실행하세요.
+--
+--   방법 1 (권장) : cd backend
+--                  node scripts/migrate-add-user-profile-fields.js
+--                  node scripts/migrate-add-nickname-unique.js
+--                  -> 컬럼 추가 + 빈 닉네임 자동 부여 + 중복 닉네임 분리 + UNIQUE 인덱스까지 한 번에 처리합니다.
+--
+--   방법 2        : 아래 ALTER 문을 직접 실행 (MySQL 8 에서는 ADD COLUMN IF NOT EXISTS 를 지원하지 않으므로,
+--                  이미 있는 컬럼은 오류가 납니다. 그럴 땐 해당 줄만 건너뛰고 실행하세요.)
+-- ------------------------------------------------------
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname VARCHAR(50) NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS profileImage VARCHAR(255) NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS introText VARCHAR(150) NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bioText TEXT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bioImage VARCHAR(255) NULL;
+-- UNIQUE 인덱스는 기존 데이터에 중복 닉네임이 있으면 실패합니다.
+-- 반드시 migrate-add-nickname-unique.js 로 정리한 뒤 생성하세요.
+-- ALTER TABLE users ADD UNIQUE KEY uk_users_nickname (nickname);

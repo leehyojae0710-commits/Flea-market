@@ -6,6 +6,8 @@
 import pool from '../config/db.js';
 // [닉네임] 회원가입과 같은 규칙(형식/예약어/중복)을 프로필 수정에도 적용합니다.
 import { validateNickname, isNicknameTaken, isDuplicateKeyError } from '../utills/nicknamePolicy.js';
+// [이미지 삭제] 바뀌거나 지워진 이미지의 실제 파일을 정리합니다.
+import { removeProfileImageFile } from '../utills/profileImageStore.js';
 
 // GET /api/users/me/profile (로그인 필요)
 // [추가] 프로필 화면에 필요한 정보(닉네임/프로필사진/한줄소개/소개글/소개이미지 등)를 조회합니다.
@@ -68,6 +70,17 @@ export async function updateMyProfile(req, res) {
       return res.status(409).json({ success: false, data: null, message: '이미 사용 중인 닉네임입니다.' });
     }
 
+    // [추가] 이미지를 바꾸거나 삭제하면 예전 파일이 디스크에 그대로 남았습니다.
+    //        UPDATE 전에 기존 경로를 기억해 두었다가, 저장이 끝난 뒤 정리합니다.
+    let previousImages = null;
+    if (profileImage !== undefined || bioImage !== undefined) {
+      const [[before]] = await pool.query(
+        'SELECT profileImage, bioImage FROM users WHERE userId = ?',
+        [userId]
+      );
+      previousImages = before || null;
+    }
+
     values.push(userId);
     await pool.query(`UPDATE users SET ${fields.join(', ')} WHERE userId = ?`, values);
 
@@ -76,6 +89,18 @@ export async function updateMyProfile(req, res) {
        FROM users WHERE userId = ?`,
       [userId]
     );
+
+    // 저장 후에도 여전히 쓰이는 경로는 지우지 않습니다.
+    // (프로필 사진과 소개 이미지에 같은 파일을 쓰는 경우를 대비)
+    if (previousImages) {
+      const current = rows[0] || {};
+      const stillUsed = new Set([current.profileImage, current.bioImage].filter(Boolean));
+      [previousImages.profileImage, previousImages.bioImage]
+        .filter(Boolean)
+        .filter((oldPath) => !stillUsed.has(oldPath))
+        .forEach((oldPath) => removeProfileImageFile(userId, oldPath));
+    }
+
     return res.status(200).json({ success: true, data: rows[0], message: '프로필이 수정되었습니다.' });
   } catch (error) {
     // 동시에 같은 닉네임으로 수정 요청이 들어온 경우 (users.nickname UNIQUE 인덱스가 최종 방어선)

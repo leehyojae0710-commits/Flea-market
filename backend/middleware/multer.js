@@ -86,6 +86,34 @@ const profileImageStorage = multer.diskStorage({
     }
 });
 
-export const uploadProfileImage = multer({ storage: profileImageStorage });
+// [추가] 업로드 검증
+//   기존에는 확장자 검사를 filename 콜백에서만 했습니다. 그 자리에서 던진 에러는
+//   라우트에서 잡히지 않아 500(또는 빈 응답)으로 나갔고, 용량 제한도 없어서
+//   수십 MB 짜리 파일도 그대로 저장됐습니다.
+//   -> fileFilter(형식 검사) + limits(용량 제한)로 옮기고,
+//      에러 응답은 middleware/uploadErrorHandler.js 의 handleUpload 가 처리합니다.
+export const PROFILE_IMAGE_MAX_BYTES = 5 * 1024 * 1024; // 5MB
+const ALLOWED_IMAGE_EXT = ['.jpg', '.jpeg', '.png'];
+const ALLOWED_IMAGE_MIME = ['image/jpeg', 'image/pjpeg', 'image/png'];
+
+function profileImageFileFilter(req, file, cb) {
+    const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    const ext = path.extname(originalName).toLowerCase();
+
+    if (!ALLOWED_IMAGE_EXT.includes(ext)) {
+        return cb(new Error('.jpg, .jpeg, .png 파일만 올릴 수 있습니다.'));
+    }
+    // 확장자만 바꾼 파일을 거르기 위해 MIME 타입도 함께 확인합니다.
+    if (!ALLOWED_IMAGE_MIME.includes(String(file.mimetype).toLowerCase())) {
+        return cb(new Error('이미지 파일(jpg, png)만 올릴 수 있습니다.'));
+    }
+    cb(null, true);
+}
+
+export const uploadProfileImage = multer({
+    storage: profileImageStorage,
+    fileFilter: profileImageFileFilter,
+    limits: { fileSize: PROFILE_IMAGE_MAX_BYTES, files: 1 },
+});
 
 export default upload;
