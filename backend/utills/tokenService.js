@@ -26,6 +26,8 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import pool from '../config/db.js';
+// [JWT activeRole] 역할 정규화 규칙을 authRoutes 와 공유합니다.
+import { normalizeActiveRole } from './rolePolicy.js';
 
 /* ------------------------------------------------------------------ */
 /* 설정 - 전부 "없으면 기본값" 이라 .env 수정이 필요 없습니다          */
@@ -205,6 +207,44 @@ export async function isSessionStoreReady() {
 }
 
 /* ------------------------------------------------------------------ */
+/* users.activeRole 컬럼 존재 여부 (1회 검사 후 캐시)                  */
+/* ------------------------------------------------------------------ */
+
+// 팀 DB 마다 마이그레이션 적용 시점이 달라서, 컬럼이 없어도 서비스가 죽지 않아야 합니다.
+// 컬럼이 없으면 activeRole 은 계정 종류(userType)로만 결정됩니다.
+let activeRoleColumnReady = null;
+let activeRoleCheckedAt = 0;
+
+// "컬럼 없음"은 영구 캐시하지 않습니다.
+// 마이그레이션을 돌린 뒤 서버를 재시작하지 않아도 1분 안에 자동으로 인식하게 하기 위함입니다.
+const ACTIVE_ROLE_RECHECK_MS = 60 * 1000;
+
+export async function hasActiveRoleColumn() {
+  if (activeRoleColumnReady === true) return true;
+  if (activeRoleColumnReady === false && Date.now() - activeRoleCheckedAt < ACTIVE_ROLE_RECHECK_MS) {
+    return false;
+  }
+  try {
+    const [rows] = await pool.query(
+      `SELECT COUNT(*) AS cnt FROM information_schema.columns
+        WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'activeRole'`
+    );
+    activeRoleColumnReady = rows[0].cnt > 0;
+    activeRoleCheckedAt = Date.now();
+    if (!activeRoleColumnReady) {
+      console.warn(
+        '⚠️  [tokenService] users.activeRole 컬럼이 없어 역할 전환이 저장되지 않습니다.\n' +
+        '    켜려면: cd backend && node scripts/migrate-add-active-role.js'
+      );
+    }
+  } catch (error) {
+    activeRoleColumnReady = false;
+    activeRoleCheckedAt = Date.now();
+  }
+  return activeRoleColumnReady;
+}
+
+/* ------------------------------------------------------------------ */
 /* 액세스 토큰                                                         */
 /* ------------------------------------------------------------------ */
 
@@ -212,10 +252,38 @@ export async function isSessionStoreReady() {
  * 액세스 토큰 발급.
  * payload 에 sid(세션 ID)를 넣어 두면, 로그아웃된 세션의 토큰을 서버가 즉시 거부할 수 있습니다.
  */
-export function signAccessToken({ userId, userType, sid = null, ttl = null }) {
-  const payload = { userId, userType: Number(userType), typ: 'access' };
+export function signAccessToken({ userId, userType, activeRole = null, sid = null, ttl = null }) {
+  const payload = {
+    userId,
+    userType: Number(userType),
+    // [JWT activeRole] 화면 모드를 토큰에 함께 서명해서, 서버가 클라이언트가 보낸 값을 믿지 않아도 되게 합니다.
+    activeRole: normalizeActiveRole(userType, activeRole),
+    typ: 'access',
+  };
   if (sid) payload.sid = sid;
   return jwt.sign(payload, JWT_SECRET, { expiresIn: ttl || resolveAccessTtl(!!sid) });
+}
+
+/**
+ * [JWT activeRole - 신규] 세션은 그대로 두고 액세스 토큰만 다시 발급합니다.
+ *
+ * 역할 전환(PATCH /auth/toggle-role)에서 사용합니다.
+ * activeRole 이 토큰에 들어가는 순간 토큰은 "그 시점의 스냅샷"이 되기 때문에,
+ * DB 만 UPDATE 하고 토큰을 두면 만료(기본 2h) 전까지 서버는 계속 옛 역할로 인식합니다.
+ * 리프레시 토큰과 세션(sid)은 유지되므로 다른 기기의 로그인 상태에는 영향이 없습니다.
+ */
+export function reissueAccessToken({ userId, userType, activeRole = null, sid = null }) {
+  const ttl = resolveAccessTtl(!!sid);
+  const ttlSec = ttlToSeconds(ttl);
+  return {
+    token: signAccessToken({ userId, userType, activeRole, sid, ttl }),
+    refreshToken: null, // 기존 리프레시 토큰을 그대로 사용합니다. (프론트는 null 이면 덮어쓰지 않음)
+    sessionId: sid,
+    expiresIn: ttlSec,
+    expiresAt: new Date(Date.now() + ttlSec * 1000).toISOString(),
+    refreshExpiresAt: null,
+    activeRole: normalizeActiveRole(userType, activeRole),
+  };
 }
 
 /**
@@ -249,19 +317,20 @@ export function extractBearerToken(req) {
  * 로그인/회원가입 시 새 세션을 만들고 액세스 + 리프레시 토큰을 함께 발급합니다.
  * 테이블이 없으면 리프레시 토큰 없이 "7일짜리 액세스 토큰"만 돌려줍니다. (기존 동작과 동일)
  */
-export async function issueSession({ userId, userType, req = null }) {
+export async function issueSession({ userId, userType, activeRole = null, req = null }) {
   const ready = await isSessionStoreReady();
 
   if (!ready) {
     const ttl = resolveAccessTtl(false);
     const ttlSec = ttlToSeconds(ttl);
     return {
-      token: signAccessToken({ userId, userType, ttl }),
+      token: signAccessToken({ userId, userType, activeRole, ttl }),
       refreshToken: null,
       sessionId: null,
       expiresIn: ttlSec,
       expiresAt: new Date(Date.now() + ttlSec * 1000).toISOString(),
       refreshExpiresAt: null,
+      activeRole: normalizeActiveRole(userType, activeRole),
       degraded: true,
     };
   }
@@ -290,12 +359,13 @@ export async function issueSession({ userId, userType, req = null }) {
     const ttl = resolveAccessTtl(false);
     const ttlSec = ttlToSeconds(ttl);
     return {
-      token: signAccessToken({ userId, userType, ttl }),
+      token: signAccessToken({ userId, userType, activeRole, ttl }),
       refreshToken: null,
       sessionId: null,
       expiresIn: ttlSec,
       expiresAt: new Date(Date.now() + ttlSec * 1000).toISOString(),
       refreshExpiresAt: null,
+      activeRole: normalizeActiveRole(userType, activeRole),
       degraded: true,
     };
   }
@@ -304,12 +374,13 @@ export async function issueSession({ userId, userType, req = null }) {
   const ttlSec = ttlToSeconds(ttl);
 
   return {
-    token: signAccessToken({ userId, userType, sid, ttl }),
+    token: signAccessToken({ userId, userType, activeRole, sid, ttl }),
     refreshToken,
     sessionId: sid,
     expiresIn: ttlSec,
     expiresAt: new Date(Date.now() + ttlSec * 1000).toISOString(),
     refreshExpiresAt: refreshExpiresAt.toISOString(),
+    activeRole: normalizeActiveRole(userType, activeRole),
     degraded: false,
   };
 }
@@ -322,8 +393,12 @@ export async function refreshSession(refreshToken, req = null) {
   if (!refreshToken) return { ok: false, code: 'REFRESH_REQUIRED' };
   if (!(await isSessionStoreReady())) return { ok: false, code: 'REFRESH_UNAVAILABLE' };
 
+  // [JWT activeRole] DB 의 activeRole 을 함께 읽어 재발급 토큰에도 역할을 유지시킵니다.
+  //                   (다른 탭/기기에서 역할을 바꿔도 재발급 시점에 자동으로 동기화됩니다.)
+  const roleColumn = (await hasActiveRoleColumn()) ? ', u.activeRole' : '';
+
   const [rows] = await pool.query(
-    `SELECT s.sessionId, s.userId, s.expiresAt, s.revokedAt, u.userType
+    `SELECT s.sessionId, s.userId, s.expiresAt, s.revokedAt, u.userType${roleColumn}
        FROM ${SESSION_TABLE} s
        JOIN users u ON u.userId = s.userId
       WHERE s.refreshTokenHash = ?
@@ -354,13 +429,21 @@ export async function refreshSession(refreshToken, req = null) {
 
   const ttl = resolveAccessTtl(true);
   const ttlSec = ttlToSeconds(ttl);
+  const activeRole = normalizeActiveRole(session.userType, session.activeRole);
 
   return {
     ok: true,
     userId: session.userId,
     userType: session.userType,
+    activeRole,
     sessionId: session.sessionId,
-    token: signAccessToken({ userId: session.userId, userType: session.userType, sid: session.sessionId, ttl }),
+    token: signAccessToken({
+      userId: session.userId,
+      userType: session.userType,
+      activeRole,
+      sid: session.sessionId,
+      ttl,
+    }),
     refreshToken: nextRefreshToken,
     expiresIn: ttlSec,
     expiresAt: new Date(Date.now() + ttlSec * 1000).toISOString(),
@@ -463,6 +546,7 @@ export default {
   REFRESH_TOKEN_TTL_DAYS,
   ttlToSeconds,
   signAccessToken,
+  reissueAccessToken,
   verifyAccessToken,
   extractBearerToken,
   issueSession,
@@ -475,4 +559,5 @@ export default {
   listActiveSessions,
   cleanupExpiredSessions,
   isSessionStoreReady,
+  hasActiveRoleColumn,
 };

@@ -67,8 +67,18 @@ const options = {
         },
         ToggleRoleData: {
           type: 'object',
+          description:
+            '역할 전환 결과. activeRole 이 액세스 토큰 payload 에도 서명되므로, 전환 시 새 토큰을 함께 내려줍니다.',
           properties: {
             activeRole: { type: 'string', enum: ['host', 'seller'] },
+            token: { type: 'string', description: '[JWT activeRole] 새 역할이 반영된 액세스 토큰' },
+            refreshToken: { type: 'string', nullable: true, description: '전환 시에는 갱신하지 않으므로 null' },
+            tokenType: { type: 'string', example: 'Bearer' },
+            expiresIn: { type: 'integer', example: 7200 },
+            expiresAt: { type: 'string', format: 'date-time' },
+            sessionId: { type: 'string', nullable: true, description: '기존 세션을 그대로 유지합니다.' },
+            user: { $ref: '#/components/schemas/User' },
+            landingPath: { type: 'string', example: '/index.html' },
           },
         },
         Market: {

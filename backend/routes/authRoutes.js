@@ -12,6 +12,19 @@
 //     6) GET  /auth/sessions  - 로그인 중인 기기 목록
 //     7) JWT_SECRET 하드코딩 제거 -> utills/tokenService.js 로 일원화
 //
+// [JWT activeRole 포함 및 재발급 보완 - A안] 이번 변경분
+//   1) 로그인/회원가입/재발급 시 activeRole 을 액세스 토큰 payload 에 함께 서명
+//      -> 서버가 화면 모드를 클라이언트(sessionStorage / ?role= 쿼리)에 의존하지 않고 스스로 판단합니다.
+//   2) PATCH /auth/toggle-role 이 DB UPDATE 후 "새 액세스 토큰"까지 내려줌
+//      -> 토큰에 역할이 들어간 이상, 재발급이 없으면 만료(기본 2h) 전까지 옛 역할이 그대로 유지됩니다.
+//   3) toggle-role 이 목표 역할 지정(body.activeRole)을 지원 (기존처럼 body 없이 부르면 토글)
+//      -> DB 값과 화면 값이 어긋나 있을 때 "전환했는데 그대로"가 나오지 않게 합니다.
+//   4) 회원가입 시 activeRole 초기값 저장 (주최자=host / 판매자=seller)
+//      -> users.activeRole 기본값이 'seller' 라 모든 주최자 계정이 판매자로 저장되던 문제를 막습니다.
+//   5) users.activeRole 컬럼이 없는 DB 에서도 역할 전환이 동작하도록 축소 모드 지원
+//      -> DB 저장만 건너뛰고 토큰은 재발급합니다. (이번 로그인 동안만 유지)
+//   ※ A안이므로 인가(권한 검사)는 기존대로 userType 기준입니다. activeRole 로 API를 막지 않습니다.
+//
 // 회원가입/로그인/닉네임 중복확인/역할전환의 기존 동작과 응답 필드는 그대로 유지했습니다.
 // (기존 필드에 refreshToken, expiresIn, expiresAt 가 "추가"만 된 형태라 기존 프론트도 그대로 동작합니다.)
 
@@ -20,6 +33,8 @@ import bcrypt from 'bcrypt';
 import pool from '../config/db.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 import { isHostType, USER_TYPE } from '../middleware/roleGuard.js';
+// [JWT activeRole] 역할 정규화 규칙은 utills/rolePolicy.js 한 곳에서 관리합니다.
+import { normalizeActiveRole, ROLE } from '../utills/rolePolicy.js';
 import { validateRegisterInput } from '../middleware/registerValidationMiddleware.js';
 // [닉네임] 형식/예약어/중복 규칙은 utills/nicknamePolicy.js 한 곳에서 관리합니다.
 import {
@@ -37,6 +52,8 @@ import {
   listActiveSessions,
   verifyAccessToken,
   extractBearerToken,
+  reissueAccessToken,
+  hasActiveRoleColumn,
   ACCESS_TOKEN_TTL,
   REFRESH_TOKEN_TTL_DAYS,
 } from '../utills/tokenService.js';
@@ -60,14 +77,23 @@ function publicUser(row) {
   };
 }
 
+// [C-01] activeRole 정규화 함수는 utills/rolePolicy.js 로 옮겼습니다.
+//   (tokenService / authMiddleware / profileController 가 같은 규칙을 써야 하는데
+//    이 파일 안에만 있으면 공유할 수 없어서, 토큰과 응답의 역할 값이 어긋날 수 있었습니다.)
+
 /**
- * [C-01] activeRole 정규화
- * - 주최자(userType 1)는 host / seller 를 모두 쓸 수 있습니다. (주최자 -> 판매자 겸용 허용)
- * - 판매자(userType 0)는 DB에 어떤 값이 들어 있어도 항상 seller 로 고정합니다.
+ * [JWT activeRole] users.activeRole 을 안전하게 읽습니다.
+ * 컬럼이 없는 팀 DB 에서도 로그인이 실패하지 않도록 계정 종류 기준으로 폴백합니다.
  */
-function normalizeActiveRole(userType, activeRole) {
-  if (!isHostType(userType)) return 'seller';
-  return activeRole === 'seller' ? 'seller' : 'host';
+async function readActiveRole(userId, userType) {
+  if (!isHostType(userType)) return ROLE.SELLER;
+  if (!(await hasActiveRoleColumn())) return ROLE.HOST;
+  try {
+    const [rows] = await pool.query('SELECT activeRole FROM users WHERE userId = ?', [userId]);
+    return normalizeActiveRole(userType, rows[0]?.activeRole);
+  } catch (error) {
+    return ROLE.HOST;
+  }
 }
 
 /**
@@ -92,6 +118,8 @@ function authPayload(session, user) {
     expiresAt: session.expiresAt,               // ISO 문자열 (프론트 사전 갱신용)
     refreshExpiresAt: session.refreshExpiresAt,
     sessionId: session.sessionId,
+    // [JWT activeRole] 토큰 안에 서명된 역할과 같은 값을 최상위에도 내려줍니다. (프론트가 파싱하지 않아도 되도록)
+    activeRole: session.activeRole ?? (user ? publicUser(user).activeRole : undefined),
     user: user ? publicUser(user) : undefined,
     landingPath: landingPathFor(),
   };
@@ -202,8 +230,20 @@ router.post('/register', validateRegisterInput, async (req, res) => {
 
     const userId = result.insertId;
 
+    // [JWT activeRole] 가입 직후 초기 화면 모드를 정합니다. (주최자 -> host / 판매자 -> seller)
+    //   users.activeRole 컬럼 기본값이 'seller' 라서, 저장하지 않으면 주최자 계정도 판매자로 시작합니다.
+    //   컬럼이 없는 팀 DB 에서는 조용히 건너뛰고 가입은 정상 처리합니다.
+    const initialRole = isHostType(userTypeNum) ? ROLE.HOST : ROLE.SELLER;
+    if (await hasActiveRoleColumn()) {
+      try {
+        await pool.query('UPDATE users SET activeRole = ? WHERE userId = ?', [initialRole, userId]);
+      } catch (roleError) {
+        console.warn('[register] activeRole 초기화 실패(무시하고 진행):', roleError.message);
+      }
+    }
+
     // [세션/토큰 발급] 가입 즉시 세션을 만들고 액세스 + 리프레시 토큰을 함께 내려줍니다.
-    const session = await issueSession({ userId, userType: userTypeNum, req });
+    const session = await issueSession({ userId, userType: userTypeNum, activeRole: initialRole, req });
 
     return res.status(201).json({
       success: true,
@@ -214,7 +254,7 @@ router.post('/register', validateRegisterInput, async (req, res) => {
         phone,
         region,
         nickname,
-        activeRole: null,
+        activeRole: initialRole,
       }),
       message: '회원가입이 완료되었습니다.',
     });
@@ -374,7 +414,13 @@ router.post('/login', async (req, res) => {
     user.activeRole = normalizeActiveRole(user.userType, user.activeRole);
 
     // [세션/토큰 발급] 기기별 세션을 만들고 토큰 2종을 발급합니다.
-    const session = await issueSession({ userId: user.userId, userType: user.userType, req });
+    // [JWT activeRole] 위에서 정규화한 화면 모드를 액세스 토큰에도 함께 서명합니다.
+    const session = await issueSession({
+      userId: user.userId,
+      userType: user.userType,
+      activeRole: user.activeRole,
+      req,
+    });
 
     return res.status(200).json({
       success: true,
@@ -683,11 +729,26 @@ router.get('/sessions', authenticateToken, async (req, res) => {
  * /auth/toggle-role:
  *   patch:
  *     summary: 역할 전환 (주최자 계정 전용, 주최자 <-> 판매자 단방향 정책)
+ *     description: |
+ *       화면 모드를 바꾸고 **새 액세스 토큰을 함께 재발급**합니다.
+ *       액세스 토큰 payload 에 activeRole 이 들어 있어서, 재발급하지 않으면 만료 전까지 옛 역할이 유지됩니다.
+ *       리프레시 토큰과 세션(sessionId)은 그대로 유지되므로 다른 기기의 로그인 상태에는 영향이 없습니다.
  *     tags: [Auth]
  *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               activeRole:
+ *                 type: string
+ *                 enum: [host, seller]
+ *                 description: "목표 역할. 생략하면 현재 값의 반대로 토글합니다."
  *     responses:
  *       200:
- *         description: 역할 전환 성공
+ *         description: 역할 전환 성공 (새 액세스 토큰 포함)
  *         content:
  *           application/json:
  *             schema:
@@ -720,16 +781,25 @@ router.get('/sessions', authenticateToken, async (req, res) => {
 router.patch('/toggle-role', authenticateToken, async (req, res) => {
   const { userId } = req.user;
 
+  // [JWT activeRole] 목표 역할을 명시할 수 있습니다.
+  //   기존처럼 body 없이 호출하면 현재 값의 반대로 토글합니다. (하위 호환)
+  //   목표 지정을 지원하는 이유: DB 값과 화면 값이 어긋난 상태에서 토글만 하면
+  //   "판매자로 전환을 눌렀는데 주최자로 바뀌는" 현상이 생깁니다.
+  const requestedRole = String(req.body?.activeRole || '').toLowerCase();
+  const hasTarget = requestedRole === ROLE.HOST || requestedRole === ROLE.SELLER;
+
   try {
     const [rows] = await pool.query('SELECT userType FROM users WHERE userId = ?', [userId]);
     if (rows.length === 0) {
       return res.status(404).json({ success: false, data: null, message: '사용자를 찾을 수 없습니다.' });
     }
 
+    const userType = rows[0].userType;
+
     // [C-01] 역할 전환은 단방향입니다.
     //  - 주최자 계정: host <-> seller 전환 허용 (주최자는 판매자도 될 수 있음)
     //  - 판매자 계정: 전환 자체를 차단 (판매자는 주최자가 될 수 없음)
-    if (!isHostType(rows[0].userType)) {
+    if (!isHostType(userType)) {
       return res.status(403).json({
         success: false,
         data: null,
@@ -737,26 +807,56 @@ router.patch('/toggle-role', authenticateToken, async (req, res) => {
       });
     }
 
-    // activeRole 은 선택 컬럼이라, 없으면 안내 메시지를 주고 로그인 흐름에는 영향을 주지 않습니다.
-    let currentRole = 'host';
-    try {
-      const [roleRows] = await pool.query('SELECT activeRole FROM users WHERE userId = ?', [userId]);
-      currentRole = roleRows[0]?.activeRole === 'seller' ? 'seller' : 'host';
-    } catch (columnError) {
-      return res.status(500).json({
-        success: false,
-        data: null,
-        message: 'users.activeRole 컬럼이 없습니다. backend 에서 node scripts/migrate-add-swagger-columns.js 를 한 번 실행해 주세요.',
-      });
+    // [축소 모드] users.activeRole 은 선택 컬럼입니다.
+    //   컬럼이 없다고 전환 자체를 막으면, 마이그레이션을 못 돌린 팀 DB 에서는
+    //   "주최자가 판매자가 되는 기능"이 통째로 죽어 버립니다. (auth_sessions 처리 방식과 동일하게 맞춤)
+    //   -> 컬럼이 없으면 DB 저장만 건너뛰고, 토큰 재발급은 그대로 진행합니다.
+    //      이번 로그인 세션 동안은 정상 동작하고, 다시 로그인하면 기본 역할로 돌아갑니다.
+    const columnReady = await hasActiveRoleColumn();
+
+    // 컬럼이 없을 때는 DB 대신 "지금 토큰에 서명된 역할"을 현재 값으로 봅니다.
+    const currentRole = columnReady
+      ? await readActiveRole(userId, userType)
+      : normalizeActiveRole(userType, req.user.activeRole);
+
+    const nextRole = hasTarget ? requestedRole : (currentRole === ROLE.HOST ? ROLE.SELLER : ROLE.HOST);
+
+    let persisted = false;
+    if (columnReady) {
+      try {
+        if (nextRole !== currentRole) {
+          await pool.query('UPDATE users SET activeRole = ? WHERE userId = ?', [nextRole, userId]);
+        }
+        persisted = true;
+      } catch (roleError) {
+        console.warn('[toggle-role] activeRole 저장 실패(토큰 재발급은 계속 진행):', roleError.message);
+      }
     }
 
-    const nextRole = currentRole === 'host' ? 'seller' : 'host';
-    await pool.query('UPDATE users SET activeRole = ? WHERE userId = ?', [nextRole, userId]);
+    // [JWT activeRole 재발급] 토큰 안의 역할이 옛 값으로 남지 않도록 액세스 토큰을 즉시 다시 발급합니다.
+    //   세션(sid)과 리프레시 토큰은 유지되므로, 다른 기기가 로그아웃되지 않습니다.
+    //   (다른 기기는 다음 재발급 시 refreshSession 이 DB 를 읽어 자동으로 같은 역할로 맞춰집니다.)
+    const session = reissueAccessToken({
+      userId,
+      userType,
+      activeRole: nextRole,
+      sid: req.user.sid || null,
+    });
+
+    const [userRows] = await pool.query('SELECT * FROM users WHERE userId = ?', [userId]);
+    const user = userRows[0] || null;
+    if (user) user.activeRole = nextRole;
+
+    const roleLabel = nextRole === ROLE.HOST ? '주최자' : '판매자';
 
     return res.status(200).json({
       success: true,
-      data: { activeRole: nextRole },
-      message: `${nextRole === 'host' ? '주최자' : '판매자'} 모드로 전환했습니다.`,
+      // 기존 응답 필드(activeRole)를 유지한 채 토큰 관련 필드를 추가만 했습니다.
+      data: { ...authPayload(session, user), persisted },
+      message: persisted
+        ? `${roleLabel} 모드로 전환했습니다.`
+        : `${roleLabel} 모드로 전환했습니다. (users.activeRole 컬럼이 없어 이번 로그인 동안만 유지됩니다. `
+          + 'backend 에서 node scripts/migrate-add-active-role.js 실행 시 영구 저장됩니다.)',
     });
   } catch (error) {
     console.error('역할 전환 오류:', error.message);

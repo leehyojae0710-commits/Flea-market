@@ -134,7 +134,12 @@ UNLOCK TABLES;
 ALTER TABLE markets ADD COLUMN IF NOT EXISTS boothPrice INT DEFAULT 0;
 ALTER TABLE applications ADD COLUMN IF NOT EXISTS productDesc TEXT;
 ALTER TABLE applications ADD COLUMN IF NOT EXISTS title VARCHAR(100) NULL;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS activeRole VARCHAR(10) DEFAULT 'seller';
+-- [JWT activeRole] 기본값을 'seller' -> NULL 로 변경했습니다.
+--   기본값이 'seller' 라서 회원가입 INSERT 에 activeRole 이 빠진 주최자 계정이 전부 판매자로 저장됐고,
+--   activeRole 을 토큰에 싣는 순간 "주최자로 로그인했는데 판매자 모드" 가 됩니다.
+--   NULL = "지정 안 함" 이며, 서버가 계정 종류(userType)를 따라 host/seller 로 해석합니다.
+--   이미 DB 를 만들어 둔 사람은 scripts/migrate-add-active-role.js 를 실행하세요. (백필 포함)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS activeRole VARCHAR(10) DEFAULT NULL;
 
 CREATE TABLE IF NOT EXISTS `comments` (
   `commentId` int NOT NULL AUTO_INCREMENT,

@@ -4,6 +4,8 @@
 //   완전히 새로운 엔드포인트(/users/me/profile, /users/me/stats)로 분리했습니다.
 
 import pool from '../config/db.js';
+// [JWT activeRole] 화면 모드 판정 규칙을 서버 한 곳에서 공유합니다.
+import { normalizeActiveRole } from '../utills/rolePolicy.js';
 // [닉네임] 회원가입과 같은 규칙(형식/예약어/중복)을 프로필 수정에도 적용합니다.
 import { validateNickname, isNicknameTaken, isDuplicateKeyError } from '../utills/nicknamePolicy.js';
 // [이미지 삭제] 바뀌거나 지워진 이미지의 실제 파일을 정리합니다.
@@ -121,11 +123,17 @@ export async function updateMyProfile(req, res) {
 export async function getMyEventStats(req, res) {
   const { userId, userType } = req.user;
 
-  // [수정] 주최자 계정은 "판매자 모드"로도 마이페이지를 볼 수 있습니다.
-  //        따라서 계정 종류(userType)가 아니라 화면 모드(role 쿼리)를 기준으로 통계를 나눕니다.
-  //          role=host   -> 주최 행사 현황 (주최자 계정만 가능)
-  //          role=seller -> 참여 이력 (주최자 계정이 판매자 모드로 볼 때도 여기)
-  //          role 없음   -> 예전처럼 계정 종류를 그대로 따름 (기존 호출 하위 호환)
+  // 주최자 계정은 "판매자 모드"로도 마이페이지를 볼 수 있으므로,
+  // 계정 종류(userType)가 아니라 화면 모드를 기준으로 통계를 나눕니다.
+  //
+  // [JWT activeRole] 판정 우선순위를 바꿨습니다.
+  //   1순위: 액세스 토큰에 서명된 activeRole  <- 위조 불가. 이제 여기가 기준입니다.
+  //   2순위: ?role= 쿼리 파라미터              <- 구버전 토큰(이번 변경 전 발급분) 하위 호환용
+  //   3순위: 계정 종류(userType)
+  //
+  // 쿼리 파라미터를 1순위에서 뺀 이유:
+  //   클라이언트가 보내는 값이라 서버가 검증할 수 없고, 새 API 가 생길 때마다
+  //   같은 검증 코드를 다시 써야 해서 한 곳만 빠뜨려도 구멍이 됩니다.
   const accountIsHost = Number(userType) === 1;
   const requestedRole = String(req.query.role || '').toLowerCase();
 
@@ -137,8 +145,13 @@ export async function getMyEventStats(req, res) {
     });
   }
 
-  const viewAsHost =
-    requestedRole === 'host' ? true : requestedRole === 'seller' ? false : accountIsHost;
+  const viewAsHost = req.user.activeRoleFromToken
+    ? normalizeActiveRole(userType, req.user.activeRole) === 'host'
+    : requestedRole === 'host'
+      ? true
+      : requestedRole === 'seller'
+        ? false
+        : accountIsHost;
 
   try {
     if (viewAsHost) {

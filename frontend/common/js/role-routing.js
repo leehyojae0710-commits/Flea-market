@@ -14,6 +14,14 @@
 //   <head> 안에 <script src="../../common/js/role-routing.js"></script>
 //   (가드가 렌더링 전에 동작해야 해서 body 하단이 아니라 head 권장)
 //
+// [JWT activeRole 보완 - A안] 이번 변경분
+//   1) getViewRole() 이 서버가 내려준 loggedInUser.activeRole 을 인정합니다.
+//      (기존에는 sessionStorage.viewRole 만 봐서, 서버/DB/토큰과 어긋나도 알 수 없었습니다.)
+//   2) redirectToRoleHome() 이 로그인 시 무조건 'host' 로 덮어쓰지 않고 서버 값으로 초기화합니다.
+//   3) switchRole() 이 서버 응답을 신뢰합니다. 서버 전환이 실패하면 화면도 바꾸지 않습니다.
+//      (기존에는 실패해도 화면만 바꿔서, 토큰은 주최자인데 화면은 판매자인 상태가 만들어졌습니다.)
+//      전환 API 는 새 액세스 토큰을 함께 내려주고, api.js 가 자동으로 저장합니다.
+//
 // 신규 파일이라 기존 팀원 파일과 충돌하지 않습니다.
 
 (function () {
@@ -88,10 +96,22 @@
   }
 
   // 화면 모드: 주최자 계정만 'seller' 로 바뀔 수 있습니다.
+  //
+  // [JWT activeRole] 판정 순서
+  //   1) sessionStorage.viewRole  - 이 탭에서 방금 전환한 값 (로그인 시 서버 값으로 초기화됨)
+  //   2) loggedInUser.activeRole  - 서버(= 토큰에 서명된 값)가 내려준 값
+  //   3) 계정 종류
+  // 1번이 캐시일 뿐이고 진짜 기준은 2번이라는 점이 중요합니다.
+  // 서버가 토큰에 같은 값을 서명하므로, 화면과 서버 판단이 어긋나지 않습니다.
   function getViewRole() {
     var account = getAccountRole();
     if (account !== 'host') return account; // 판매자 / 비로그인은 전환 불가
-    return sessionStorage.getItem(VIEW_ROLE_KEY) === 'seller' ? 'seller' : 'host';
+
+    var cached = sessionStorage.getItem(VIEW_ROLE_KEY);
+    if (cached === 'host' || cached === 'seller') return cached;
+
+    var user = getLoggedInUser();
+    return user && user.activeRole === 'seller' ? 'seller' : 'host';
   }
 
   function setViewRole(role) {
@@ -121,8 +141,14 @@
 
   /**
    * 주최자 계정의 화면 모드를 바꾸고, 해당 모드의 첫 화면으로 이동합니다.
-   * 서버(PATCH /auth/toggle-role)에도 동기화를 시도하지만,
-   * 실패해도 화면 전환은 그대로 진행합니다. (activeRole 은 표시용 값)
+   *
+   * [JWT activeRole] 서버가 기준입니다.
+   *   PATCH /auth/toggle-role 이 DB 를 바꾸고 "새 역할이 서명된 액세스 토큰"을 함께 내려줍니다.
+   *   (api.js 의 SESSION_ISSUING_PATHS 에 등록돼 있어 토큰/사용자정보는 자동 저장됩니다.)
+   *
+   *   예전에는 서버 호출이 실패해도 화면만 바꿨는데, 그러면
+   *   "토큰은 주최자 / 화면은 판매자" 상태가 되어 마이페이지 통계나 가드가 어긋납니다.
+   *   그래서 실패 시에는 전환을 취소합니다.
    */
   async function switchRole(nextRole) {
     if (getAccountRole() !== 'host') {
@@ -133,18 +159,64 @@
     var target = nextRole === 'seller' ? 'seller' : 'host';
     if (getViewRole() === target) return;
 
-    try {
-      if (typeof callApi === 'function') {
-        await callApi('/auth/toggle-role', { method: 'PATCH' });
-      }
-    } catch (err) {
-      console.warn('역할 전환 서버 동기화 실패(화면 전환은 계속 진행):', err);
+    if (typeof callApi !== 'function') {
+      alert('역할 전환을 처리할 수 없습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.');
+      return;
     }
 
-    setViewRole(target);
+    var result = null;
+    try {
+      // 목표 역할을 명시해서 보냅니다. (단순 토글이면 DB 값이 어긋나 있을 때 반대로 뒤집힙니다)
+      result = await callApi('/auth/toggle-role', {
+        method: 'PATCH',
+        body: { activeRole: target },
+      });
+    } catch (err) {
+      console.error('역할 전환 요청 실패:', err);
+    }
+
+    if (!result || !result.success) {
+      alert('역할 전환에 실패했습니다.\n' + ((result && result.message) || '잠시 후 다시 시도해 주세요.'));
+      return;
+    }
+
+    // 서버가 실제로 적용한 값을 따릅니다. (요청한 값과 다를 수 있음)
+    var applied = (result.data && result.data.activeRole) === 'seller' ? 'seller' : 'host';
+
+    // users.activeRole 컬럼이 없는 DB 는 축소 모드로 동작합니다.
+    // 전환 자체는 되지만 다시 로그인하면 기본 역할로 돌아가므로 콘솔에만 알려 둡니다.
+    if (result.data && result.data.persisted === false) {
+      console.warn('[역할 전환] 이번 로그인 동안만 유지됩니다. ' + (result.message || ''));
+    }
+    setViewRole(applied);
+
     // 주최자/판매자 모드 모두 메인 페이지로 이동합니다.
     // (내 마켓 관리는 헤더의 「내 마켓 관리」 링크로 진입)
-    window.location.href = getRoleHomePath(target);
+    window.location.href = getRoleHomePath(applied);
+  }
+
+  /**
+   * [JWT activeRole] 화면 이동 없이 서버의 activeRole 만 맞춥니다.
+   *
+   * 주최자가 판매자 모드인 채로 주최자 전용 화면에 들어오면 화면 모드를 host 로 되돌리는데,
+   * 그때 서버(=토큰)도 같이 바꿔주지 않으면 "토큰은 seller / 화면은 host" 로 어긋납니다.
+   * role-routing.js 는 <head> 에서 실행되므로 callApi 가 아직 없을 수 있어 DOM 준비 후로 미룹니다.
+   */
+  function syncViewRoleToServer(target) {
+    var run = function () {
+      if (typeof callApi !== 'function') return;
+      callApi('/auth/toggle-role', { method: 'PATCH', body: { activeRole: target } })
+        .then(function (res) {
+          if (res && res.success && res.data) {
+            setViewRole(res.data.activeRole === 'seller' ? 'seller' : 'host');
+          }
+        })
+        .catch(function (err) {
+          console.warn('역할 동기화 실패(화면은 그대로 유지):', err);
+        });
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
+    else run();
   }
 
   function toggleRole() {
@@ -160,11 +232,20 @@
     return toUrl(ROLE_HOME[r] || ROLE_HOME.guest);
   }
 
-  // 로그인 성공 직후 호출 → 화면 모드를 계정 역할로 초기화하고 첫 화면으로 이동
+  // 로그인 성공 직후 호출 → 화면 모드를 서버 값으로 초기화하고 첫 화면으로 이동
+  //
+  // [JWT activeRole] 기존에는 주최자면 무조건 'host' 로 덮어썼습니다.
+  //   그래서 DB 의 activeRole 이 무엇이든 화면은 항상 주최자 모드였고,
+  //   users.activeRole 은 아무도 읽지 않는 죽은 값이 되어 있었습니다.
+  //   이제 서버가 내려준 값(= 토큰에 서명된 값)으로 맞춥니다.
   function redirectToRoleHome(nextPath) {
     var account = getAccountRole();
-    if (account === 'host') sessionStorage.setItem(VIEW_ROLE_KEY, 'host');
-    else sessionStorage.removeItem(VIEW_ROLE_KEY);
+    if (account === 'host') {
+      var user = getLoggedInUser();
+      sessionStorage.setItem(VIEW_ROLE_KEY, user && user.activeRole === 'seller' ? 'seller' : 'host');
+    } else {
+      sessionStorage.removeItem(VIEW_ROLE_KEY);
+    }
 
     if (nextPath && isAllowedForRole(nextPath, account)) {
       window.location.replace(nextPath);
@@ -205,7 +286,11 @@
     }
 
     // 3) 주최자가 판매자 모드로 들어온 경우 → 주최자 모드로 자동 복귀
-    if (getViewRole() !== 'host') setViewRole('host');
+    //    [JWT activeRole] 화면만 되돌리면 토큰과 어긋나므로 서버 값도 함께 맞춥니다.
+    if (getViewRole() !== 'host') {
+      setViewRole('host');
+      syncViewRoleToServer('host');
+    }
   }
 
   guardRolePage();
@@ -292,6 +377,7 @@
     isHost: isHost,
     isLoggedIn: isLoggedIn,
     switchRole: switchRole,
+    syncViewRoleToServer: syncViewRoleToServer,
     toggleRole: toggleRole,
     getRoleHomePath: getRoleHomePath,
     redirectToRoleHome: redirectToRoleHome,

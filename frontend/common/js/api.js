@@ -29,6 +29,10 @@
 //     4) 페이지 로드 시 깨진 세션키(토큰 없이 refreshToken 만 남은 상태) 자동 정리
 //   ※ 이 파일은 모든 페이지가 이미 불러오고 있어서, HTML 을 한 줄도 고칠 필요가 없습니다.
 //
+// [JWT activeRole 보완] 이번 변경분
+//   - SESSION_ISSUING_PATHS 에 '/auth/toggle-role' 추가 (전환 시 재발급된 토큰 자동 저장)
+//   - 나머지 동작은 그대로입니다.
+//
 // 기존 호출 방식은 그대로입니다: callApi('/markets', { method: 'POST', body: payload })
 
 const API_BASE_URL = 'http://localhost:5000/api';
@@ -51,7 +55,10 @@ const REFRESH_LEEWAY_SEC = 60;
 const NO_REFRESH_PATHS = ['/auth/login', '/auth/register', '/auth/refresh'];
 
 // 응답을 받으면 세션을 자동 저장할 경로
-const SESSION_ISSUING_PATHS = ['/auth/login', '/auth/register', '/auth/refresh'];
+// [JWT activeRole] /auth/toggle-role 추가:
+//   역할 전환 응답에 "새 역할이 반영된 액세스 토큰"이 함께 오므로, 여기서 자동으로 갈아끼웁니다.
+//   이 줄이 없으면 전환 후에도 옛 역할이 서명된 토큰을 계속 보내게 됩니다.
+const SESSION_ISSUING_PATHS = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/toggle-role'];
 
 function pathStartsWithAny(path, list) {
   const clean = String(path).split('?')[0];

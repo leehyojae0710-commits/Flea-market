@@ -12,15 +12,25 @@
 //   - JWT_SECRET 하드코딩과 jwt.verify 직접 호출을 제거하고 utills/tokenService.js 를 사용합니다.
 //     (시크릿이 3개 파일에 흩어져 있어 한 곳만 바꾸면 인증이 어긋나던 문제를 정리)
 //   - 그 외 가드 로직/내보내는 함수는 기존과 동일합니다.
+//
+// [JWT activeRole 보완 - A안] 변경점
+//   - 인가(권한 검사)는 지금처럼 계정 종류(userType)만 봅니다. 화면 모드(activeRole)로 API를 막지 않습니다.
+//     -> 주최자가 판매자 모드로 보고 있어도 주최자 API는 계속 동작합니다. (기존 UX 유지)
+//   - activeRole 은 표시/통계 분기용으로만 쓰고, 값은 rolePolicy.getActiveRole(req) 로 읽습니다.
 
 import { verifyAccessToken, extractBearerToken } from '../utills/tokenService.js';
+// [JWT activeRole] 역할 상수/판정 규칙은 utills/rolePolicy.js 한 곳에서 관리합니다.
+//   기존에 이 파일이 직접 갖고 있던 USER_TYPE / isHostType 은 그대로 다시 내보내므로
+//   authRoutes 등 기존 import 구문은 고칠 필요가 없습니다.
+import {
+  USER_TYPE,
+  isHostType,
+  normalizeActiveRole,
+  getActiveRole,
+  isHostView,
+} from '../utills/rolePolicy.js';
 
-export const USER_TYPE = { SELLER: 0, HOST: 1 };
-
-/** userType 값이 주최자인지 판정 (문자열로 들어와도 안전하게 처리) */
-export function isHostType(userType) {
-  return Number(userType) === USER_TYPE.HOST;
-}
+export { USER_TYPE, isHostType, normalizeActiveRole, getActiveRole, isHostView };
 
 /**
  * 라우트 단위 가드.

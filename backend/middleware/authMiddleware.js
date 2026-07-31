@@ -15,6 +15,23 @@ import {
   verifyAccessToken,
   isSessionActive,
 } from '../utills/tokenService.js';
+// [JWT activeRole] 토큰에 실린 화면 모드를 req.user 로 옮겨 줍니다.
+import { normalizeActiveRole, hasTokenActiveRole } from '../utills/rolePolicy.js';
+
+/**
+ * [JWT activeRole] 토큰 payload 를 req.user 형태로 정리합니다.
+ *
+ *   activeRole          : 항상 'host' | 'seller' (구버전 토큰이면 계정 종류로 보정)
+ *   activeRoleFromToken : 토큰에 실제로 역할이 실려 있었는지
+ *                         -> 이번 변경 이전에 발급된 토큰을 구분해서, 그동안만 쿼리 파라미터를 허용하기 위함
+ */
+function toRequestUser(payload) {
+  return {
+    ...payload,
+    activeRole: normalizeActiveRole(payload.userType, payload.activeRole),
+    activeRoleFromToken: hasTokenActiveRole(payload),
+  };
+}
 
 /** 401 응답 형식을 한 곳에서 관리합니다. */
 function unauthorized(res, code, message) {
@@ -23,7 +40,7 @@ function unauthorized(res, code, message) {
 
 /**
  * Authorization: Bearer <token> 헤더를 검사해서
- * 유효하면 req.user = { userId, userType, sid } 를 채워주고 다음으로 넘깁니다.
+ * 유효하면 req.user = { userId, userType, activeRole, sid } 를 채워주고 다음으로 넘깁니다.
  */
 export async function authenticateToken(req, res, next) {
   const token = extractBearerToken(req);
@@ -52,7 +69,7 @@ export async function authenticateToken(req, res, next) {
     console.error('[authMiddleware] 세션 확인 실패(통과 처리):', error.message);
   }
 
-  req.user = payload; // { userId, userType, sid, typ, iat, exp }
+  req.user = toRequestUser(payload); // { userId, userType, activeRole, sid, typ, iat, exp }
   next();
 }
 
@@ -69,7 +86,7 @@ export async function optionalAuth(req, res, next) {
   if (!result.ok) return next();
 
   try {
-    if (await isSessionActive(result.payload.sid)) req.user = result.payload;
+    if (await isSessionActive(result.payload.sid)) req.user = toRequestUser(result.payload);
   } catch (error) {
     console.error('[authMiddleware] optionalAuth 세션 확인 실패:', error.message);
   }
