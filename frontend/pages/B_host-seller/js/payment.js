@@ -96,8 +96,8 @@ function renderGroupDetail(group) {
         <div class="item-card-meta">
           판매자: ${item.sellerNickname}
           원금 ${Number(item.amount).toLocaleString()}원
-          환불 금액 ${Number(item.refundAmount)}원
-          결제 금액 ${Number(item.amount - item.refundAmount)}
+          환불 금액 ${Number(item.refundAmount).toLocaleString()}원
+          결제 금액 ${Number(item.amount - item.refundAmount).toLocaleString()}
         </div>
       `).join('')}
     </div>`;
