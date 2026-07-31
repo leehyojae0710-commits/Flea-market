@@ -169,6 +169,12 @@ let myMarkets = [];
 let statusFilter = '';
 let sortOption = ''; // '' | 'recruitEnd' | 'region' | 'eventDate'
 let expandedId = null; // 상세정보가 펼쳐진 마켓 id
+// [수정] 검색 키워드. search.js 가 window.setMyMarketSearchKeyword() 로 넘겨줍니다.
+// (예전에는 search.js가 현재 화면에 그려진 카드(children)만 텍스트로 훑었는데,
+//  페이지네이션이 생긴 뒤로는 한 페이지에 5건만 DOM에 있어서 나머지 페이지에 있는
+//  마켓은 검색해도 못 찾는 문제가 있었습니다. 그래서 원본 데이터(allMarkets)를
+//  직접 필터링하도록 바꿨습니다.)
+let searchKeyword = '';
 
 // ---------- 페이지네이션 ----------
 const PAGE_SIZE = 5;
@@ -270,7 +276,9 @@ function renderMarketList() {
       emptyEl.textContent =
         allMarkets.length === 0
           ? '등록한 마켓이 없어요. 마켓을 등록해보세요.'
-          : '해당 상태의 마켓이 없어요.';
+          : searchKeyword
+            ? `'${searchKeyword}'에 대한 검색 결과가 없어요.`
+            : '해당 상태의 마켓이 없어요.';
     }
     renderPagination(0);
     return;
@@ -494,11 +502,22 @@ async function handleDeleteClick(marketId) {
 
 // ---------- 필터 ----------
 
-// 상태 필터 -> 정렬 순으로 적용
+// 검색 키워드가 마켓 하나와 맞는지 확인 (제목/지역/장소를 훑음)
+function matchesSearchKeyword(m) {
+  if (!searchKeyword) return true;
+  const haystack = [m.title, m.region, m.locationName]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return haystack.includes(searchKeyword);
+}
+
+// 상태 필터 -> 검색 키워드 -> 정렬 순으로 적용
 function applyStatusFilter() {
-  const filtered = statusFilter
+  const byStatus = statusFilter
     ? allMarkets.filter((m) => getStatusKey(m.isExpired) === statusFilter)
     : allMarkets;
+  const filtered = byStatus.filter(matchesSearchKeyword);
   myMarkets = sortMarkets(filtered);
   renderMarketList(); // 필터 변경 시에는 목록 자체가 바뀌니 전체 재렌더링이 맞음
 }
@@ -509,6 +528,16 @@ function handleFilterChange() {
   currentPage = 1;
   applyStatusFilter();
 }
+
+// [수정] search.js 의 실시간 검색창이 호출하는 훅.
+// allMarkets(서버에서 받은 전체 목록) 기준으로 다시 필터링하므로,
+// 지금 화면에 없는(다른 페이지의) 마켓도 검색됩니다.
+window.setMyMarketSearchKeyword = function (keyword) {
+  searchKeyword = (keyword || '').trim().toLowerCase();
+  expandedId = null;
+  currentPage = 1;
+  applyStatusFilter();
+};
 
 // [추가 07-28] 정렬 변경 시에는 서버에 다시 요청해 DB 정렬 결과를 그대로 받아옴
 async function handleSortChange() {
