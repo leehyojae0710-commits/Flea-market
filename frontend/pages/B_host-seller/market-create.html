@@ -76,6 +76,13 @@
           <p class="form-hint">부스 수량에 제한이 없다면 0을 입력해주세요.</p>
         </div>
         <div class="form-field">
+          <label for="allow-duplicate-application" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" id="allow-duplicate-application" style="width:auto;" checked />
+            같은 판매자의 중복 부스 신청 허용하기
+          </label>
+          <p class="form-hint">꺼두면 한 판매자는 이 마켓에 부스를 하나만 신청할 수 있어요. 같은 상품이든 다른 상품이든 이미 신청(대기/승인/결제완료) 중이면 추가 신청이 막혀요.</p>
+        </div>
+        <div class="form-field">
           <label for="market-image">마켓 이미지</label>
           <input type="file" id="market-image" name="marketimage" class="form-input" accept="image/*" />
           <p class="form-hint">마켓을 대표하는 이미지를 업로드해주세요.</p>

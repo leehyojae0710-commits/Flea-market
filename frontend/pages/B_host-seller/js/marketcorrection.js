@@ -40,6 +40,9 @@ async function loadMarketForEdit(marketId) {
     document.getElementById('max-participants').value = market.maxParticipants ?? 0;
     const overcapacityEl = document.getElementById('allow-overcapacity');
     if (overcapacityEl) overcapacityEl.checked = Number(market.allowOvercapacity) === 1;
+    const duplicateApplicationEl = document.getElementById('allow-duplicate-application');
+    // 값이 아직 없는(마이그레이션 전) 마켓은 기존 동작과 동일하게 허용 상태로 보여줍니다.
+    if (duplicateApplicationEl) duplicateApplicationEl.checked = Number(market.allowDuplicateApplication) !== 0;
     document.getElementById('description').value = market.description || '';
 
     // 날짜 필드 채우기 (DB에서 오는 값이 'YYYY-MM-DDTHH:mm:ss.000Z' 형태일 수 있어 앞 10자리만 사용)
@@ -149,6 +152,7 @@ function correctionMarketClick(marketId) {
       longitude: document.getElementById('longitude').value || null,
       maxParticipants: maxParticipantsNum,
       allowOvercapacity: document.getElementById('allow-overcapacity')?.checked || false,
+      allowDuplicateApplication: document.getElementById('allow-duplicate-application')?.checked ?? true,
       marketImage: document.getElementById('uploadedImagePath').value || null,
     };
 
