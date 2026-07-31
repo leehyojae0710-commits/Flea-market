@@ -72,6 +72,10 @@ let expandedId = null; // 상세정보가 펼쳐진 신청 id
 let reviewOpenId = null; // 별점 입력창이 펼쳐진 신청 id (문자열로 비교)
 let reviewDraftRating = 0; // 별점 입력창에서 아직 제출 전인 값 (0~5)
 
+// ---------- 페이지네이션 ----------
+const PAGE_SIZE = 5;
+let currentPage = 1;
+
 // ---------- 렌더링 ----------
 
 function renderBoothList() {
@@ -94,11 +98,19 @@ function renderBoothList() {
           ? '아직 신청한 부스가 없어요.'
           : '해당 상태의 신청이 없어요.';
     }
+    renderPagination(0);
     return;
   }
   if (emptyState) emptyState.hidden = true;
 
-  wrap.innerHTML = myApplications.map((a) => renderBoothCard(a)).join('');
+  const totalPages = Math.max(1, Math.ceil(myApplications.length / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+  if (currentPage < 1) currentPage = 1;
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pageItems = myApplications.slice(start, start + PAGE_SIZE);
+
+  wrap.innerHTML = pageItems.map((a) => renderBoothCard(a)).join('');
+  renderPagination(totalPages);
 
   wrap.querySelectorAll('[data-action="toggle"]').forEach((el) => {
     el.addEventListener('click', () => handleToggleDetail(el.dataset.id));
@@ -122,6 +134,76 @@ function renderBoothList() {
   });
   wrap.querySelectorAll('[data-action="review-cancel"]').forEach((btn) => {
     btn.addEventListener('click', () => handleReviewCancel());
+  });
+}
+
+// 현재 페이지 기준으로 보여줄 페이지 번호 목록을 만듦 (main.js와 동일한 축약 규칙)
+function getPageWindow(current, total) {
+  const SIBLINGS = 2;
+  const first = 1;
+  const last = total;
+
+  if (total <= SIBLINGS * 2 + 3) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+
+  const start = Math.max(current - SIBLINGS, first);
+  const end = Math.min(current + SIBLINGS, last);
+  const pages = [];
+
+  pages.push(first);
+  if (start > first + 1) pages.push('…');
+  else if (start === first + 1) pages.push(first + 1);
+
+  for (let p = start; p <= end; p++) {
+    if (p !== first && p !== last) pages.push(p);
+  }
+
+  if (end < last - 1) pages.push('…');
+  else if (end === last - 1) pages.push(last - 1);
+
+  pages.push(last);
+
+  return pages.filter((p, i) => p === '…' || pages.indexOf(p) === i);
+}
+
+function renderPagination(totalPages) {
+  const nav = document.getElementById('pagination');
+  if (!nav) return;
+  if (totalPages <= 1) { nav.innerHTML = ''; return; }
+
+  const buttons = [];
+  buttons.push(
+    `<button type="button" class="page-btn page-nav" data-page="${currentPage - 1}" ${currentPage === 1 ? 'disabled' : ''}>‹</button>`
+  );
+
+  getPageWindow(currentPage, totalPages).forEach((p) => {
+    if (p === '…') {
+      buttons.push(`<span class="page-ellipsis">…</span>`);
+    } else {
+      buttons.push(
+        `<button type="button" class="page-btn${p === currentPage ? ' is-active' : ''}" data-page="${p}">${p}</button>`
+      );
+    }
+  });
+
+  buttons.push(
+    `<button type="button" class="page-btn page-nav" data-page="${currentPage + 1}" ${currentPage === totalPages ? 'disabled' : ''}>›</button>`
+  );
+  nav.innerHTML = buttons.join('');
+}
+
+function handlePaginationClick() {
+  const nav = document.getElementById('pagination');
+  if (!nav) return;
+  nav.addEventListener('click', (e) => {
+    const btn = e.target.closest('.page-btn');
+    if (!btn || btn.disabled) return;
+    const page = Number(btn.dataset.page);
+    if (!page || page === currentPage) return;
+    currentPage = page;
+    renderBoothList();
+    document.getElementById('booth-list-container')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 }
 
@@ -496,6 +578,7 @@ function handleFilterChange() {
   expandedId = null;
   reviewOpenId = null;
   reviewDraftRating = 0;
+  currentPage = 1;
   applyStatusFilter();
 }
 
@@ -529,5 +612,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document
     .getElementById('status-filter')
     ?.addEventListener('change', handleFilterChange);
+  handlePaginationClick();
   loadMyBoothList();
 });

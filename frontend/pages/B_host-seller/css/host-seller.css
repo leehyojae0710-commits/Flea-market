@@ -1216,3 +1216,46 @@ a.btn {
 .comment-nickname .profile-link {
   font-weight: 700;
 }
+
+/* ---------- pagination (내 부스 관리 / 내 마켓 관리) ---------- */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 24px 0 8px;
+}
+.page-btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid #4d3b2c;
+  background: transparent;
+  color: #c7b8a3;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.page-btn:hover:not(:disabled) { border-color: var(--mustard); color: var(--paper); }
+.page-btn.is-active {
+  background: var(--mustard);
+  border-color: var(--mustard);
+  color: var(--mustard-text);
+  font-weight: 700;
+}
+.page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.page-btn.page-nav { font-family: "Inter", sans-serif; }
+
+.page-ellipsis {
+  min-width: 28px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-soft);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+}

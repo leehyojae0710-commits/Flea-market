@@ -187,22 +187,30 @@ function renderStars(score) {
   return '★'.repeat(rounded) + '☆'.repeat(5 - rounded);
 }
 
-function renderReviewBlock({ sectionId, scoreId, starsId, countId, listId, data, emptyText }) {
-  const section = document.getElementById(sectionId);
-  if (!section) return;
-  section.hidden = false;
+// ---------- 리뷰 목록 페이지네이션 (한 페이지에 5개씩, 이미 받아온 목록을 클라이언트에서 자름) ----------
+const REVIEW_PAGE_SIZE = 5;
+const reviewPageState = {}; // { [listId]: { page, reviews, emptyText } }
 
-  const avg = data.averageRating;
-  document.getElementById(scoreId).textContent = avg !== null ? avg.toFixed(1) : '-';
-  document.getElementById(starsId).textContent = avg !== null ? renderStars(avg) : '☆☆☆☆☆';
-  document.getElementById(countId).textContent = `평가 ${data.reviewCount || 0}건`;
-
+function renderReviewListPage(listId, paginationId) {
+  const state = reviewPageState[listId];
   const listEl = document.getElementById(listId);
-  if (!data.reviews || data.reviews.length === 0) {
+  if (!state || !listEl) return;
+
+  const { reviews, emptyText } = state;
+
+  if (!reviews || reviews.length === 0) {
     listEl.innerHTML = `<li class="review-empty">${emptyText}</li>`;
+    renderReviewPagination(paginationId, listId, 0);
     return;
   }
-  listEl.innerHTML = data.reviews
+
+  const totalPages = Math.max(1, Math.ceil(reviews.length / REVIEW_PAGE_SIZE));
+  if (state.page > totalPages) state.page = totalPages;
+  if (state.page < 1) state.page = 1;
+  const start = (state.page - 1) * REVIEW_PAGE_SIZE;
+  const pageItems = reviews.slice(start, start + REVIEW_PAGE_SIZE);
+
+  listEl.innerHTML = pageItems
     .map(
       (r) => `
     <li class="review-item">
@@ -214,6 +222,94 @@ function renderReviewBlock({ sectionId, scoreId, starsId, countId, listId, data,
     </li>`,
     )
     .join('');
+
+  renderReviewPagination(paginationId, listId, totalPages);
+}
+
+// 현재 페이지 기준으로 보여줄 페이지 번호 목록을 만듦 (main.js와 동일한 축약 규칙)
+function getReviewPageWindow(current, total) {
+  const SIBLINGS = 2;
+  const first = 1;
+  const last = total;
+
+  if (total <= SIBLINGS * 2 + 3) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+
+  const start = Math.max(current - SIBLINGS, first);
+  const end = Math.min(current + SIBLINGS, last);
+  const pages = [];
+
+  pages.push(first);
+  if (start > first + 1) pages.push('…');
+  else if (start === first + 1) pages.push(first + 1);
+
+  for (let p = start; p <= end; p++) {
+    if (p !== first && p !== last) pages.push(p);
+  }
+
+  if (end < last - 1) pages.push('…');
+  else if (end === last - 1) pages.push(last - 1);
+
+  pages.push(last);
+
+  return pages.filter((p, i) => p === '…' || pages.indexOf(p) === i);
+}
+
+function renderReviewPagination(paginationId, listId, totalPages) {
+  const nav = document.getElementById(paginationId);
+  if (!nav) return;
+  if (totalPages <= 1) { nav.innerHTML = ''; return; }
+
+  const currentPage = reviewPageState[listId]?.page || 1;
+  const buttons = [];
+  buttons.push(
+    `<button type="button" class="page-btn page-nav" data-page="${currentPage - 1}" ${currentPage === 1 ? 'disabled' : ''}>‹</button>`
+  );
+
+  getReviewPageWindow(currentPage, totalPages).forEach((p) => {
+    if (p === '…') {
+      buttons.push(`<span class="page-ellipsis">…</span>`);
+    } else {
+      buttons.push(
+        `<button type="button" class="page-btn${p === currentPage ? ' is-active' : ''}" data-page="${p}">${p}</button>`
+      );
+    }
+  });
+
+  buttons.push(
+    `<button type="button" class="page-btn page-nav" data-page="${currentPage + 1}" ${currentPage === totalPages ? 'disabled' : ''}>›</button>`
+  );
+  nav.innerHTML = buttons.join('');
+
+  // 매번 새로 렌더링되므로 리스너도 다시 붙임 (중복 방지를 위해 한 번만 등록되도록 dataset 플래그 사용)
+  if (!nav.dataset.boundClick) {
+    nav.dataset.boundClick = '1';
+    nav.addEventListener('click', (e) => {
+      const btn = e.target.closest('.page-btn');
+      if (!btn || btn.disabled) return;
+      const page = Number(btn.dataset.page);
+      const state = reviewPageState[listId];
+      if (!page || !state || page === state.page) return;
+      state.page = page;
+      renderReviewListPage(listId, paginationId);
+      document.getElementById(listId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+}
+
+function renderReviewBlock({ sectionId, scoreId, starsId, countId, listId, paginationId, data, emptyText }) {
+  const section = document.getElementById(sectionId);
+  if (!section) return;
+  section.hidden = false;
+
+  const avg = data.averageRating;
+  document.getElementById(scoreId).textContent = avg !== null ? avg.toFixed(1) : '-';
+  document.getElementById(starsId).textContent = avg !== null ? renderStars(avg) : '☆☆☆☆☆';
+  document.getElementById(countId).textContent = `평가 ${data.reviewCount || 0}건`;
+
+  reviewPageState[listId] = { page: 1, reviews: data.reviews || [], emptyText };
+  renderReviewListPage(listId, paginationId);
 }
 
 /* ---------------------- 초기 로드 ---------------------- */
@@ -267,6 +363,7 @@ async function loadReviewSummary() {
           starsId: 'review-avg-stars',
           countId: 'review-count-text',
           listId: 'review-list',
+          paginationId: 'review-pagination',
           data: res.data,
           emptyText: '아직 등록된 평가가 없어요.',
         });
@@ -280,6 +377,7 @@ async function loadReviewSummary() {
           starsId: 'seller-review-avg-stars',
           countId: 'seller-review-count-text',
           listId: 'seller-review-list',
+          paginationId: 'seller-review-pagination',
           data: res.data,
           emptyText: '아직 등록된 평가가 없어요.',
         });
