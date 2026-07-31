@@ -75,6 +75,7 @@ const router = express.Router();
  *           - MARKET_CLOSED / MARKET_CANCELLED : 마감·취소된 마켓
  *           - RECRUITMENT_NOT_STARTED / RECRUITMENT_CLOSED : 모집 기간 밖
  *           - DUPLICATE_APPLICATION : 내가 이미 신청한 부스
+ *           - DUPLICATE_SELLER_APPLICATION : 마켓의 allowDuplicateApplication 이 꺼져 있고, 내가 이미 이 마켓에 신청한 내역이 있음 (부스 번호 무관)
  *           - BOOTH_TAKEN : 다른 판매자가 점유한 부스 (마켓의 allowOvercapacity 가 켜져 있고 행사 시작 전이면 통과)
  *           - CAPACITY_FULL : 정원(점유 부스 수) 초과 (마켓의 allowOvercapacity 가 켜져 있고 행사 시작 전이면 통과)
  *         content:
