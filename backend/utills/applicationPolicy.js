@@ -95,7 +95,7 @@ export async function checkBoothApplyEligibility(db, {
   const has = (c) => columns.size === 0 || columns.has(c);
 
   const selectCols = ['marketId', 'hostId', 'isExpired', 'title'];
-  for (const c of ['maxparticipants', 'eventDate_min', 'eventDate_max', 'recruitmentDate_min', 'recruitmentDate_max']) {
+  for (const c of ['maxparticipants', 'allowOvercapacity', 'eventDate_min', 'eventDate_max', 'recruitmentDate_min', 'recruitmentDate_max']) {
     if (has(c)) selectCols.push(c);
   }
 
@@ -155,16 +155,25 @@ export async function checkBoothApplyEligibility(db, {
   }
 
   // 5) 정원 확인 — 1인 다부스를 허용하므로 "점유 부스 수" 로 셉니다.
+  //    [초과 신청 허용] 주최자가 markets.allowOvercapacity 를 켜두면, 정원이 차도
+  //    행사 시작일(eventDate_min) 전까지는 막지 않습니다. 행사가 시작된 뒤에는
+  //    이 값이 켜져 있어도 다시 정원을 지킵니다 — "행사개최전까지" 관리 범위로 한정.
   const capacity = Number(market.maxparticipants);
   if (Number.isFinite(capacity) && capacity > 0) {
-    const [[occupied]] = await db.query(
-      `SELECT COUNT(*) AS cnt FROM applications
-        WHERE marketId = ? AND status IN (${ACTIVE_LIST})${excludeSql}`,
-      [marketId, ...ACTIVE_APPLICATION_STATUSES, ...excludeParam]
-    );
-    if (Number(occupied.cnt) >= capacity) {
-      return fail(409, 'CAPACITY_FULL',
-        `부스가 모두 찼습니다. (${occupied.cnt}/${capacity})`);
+    const eventStart = has('eventDate_min') ? toDateKey(market.eventDate_min) : null;
+    const beforeEvent = eventStart ? today < eventStart : true;
+    const overcapacityAllowed = has('allowOvercapacity') && Number(market.allowOvercapacity) === 1 && beforeEvent;
+
+    if (!overcapacityAllowed) {
+      const [[occupied]] = await db.query(
+        `SELECT COUNT(*) AS cnt FROM applications
+          WHERE marketId = ? AND status IN (${ACTIVE_LIST})${excludeSql}`,
+        [marketId, ...ACTIVE_APPLICATION_STATUSES, ...excludeParam]
+      );
+      if (Number(occupied.cnt) >= capacity) {
+        return fail(409, 'CAPACITY_FULL',
+          `부스가 모두 찼습니다. (${occupied.cnt}/${capacity})`);
+      }
     }
   }
 

@@ -60,7 +60,7 @@ for (const [rel, marker, label] of MARKERS) {
 /* ------------------------------------------------------------------ */
 
 const COLUMNS = [
-  'marketId', 'hostId', 'isExpired', 'title', 'maxparticipants',
+  'marketId', 'hostId', 'isExpired', 'title', 'maxparticipants', 'allowOvercapacity',
   'eventDate_min', 'eventDate_max', 'recruitmentDate_min', 'recruitmentDate_max',
 ];
 
@@ -109,6 +109,9 @@ const 시나리오 = [
   ['내가 이미 신청한 부스', { market: 기준마켓, taken: [{ applicationId: 3, sellerId: 7 }] }, { userId: 7, marketId: 5, boothNumber: 'A-1' }, false, 'DUPLICATE_APPLICATION'],
   ['남이 점유한 부스', { market: 기준마켓, taken: [{ applicationId: 3, sellerId: 8 }] }, { userId: 7, marketId: 5, boothNumber: 'A-1' }, false, 'BOOTH_TAKEN'],
   ['정원 초과', { market: { ...기준마켓, maxparticipants: 2 }, occupied: 2 }, { userId: 7, marketId: 5, boothNumber: 'A-1' }, false, 'CAPACITY_FULL'],
+  ['정원 초과 + 허용 안함', { market: { ...기준마켓, maxparticipants: 2, allowOvercapacity: 0 }, occupied: 2 }, { userId: 7, marketId: 5, boothNumber: 'A-1' }, false, 'CAPACITY_FULL'],
+  ['정원 초과 + 허용 + 행사 전', { market: { ...기준마켓, maxparticipants: 2, allowOvercapacity: 1 }, occupied: 2 }, { userId: 7, marketId: 5, boothNumber: 'A-1' }, true, null],
+  ['정원 초과 + 허용 + 행사 시작 후', { market: { ...기준마켓, maxparticipants: 2, allowOvercapacity: 1, eventDate_min: 며칠뒤(-1) }, occupied: 2 }, { userId: 7, marketId: 5, boothNumber: 'A-1' }, false, 'CAPACITY_FULL'],
   ['개최일 겹치는 마켓에 이미 신청', { market: 기준마켓, conflict: [{ marketId: 9, title: '다른 마켓' }] }, { userId: 7, marketId: 5, boothNumber: 'A-1' }, false, 'DATE_CONFLICT'],
   ['1인 다부스 (정원 여유)', { market: 기준마켓, occupied: 3 }, { userId: 7, marketId: 5, boothNumber: 'B-2' }, true, null],
   ['신청 수정 (자기 건은 계산에서 제외)', { market: 기준마켓, occupied: 0 }, { userId: 7, marketId: 5, boothNumber: 'B-9', excludeApplicationId: 12 }, true, null],

@@ -123,7 +123,7 @@ export async function updateMarketStatus(req, res) {
     recruitmentDate_min, recruitmentDate_max,
     boothPrice, locationName, region,
     latitude, longitude, maxParticipants,
-    marketImage
+    marketImage, allowOvercapacity
   } = req.body;
 
   try {
@@ -151,6 +151,8 @@ export async function updateMarketStatus(req, res) {
     if (latitude !== undefined) { fields.push('latitude = ?'); values.push(latitude); }
     if (longitude !== undefined) { fields.push('longitude = ?'); values.push(longitude); }
     if (maxParticipants !== undefined) { fields.push('maxParticipants = ?'); values.push(maxParticipants); }
+    // [추가] 정원이 차도 행사 시작 전까지는 초과 신청/결제를 받을지 여부 (주최자가 직접 관리)
+    if (allowOvercapacity !== undefined) { fields.push('allowOvercapacity = ?'); values.push(allowOvercapacity ? 1 : 0); }
     // [수정] 예전에는 `if (marketImage)` 라서 null/'' 이 무시됐고, 이미지 삭제가 불가능했습니다.
     if (marketImage !== undefined) { fields.push('marketImage = ?'); values.push(marketImage || null); }
 

@@ -34,6 +34,8 @@ async function loadMarketForEdit(marketId) {
     document.getElementById('title').value = market.title || '';
     document.getElementById('booth-price').value = market.boothPrice ?? 0;
     document.getElementById('max-participants').value = market.maxParticipants ?? 0;
+    const overcapacityEl = document.getElementById('allow-overcapacity');
+    if (overcapacityEl) overcapacityEl.checked = Number(market.allowOvercapacity) === 1;
     document.getElementById('description').value = market.description || '';
 
     // 날짜 필드 채우기 (DB에서 오는 값이 'YYYY-MM-DDTHH:mm:ss.000Z' 형태일 수 있어 앞 10자리만 사용)
@@ -142,6 +144,7 @@ function correctionMarketClick(marketId) {
       latitude: document.getElementById('latitude').value || null,
       longitude: document.getElementById('longitude').value || null,
       maxParticipants: maxParticipantsNum,
+      allowOvercapacity: document.getElementById('allow-overcapacity')?.checked || false,
       marketImage: document.getElementById('uploadedImagePath').value || null,
     };
 
