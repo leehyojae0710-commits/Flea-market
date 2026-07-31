@@ -55,16 +55,49 @@ export function requireHostAccount(req, res, next) {
  * { method: 'GET' | 'POST' | ... | 'ANY', pattern: 정규식 } 형태이며,
  * pattern 은 /api 를 뺀 경로에 매칭합니다. (예: /markets/mine)
  * 새 주최자 API가 생기면 여기에 한 줄만 추가하면 됩니다.
+ *
+ * [단방향 전환 규칙 검증] 목록 보강
+ *   기존에는 5건만 등재돼 있어서, 나머지 주최자 API 는 컨트롤러의 소유권 검사(hostId === userId)에만
+ *   의존하고 있었습니다. 판매자는 마켓을 소유할 수 없으니 결과적으로 막히긴 했지만,
+ *     - 판매자가 호출하면 "본인이 등록한 마켓만..." 이라는 엉뚱한 메시지가 나갔고
+ *     - GET /markets/:id/applications 는 판매자일 때 아예 응답을 만들지 않아 요청이 매달렸습니다
+ *   그래서 실제 주최자 전용 API 를 전부 등재했습니다.
+ *
+ * 주의: 공개/판매자 API 를 잘못 넣지 않도록 method 를 반드시 함께 지정하세요.
+ *   GET /markets/:id         (마켓 상세)     -> 공개
+ *   GET /markets/:id/layout  (부스 배치 조회) -> 공개
+ *   POST /applications       (부스 신청)      -> 판매자
+ * 이 목록은 scripts/verify-role-policy.js 가 자동으로 점검합니다.
  */
 export const HOST_ONLY_ENDPOINTS = [
-  { method: 'GET', pattern: /^\/markets\/mine\/?$/ },                       // 내 마켓 목록
-  { method: 'POST', pattern: /^\/markets\/?$/ },                            // 마켓 등록
-  { method: 'GET', pattern: /^\/markets\/\d+\/settlement\/?$/ },            // 정산 조회
-  { method: 'PATCH', pattern: /^\/markets\/\d+\/settlement/ },              // 정산 처리
+  // ── 마켓 관리 ──────────────────────────────────────────────
+  { method: 'POST', pattern: /^\/markets\/?$/ },                             // 마켓 등록
+  { method: 'GET', pattern: /^\/markets\/mine\/?$/ },                        // 내 마켓 목록
+  { method: 'PATCH', pattern: /^\/markets\/\d+\/?$/ },                        // 마켓 수정
+  { method: 'PATCH', pattern: /^\/markets\/closed\/\d+\/?$/ },                // 마켓 취소(마감)
+  { method: 'PATCH', pattern: /^\/markets\/\d+\/location\/?$/ },              // 마켓 위치 수정
+
+  // ── 신청자 관리 ────────────────────────────────────────────
+  { method: 'GET', pattern: /^\/markets\/\d+\/applications\/?$/ },            // 신청자 목록
   { method: 'PATCH', pattern: /^\/applications\/\d+\/(approve|reject)\/?$/ }, // 신청 승인/반려
+
+  // ── 부스 배치 (조회 GET 은 공개, 저장 PUT 만 주최자) ────────
+  { method: 'PUT', pattern: /^\/markets\/\d+\/layout\/?$/ },                  // 부스 배치 저장
+
+  // ── 정산 ───────────────────────────────────────────────────
+  { method: 'GET', pattern: /^\/markets\/\d+\/settlement\/?$/ },              // 정산 조회
+  { method: 'PATCH', pattern: /^\/markets\/\d+\/settlement/ },                // 정산 처리 / 통보
+
+  // ── 결제 대기열 ────────────────────────────────────────────
+  { method: 'GET', pattern: /^\/markets\/\d+\/booths\/[^/]+\/queue\/?$/ },     // 부스별 대기열 조회
+  { method: 'POST', pattern: /^\/markets\/\d+\/queue\/process-timeouts\/?$/ }, // 대기열 타임아웃 처리
+
+  // ── 주최자 통계 ────────────────────────────────────────────
+  { method: 'GET', pattern: /^\/users\/me\/activity\/?$/ },                   // 마이페이지 활동 도넛
 ];
 
-function matchesHostOnly(method, path) {
+/** 경로/메서드가 주최자 전용 목록에 해당하는지. (verify-role-policy.js 에서도 사용) */
+export function matchesHostOnly(method, path) {
   return HOST_ONLY_ENDPOINTS.some(
     (rule) => (rule.method === 'ANY' || rule.method === method) && rule.pattern.test(path)
   );

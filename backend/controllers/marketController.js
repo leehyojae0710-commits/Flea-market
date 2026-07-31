@@ -239,6 +239,17 @@ export async function getApplicationsByMarket(req, res) {
       );
       return res.status(200).json({ success: true, data: rows, message: '신청 목록을 조회했습니다.' });
     }
+
+    // [단방향 전환 규칙 검증 - 버그 수정]
+    //   판매자(userType 0)일 때 아무 응답도 만들지 않고 함수가 끝나서,
+    //   요청이 응답을 못 받고 브라우저에서 계속 매달려 있었습니다. (타임아웃까지 대기)
+    //   이 API 는 주최자 전용이므로 명시적으로 403 을 돌려줍니다.
+    //   (app.use(hostAreaGuard) 에서도 막히지만, 컨트롤러 단독 호출 시를 대비한 이중 방어입니다.)
+    return res.status(403).json({
+      success: false,
+      data: null,
+      message: '판매자 계정은 주최자 기능을 이용할 수 없습니다.',
+    });
   } catch (error) {
     console.error('신청 목록 조회 오류:', error.message);
     return res.status(500).json({ success: false, data: null, message: '서버 오류로 신청 목록 조회에 실패했습니다.' });
