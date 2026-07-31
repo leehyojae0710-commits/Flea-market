@@ -4,7 +4,7 @@
 
 import pool from '../config/db.js';
 // [부스 신청 정합성] 신청 자격 판정은 utills/applicationPolicy.js 한 곳에서 합니다.
-import { checkBoothApplyEligibility } from '../utills/applicationPolicy.js';
+import { checkBoothApplyEligibility, toDateKey, todayKey } from '../utills/applicationPolicy.js';
 
 // POST /api/applications (로그인 필요, 판매자)
 export async function applyForBooth(req, res) {
@@ -242,7 +242,7 @@ export async function approveSellerApplication(req, res) {
 
   try {
     const [rows] = await pool.query(
-      `SELECT a.applicationId, a.marketId, a.boothNumber, m.hostId
+      `SELECT a.applicationId, a.marketId, a.boothNumber, m.hostId, m.allowOvercapacity, m.eventDate_min
        FROM applications a
        JOIN markets m ON m.marketId = a.marketId
        WHERE a.applicationId = ?`,
@@ -263,7 +263,17 @@ export async function approveSellerApplication(req, res) {
       [application.marketId, application.boothNumber, applicationId]
     );
     if (conflicts.length > 0) {
-      return res.status(409).json({ success: false, data: null, message: '해당 부스는 이미 다른 신청이 승인되어 있습니다.' });
+      // [초과 신청 허용] 정원 초과 신청과 마찬가지로, 주최자가 markets.allowOvercapacity 를
+      // 켜뒀고 아직 행사가 시작되지 않았다면 같은 부스 번호라도 초과 승인을 허용합니다.
+      // (자유 텍스트 부스 번호라 서로 다른 신청이 같은 번호를 쓸 수 있음 — 이 경우 정원처럼
+      //  "행사개최전까지" 주최자 재량으로 겹쳐 받을 수 있게 열어둡니다.)
+      const eventStart = toDateKey(application.eventDate_min);
+      const beforeEvent = eventStart ? todayKey() < eventStart : true;
+      const overcapacityAllowed = Number(application.allowOvercapacity) === 1 && beforeEvent;
+
+      if (!overcapacityAllowed) {
+        return res.status(409).json({ success: false, data: null, message: '해당 부스는 이미 다른 신청이 승인되어 있습니다.' });
+      }
     }
 
     await pool.query(

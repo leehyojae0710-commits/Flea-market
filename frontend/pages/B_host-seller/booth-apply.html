@@ -28,23 +28,28 @@
       <p class="panel-sub" id="booth-apply-host" style="display:none;"></p>
 
       <div id="alert-box" class="alert alert-error" role="alert"></div>
+      <!-- [추가] 겹치는 날짜의 다른 마켓 신청 안내 - 신청을 막지는 않고 알려주기만 함 -->
+      <div id="date-overlap-notice" class="alert alert-warning" role="status"></div>
 
       <form id="booth-apply-form" novalidate>
         <input type="hidden" id="market-id" />
 
         <div class="form-field">
           <label for="booth-number">부스 번호</label>
-          <input type="text" id="booth-number" class="form-input" placeholder="예: 1, A1" required />
+          <input type="text" id="booth-number" class="form-input" placeholder="예: 1, A1" maxlength="10" required />
+          <p class="form-hint">최대 10자까지 입력할 수 있어요.</p>
         </div>
 
         <div class="form-field">
           <label for="booth-title">부스 이름</label>
-          <input type="text" id="booth-title" class="form-input" placeholder="예: 민지네 빈티지샵" required />
+          <input type="text" id="booth-title" class="form-input" placeholder="예: 민지네 빈티지샵" maxlength="100" required />
+          <p class="form-hint">최대 100자까지 입력할 수 있어요.</p>
         </div>
 
         <div class="form-field">
           <label for="item-name">판매 물품 이름</label>
-          <input type="text" id="item-name" class="form-input" placeholder="예: 빈티지 자켓 모음" required />
+          <input type="text" id="item-name" class="form-input" placeholder="예: 빈티지 자켓 모음" maxlength="100" required />
+          <p class="form-hint">최대 100자까지 입력할 수 있어요.</p>
         </div>
 
         <div class="form-field">
@@ -57,7 +62,8 @@
 
         <div class="form-field">
           <label for="product-desc">판매 물품 소개</label>
-          <textarea id="product-desc" class="form-textarea" placeholder="어떤 물건을 판매하실 건지 자유롭게 소개해주세요."></textarea>
+          <textarea id="product-desc" class="form-textarea" placeholder="어떤 물건을 판매하실 건지 자유롭게 소개해주세요." maxlength="1000"></textarea>
+          <p class="form-hint">최대 1000자까지 입력할 수 있어요.</p>
         </div>
 
         <button type="submit" id="booth-apply-submit-btn" class="btn btn-primary btn-block">신청하기</button>

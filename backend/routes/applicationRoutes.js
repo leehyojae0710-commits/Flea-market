@@ -74,9 +74,8 @@ const router = express.Router();
  *           - MARKET_CLOSED / MARKET_CANCELLED : 마감·취소된 마켓
  *           - RECRUITMENT_NOT_STARTED / RECRUITMENT_CLOSED : 모집 기간 밖
  *           - DUPLICATE_APPLICATION : 내가 이미 신청한 부스
- *           - BOOTH_TAKEN : 다른 판매자가 점유한 부스
- *           - CAPACITY_FULL : 정원(점유 부스 수) 초과
- *           - DATE_CONFLICT : 개최일이 겹치는 다른 마켓에 이미 신청
+ *           - BOOTH_TAKEN : 다른 판매자가 점유한 부스 (마켓의 allowOvercapacity 가 켜져 있고 행사 시작 전이면 통과)
+ *           - CAPACITY_FULL : 정원(점유 부스 수) 초과 (마켓의 allowOvercapacity 가 켜져 있고 행사 시작 전이면 통과)
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }

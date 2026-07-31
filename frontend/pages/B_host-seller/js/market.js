@@ -33,6 +33,11 @@ async function applyForBooth(payload) {
   return callApi('/applications', { method: 'POST', body: payload });
 }
 
+// [추가] 부스 신청 화면에서 겹치는 날짜의 다른 마켓 신청이 있는지 알려주기 위해 씁니다.
+async function getMyApplications() {
+  return callApi('/applications/my');
+}
+
 async function submitSellerReview(applicationId, rating, comment) {
   return callApi('/reviews/seller', {
     method: 'POST',
@@ -1416,7 +1421,65 @@ async function renderBoothApplyHost(marketId) {
       '주최자 ' + ProfileLink.html(market.hostId, market.hostNickname) +
       (market.title ? ` · ${ProfileLink.escapeHtml(market.title)}` : '');
     hostEl.style.display = '';
+
+    // [추가] 이 마켓의 개최일과 겹치는 다른 마켓 신청이 있으면 알려줍니다. (신청을 막지는 않음)
+    renderDateOverlapNotice(marketId, market.eventDate_min, market.eventDate_max);
   } catch (err) {
     console.error('주최자 정보 조회 오류:', err);
+  }
+}
+
+// [추가] YYYY-MM-DD 부분만 남겨 시간대 영향 없이 날짜만 비교합니다.
+function toDateOnly(value) {
+  if (!value) return null;
+  return String(value).slice(0, 10);
+}
+
+// [추가] 두 기간이 하루라도 겹치는지 확인합니다.
+function rangesOverlap(aMin, aMax, bMin, bMax) {
+  if (!aMin || !aMax || !bMin || !bMax) return false;
+  return aMin <= bMax && aMax >= bMin;
+}
+
+// [추가] 겹치는 날짜의 다른 마켓에 이미 신청(취소/반려 제외)한 게 있으면 안내 배너를 보여줍니다.
+//        신청 자체를 막지는 않습니다 — 판매자가 백업으로 여러 마켓에 신청하는 걸 허용하는 정책이라
+//        "겹칩니다" 라고 알려만 주고 최종 선택은 판매자가 하도록 합니다.
+async function renderDateOverlapNotice(marketId, currentEventMin, currentEventMax) {
+  const box = document.getElementById('date-overlap-notice');
+  if (!box) return;
+  box.classList.remove('show');
+  box.innerHTML = '';
+
+  const from = toDateOnly(currentEventMin);
+  const to = toDateOnly(currentEventMax);
+  if (!from || !to) return;
+
+  try {
+    const res = await getMyApplications();
+    if (!res || !res.success || !Array.isArray(res.data)) return;
+
+    const EXCLUDE_STATUS = ['Rejected', 'Refunded'];
+    const overlaps = res.data.filter((a) => (
+      Number(a.marketId) !== Number(marketId) &&
+      !EXCLUDE_STATUS.includes(a.status) &&
+      rangesOverlap(from, to, toDateOnly(a.eventDate_min), toDateOnly(a.eventDate_max))
+    ));
+
+    if (overlaps.length === 0) return;
+
+    const items = overlaps.map((a) => {
+      const range = toDateOnly(a.eventDate_min) === toDateOnly(a.eventDate_max)
+        ? toDateOnly(a.eventDate_min)
+        : `${toDateOnly(a.eventDate_min)} ~ ${toDateOnly(a.eventDate_max)}`;
+      return `<li><strong>${ProfileLink.escapeHtml(a.marketTitle || '마켓')}</strong> (${range})</li>`;
+    }).join('');
+
+    box.innerHTML = `
+      <p style="margin:0 0 6px;">이미 신청한 아래 마켓과 개최일이 겹칩니다. 신청은 계속 진행할 수 있지만, 실제로는 한 곳만 참가할 수 있으니 참고해주세요.</p>
+      <ul style="margin:0; padding-left:18px;">${items}</ul>
+    `;
+    box.classList.add('show');
+  } catch (err) {
+    console.error('날짜 겹침 확인 오류:', err);
   }
 }

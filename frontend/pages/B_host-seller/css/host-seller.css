@@ -710,6 +710,11 @@ body {
   background: var(--sage-bg);
   color: var(--sage-text);
 }
+/* [추가] 겹치는 날짜 중복 신청 안내 - 막지는 않고 알려만 주는 용도라 error/success와 톤을 다르게 */
+.alert-warning {
+  background: var(--mustard-bg, #fdf1d6);
+  color: var(--mustard-text);
+}
 
 /* ---------- payment card ---------- */
 .payment-card {

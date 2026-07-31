@@ -50,7 +50,7 @@ async function getMarketColumns(db) {
 }
 
 /** DATE 컬럼을 시간대 영향 없이 'YYYY-MM-DD' 로 만듭니다. (toISOString 은 하루 밀릴 수 있음) */
-function toDateKey(value) {
+export function toDateKey(value) {
   if (!value) return null;
   const d = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(d.getTime())) return null;
@@ -59,7 +59,7 @@ function toDateKey(value) {
   return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
-function todayKey() {
+export function todayKey() {
   return toDateKey(new Date());
 }
 
@@ -138,8 +138,16 @@ export async function checkBoothApplyEligibility(db, {
   const excludeSql = excludeApplicationId ? ' AND applicationId <> ?' : '';
   const excludeParam = excludeApplicationId ? [excludeApplicationId] : [];
 
+  // [초과 신청 허용] 주최자가 markets.allowOvercapacity 를 켜두면, 행사 시작일(eventDate_min)
+  // 전까지는 정원(5)뿐 아니라 부스 중복(4)도 막지 않습니다. 행사가 시작된 뒤에는 다시 정상 판정.
+  const eventStart = has('eventDate_min') ? toDateKey(market.eventDate_min) : null;
+  const beforeEvent = eventStart ? today < eventStart : true;
+  const overcapacityAllowed = has('allowOvercapacity') && Number(market.allowOvercapacity) === 1 && beforeEvent;
+
   // 4) [3.2.2.4 / 3.2.2.5] 부스 점유 확인
   //    같은 부스를 이미 누가 쓰고 있으면 막습니다. 내 신청인지 남의 신청인지에 따라 안내를 나눕니다.
+  //    단, 초과 신청이 허용된 마켓이면 남이 쓰는 부스라도 겹쳐서 신청할 수 있습니다.
+  //    (내가 이미 신청한 부스에 또 신청하는 것은 초과 허용과 무관하게 계속 막습니다 — 단순 실수 방지.)
   if (boothNumber !== undefined && boothNumber !== null && String(boothNumber).trim() !== '') {
     const [taken] = await db.query(
       `SELECT applicationId, sellerId FROM applications
@@ -148,60 +156,33 @@ export async function checkBoothApplyEligibility(db, {
       [marketId, boothNumber, ...ACTIVE_APPLICATION_STATUSES, ...excludeParam]
     );
     if (taken.length > 0) {
-      return Number(taken[0].sellerId) === Number(userId)
-        ? fail(409, 'DUPLICATE_APPLICATION', `이미 신청한 부스입니다. (${boothNumber}번)`)
-        : fail(409, 'BOOTH_TAKEN', `이미 신청된 부스입니다. 다른 부스를 선택해 주세요. (${boothNumber}번)`);
-    }
-  }
-
-  // 5) 정원 확인 — 1인 다부스를 허용하므로 "점유 부스 수" 로 셉니다.
-  //    [초과 신청 허용] 주최자가 markets.allowOvercapacity 를 켜두면, 정원이 차도
-  //    행사 시작일(eventDate_min) 전까지는 막지 않습니다. 행사가 시작된 뒤에는
-  //    이 값이 켜져 있어도 다시 정원을 지킵니다 — "행사개최전까지" 관리 범위로 한정.
-  const capacity = Number(market.maxparticipants);
-  if (Number.isFinite(capacity) && capacity > 0) {
-    const eventStart = has('eventDate_min') ? toDateKey(market.eventDate_min) : null;
-    const beforeEvent = eventStart ? today < eventStart : true;
-    const overcapacityAllowed = has('allowOvercapacity') && Number(market.allowOvercapacity) === 1 && beforeEvent;
-
-    if (!overcapacityAllowed) {
-      const [[occupied]] = await db.query(
-        `SELECT COUNT(*) AS cnt FROM applications
-          WHERE marketId = ? AND status IN (${ACTIVE_LIST})${excludeSql}`,
-        [marketId, ...ACTIVE_APPLICATION_STATUSES, ...excludeParam]
-      );
-      if (Number(occupied.cnt) >= capacity) {
-        return fail(409, 'CAPACITY_FULL',
-          `부스가 모두 찼습니다. (${occupied.cnt}/${capacity})`);
+      if (Number(taken[0].sellerId) === Number(userId)) {
+        return fail(409, 'DUPLICATE_APPLICATION', `이미 신청한 부스입니다. (${boothNumber}번)`);
+      }
+      if (!overcapacityAllowed) {
+        return fail(409, 'BOOTH_TAKEN', `이미 신청된 부스입니다. 다른 부스를 선택해 주세요. (${boothNumber}번)`);
       }
     }
   }
 
-  // 6) [3.2.2.6] 동일 일자 중복 신청 확인
-  //    같은 날 두 곳에 나가는 것은 물리적으로 불가능하므로, 개최 기간이 겹치는 다른 마켓은 막습니다.
-  const from = toDateKey(market.eventDate_min);
-  const to = toDateKey(market.eventDate_max);
-  if (from && to && has('eventDate_min') && has('eventDate_max')) {
-    const [conflict] = await db.query(
-      `SELECT m.marketId, m.title, m.eventDate_min, m.eventDate_max
-         FROM applications a
-         JOIN markets m ON m.marketId = a.marketId
-        WHERE a.sellerId = ?
-          AND a.marketId <> ?
-          AND a.status IN (${ACTIVE_LIST})
-          AND m.isExpired <> 2
-          AND m.eventDate_min <= ?
-          AND m.eventDate_max >= ?
-          ${excludeApplicationId ? 'AND a.applicationId <> ?' : ''}
-        LIMIT 1`,
-      [userId, marketId, ...ACTIVE_APPLICATION_STATUSES, to, from, ...excludeParam]
+  // 5) 정원 확인 — 1인 다부스를 허용하므로 "점유 부스 수" 로 셉니다.
+  const capacity = Number(market.maxparticipants);
+  if (Number.isFinite(capacity) && capacity > 0 && !overcapacityAllowed) {
+    const [[occupied]] = await db.query(
+      `SELECT COUNT(*) AS cnt FROM applications
+        WHERE marketId = ? AND status IN (${ACTIVE_LIST})${excludeSql}`,
+      [marketId, ...ACTIVE_APPLICATION_STATUSES, ...excludeParam]
     );
-    if (conflict.length > 0) {
-      const other = conflict[0];
-      return fail(409, 'DATE_CONFLICT',
-        `개최일이 겹치는 마켓에 이미 신청되어 있습니다. (${other.title})`);
+    if (Number(occupied.cnt) >= capacity) {
+      return fail(409, 'CAPACITY_FULL',
+        `부스가 모두 찼습니다. (${occupied.cnt}/${capacity})`);
     }
   }
+
+  // 6) [정책 변경] 예전에는 개최일이 겹치는 다른 마켓에 신청 이력이 있으면 막았지만(DATE_CONFLICT),
+  //    판매자가 겹치는 날짜에도 여러 마켓에 백업 삼아 중복 신청할 수 있어야 한다는 요구에 따라
+  //    이 제한을 완전히 없앴습니다. 실제로 어느 마켓에 참여할지는 판매자 본인이 결정하고,
+  //    나머지는 취소/환불 정책(부스 취소 시 환불 정책)으로 정리합니다.
 
   return { ok: true, market };
 }
@@ -219,4 +200,6 @@ export default {
   ACTIVE_APPLICATION_STATUSES,
   checkBoothApplyEligibility,
   isOwnMarketPayment,
+  toDateKey,
+  todayKey,
 };
