@@ -30,8 +30,20 @@ export const searchItems = async (req, res) => {
       const statusClause = TAB_STATUS_CONDITIONS[tab] ? `AND (${TAB_STATUS_CONDITIONS[tab]})` : '';
       const orderClause = SORT_CLAUSES[sort] || 'm.updated_at DESC';
 
+      // [수정] 메인 목록(getMarketList)과 동일하게 주최자 닉네임(hostNickname)과
+      //   실시간 부스 신청 수(appliedBooths)를 함께 계산해서 내려줘야 합니다.
+      //   기존에는 m.* 만 조회해서 이 두 값이 응답에 없었고, 그 결과 프론트의
+      //   getBoothStats()가 appliedBooths를 0으로 처리해 검색 시 부스 신청
+      //   게이지가 0%로 초기화되는 문제가 있었습니다.
       const marketQuery = `
-        SELECT m.* FROM markets m
+        SELECT m.*,
+          u.nickname AS hostNickname,
+          (SELECT COUNT(*) FROM applications a
+            WHERE a.marketId = m.marketId
+              AND a.status IN ('Pending', 'Approved', 'Paid')
+          ) AS appliedBooths
+        FROM markets m
+        JOIN users u ON u.userId = m.hostId
         WHERE (? = '' OR m.title LIKE ? OR m.description LIKE ? OR m.locationName LIKE ? OR m.region LIKE ?)
         ${statusClause}
         ORDER BY ${orderClause}
