@@ -316,6 +316,7 @@ function handleMarketCreateSubmit() {
       latitude: document.getElementById('latitude').value || null,
       longitude: document.getElementById('longitude').value || null,
       maxparticipants: maxParticipantsNum,
+      allowDuplicateApplication: document.getElementById('allow-duplicate-application')?.checked ?? true,
       marketImage: document.getElementById('uploadedImagePath').value || null,
     };
 

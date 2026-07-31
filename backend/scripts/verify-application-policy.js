@@ -61,12 +61,12 @@ for (const [rel, marker, label] of MARKERS) {
 
 const COLUMNS = [
   'marketId', 'hostId', 'isExpired', 'title', 'maxparticipants', 'allowOvercapacity',
-  'eventDate_min', 'eventDate_max', 'recruitmentDate_min', 'recruitmentDate_max',
+  'allowDuplicateApplication', 'eventDate_min', 'eventDate_max', 'recruitmentDate_min', 'recruitmentDate_max',
 ];
 
 // 실제 DB 대신 정해진 답만 돌려주는 가짜 커넥션.
 // 플레이스홀더(?) 개수와 파라미터 개수가 어긋나면 여기서 바로 잡힙니다.
-function makeFakeDb({ market, taken = [], occupied = 0, conflict = [] }) {
+function makeFakeDb({ market, taken = [], occupied = 0, conflict = [], sellerApplications = [] }) {
   return {
     async query(sql, params = []) {
       const placeholders = (sql.match(/\?/g) || []).length;
@@ -76,6 +76,7 @@ function makeFakeDb({ market, taken = [], occupied = 0, conflict = [] }) {
       if (sql.includes('information_schema')) return [COLUMNS.map((c) => ({ c }))];
       if (sql.includes('FROM markets WHERE marketId')) return [market ? [market] : []];
       if (sql.includes('SELECT applicationId, sellerId FROM applications')) return [taken];
+      if (sql.includes('SELECT applicationId FROM applications')) return [sellerApplications];
       if (sql.includes('COUNT(*) AS cnt')) return [[{ cnt: occupied }]];
       if (sql.includes('JOIN markets m ON m.marketId = a.marketId')) return [conflict];
       throw new Error('예상치 못한 쿼리: ' + sql.slice(0, 60));
@@ -118,6 +119,10 @@ const 시나리오 = [
   ['개최일 겹치는 마켓에 이미 신청 (정책상 항상 허용)', { market: 기준마켓, conflict: [{ marketId: 9, title: '다른 마켓' }] }, { userId: 7, marketId: 5, boothNumber: 'A-1' }, true, null],
   ['1인 다부스 (정원 여유)', { market: 기준마켓, occupied: 3 }, { userId: 7, marketId: 5, boothNumber: 'B-2' }, true, null],
   ['신청 수정 (자기 건은 계산에서 제외)', { market: 기준마켓, occupied: 0 }, { userId: 7, marketId: 5, boothNumber: 'B-9', excludeApplicationId: 12 }, true, null],
+  ['중복 신청 허용 안함 + 이미 신청한 판매자', { market: { ...기준마켓, allowDuplicateApplication: 0 }, sellerApplications: [{ applicationId: 3 }] }, { userId: 7, marketId: 5, boothNumber: 'B-2' }, false, 'DUPLICATE_SELLER_APPLICATION'],
+  ['중복 신청 허용 안함 + 처음 신청하는 판매자', { market: { ...기준마켓, allowDuplicateApplication: 0 }, sellerApplications: [] }, { userId: 7, marketId: 5, boothNumber: 'A-1' }, true, null],
+  ['중복 신청 허용(기본값) + 이미 신청한 판매자의 다른 부스 신청', { market: 기준마켓, sellerApplications: [{ applicationId: 3 }] }, { userId: 7, marketId: 5, boothNumber: 'B-2' }, true, null],
+  ['중복 신청 허용 안함 + 신청 수정(자기 건은 계산에서 제외)', { market: { ...기준마켓, allowDuplicateApplication: 0 }, sellerApplications: [] }, { userId: 7, marketId: 5, boothNumber: 'A-1', excludeApplicationId: 12 }, true, null],
 ];
 
 console.log('\n── 2. 신청 자격 판정 시나리오 ────────────────────────────');

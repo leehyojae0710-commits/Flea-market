@@ -95,7 +95,7 @@ export async function checkBoothApplyEligibility(db, {
   const has = (c) => columns.size === 0 || columns.has(c);
 
   const selectCols = ['marketId', 'hostId', 'isExpired', 'title'];
-  for (const c of ['maxparticipants', 'allowOvercapacity', 'eventDate_min', 'eventDate_max', 'recruitmentDate_min', 'recruitmentDate_max']) {
+  for (const c of ['maxparticipants', 'allowOvercapacity', 'allowDuplicateApplication', 'eventDate_min', 'eventDate_max', 'recruitmentDate_min', 'recruitmentDate_max']) {
     if (has(c)) selectCols.push(c);
   }
 
@@ -137,6 +137,23 @@ export async function checkBoothApplyEligibility(db, {
 
   const excludeSql = excludeApplicationId ? ' AND applicationId <> ?' : '';
   const excludeParam = excludeApplicationId ? [excludeApplicationId] : [];
+
+  // 3-1) [주최자 옵션] 판매자 중복 신청 제한
+  //      주최자가 markets.allowDuplicateApplication 을 0(허용 안 함)으로 설정한 마켓에서는,
+  //      같은 판매자가 이미 이 마켓에 신청(대기/승인/결제완료)해 두었다면 부스 번호가 같든 다르든
+  //      추가 신청을 막습니다. (신청 수정 화면에서는 자기 자신의 건은 계산에서 제외합니다.)
+  if (has('allowDuplicateApplication') && Number(market.allowDuplicateApplication) === 0) {
+    const [existing] = await db.query(
+      `SELECT applicationId FROM applications
+        WHERE marketId = ? AND sellerId = ? AND status IN (${ACTIVE_LIST})${excludeSql}
+        LIMIT 1`,
+      [marketId, userId, ...ACTIVE_APPLICATION_STATUSES, ...excludeParam]
+    );
+    if (existing.length > 0) {
+      return fail(409, 'DUPLICATE_SELLER_APPLICATION',
+        '이미 이 마켓에 신청한 내역이 있습니다. 이 마켓은 판매자당 한 건만 신청할 수 있어요.');
+    }
+  }
 
   // [초과 신청 허용] 주최자가 markets.allowOvercapacity 를 켜두면, 행사 시작일(eventDate_min)
   // 전까지는 정원(5)뿐 아니라 부스 중복(4)도 막지 않습니다. 행사가 시작된 뒤에는 다시 정상 판정.
