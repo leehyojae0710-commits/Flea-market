@@ -1,6 +1,4 @@
 import pool from '../config/db.js';
-// [부스 신청 정합성] 본인 마켓 여부 판정을 신청 정책 모듈과 공유합니다.
-import { isOwnMarketPayment } from '../utills/applicationPolicy.js';
 import { verifyPayment, cencelPayment } from '../services/paymentService.js';
 import { calculateRefundRate } from '../utills/refundPolicy.js'
 import { createNotification } from '../services/notificationService.js';
@@ -260,16 +258,6 @@ export async function requestRefund(req, res) {
       return res.status(403).json({ success: false, message: '본인의 결제 건만 환불 요청할 수 있습니다.' });
     }
 
-    // [3.11.6.2] 본인이 주최한 마켓의 건은 환불 요청 대상이 아닙니다.
-    //   자기신청 차단으로 이제는 생길 수 없는 데이터지만, 차단 이전에 쌓인 건이 남아 있을 수 있어 함께 막습니다.
-    if (isOwnMarketPayment(payment.hostId, userId)) {
-      return res.status(403).json({
-        success: false,
-        code: 'SELF_MARKET_REFUND_FORBIDDEN',
-        message: '본인이 주최한 마켓의 결제 건입니다. 마켓 관리 화면에서 처리해 주세요.',
-      });
-    }
-
     // 📌 환불 비율 계산
     const refundRate = calculateRefundRate(payment.eventDate_min);
     const refundAmount = Math.floor(payment.amount * refundRate);
@@ -313,7 +301,6 @@ export async function requestRefund(req, res) {
     return res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
-
 export async function paymentHistory(req, res) {
   console.log("들어옴");
   console.log(req.user.userId);
@@ -390,14 +377,3 @@ export async function paymentHistory(req, res) {
     console.error('결제 내역 오류:', error.message);
   }
 }
-
-/*
-결제 내역 필요한 기능
-<주최자>
-내가 주최한 마켓에 대한 마켓 타이틀과 총 금액을 보이게 
-상세보기 -> 유저 닉네임과 금액
-<판매자>
-내가 참가한 마켓에 대한 마켓 타이틀과 금액이 보이게
-상세보기 -> 영수증 html 보이게
-영수증 -> 결제한 시간 , 마켓 이름, 회사명, 닉네임. 금액
- */
