@@ -241,12 +241,8 @@ export async function requestRefund(req, res) {
   try {
     const [rows] = await pool.query(
       /*SQL*/
-<<<<<<< HEAD
-      `SELECT p.paymentId, p.amount, p.status, a.sellerId, m.hostId, m.eventDate_min
-=======
       `SELECT p.paymentId, p.amount, p.status, a.sellerId, m.eventDate_min,
               m.hostId, m.title AS marketTitle, a.boothNumber, a.itemName, a.marketId
->>>>>>> origin/feat/이효재
        FROM payments p
        JOIN applications a ON a.applicationId = p.applicationId
        JOIN markets m ON m.marketId = a.marketId
