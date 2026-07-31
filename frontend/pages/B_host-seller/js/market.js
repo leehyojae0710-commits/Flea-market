@@ -1,3 +1,7 @@
+// [보안·환경 정리] 서버 주소 하드코딩('http://localhost:5000/api')을 제거했습니다.
+//   주소 결정은 common/js/api.js 의 apiUrl() 한 곳에서만 합니다.
+//   이 페이지들은 모두 api.js 를 먼저(또는 같은 페이지에서) 불러오고,
+//   아래 호출들은 전부 사용자가 버튼을 누른 뒤 실행되므로 apiUrl 은 항상 준비돼 있습니다.
 // 담당 B: 주최측/판매자 화면 프론트 로직
 // 함수명은 docs/naming-convention.md 규칙(동사 시작 + camelCase)을 따릅니다.
 
@@ -222,7 +226,7 @@ async function uploadMarketImage() {
   formData.append('marketImage', file);
 
   try {
-    const response = await fetch('http://localhost:5000/api/upload', {
+    const response = await fetch(apiUrl('/upload'), {
       method: 'POST',
       body: formData
     });
@@ -254,7 +258,7 @@ function initDateInputs() {
 // async function createMarketWithImage(formData) {
 //   const token = sessionStorage.getItem('token');
 
-//   const res = await fetch(`http://localhost:5000/api/markets`, {
+//   const res = await fetch(apiUrl('/markets'), {
 //     method: 'POST',
 //     headers: {
 //       'Authorization': `Bearer ${token}`
@@ -835,7 +839,7 @@ async function uploadItemImage() {
   formData.append('itemImage', file);
 
   try {
-    const response = await fetch('http://localhost:5000/api/upload/item-image', {
+    const response = await fetch(apiUrl('/upload/item-image'), {
       method: 'POST',
       body: formData,
     });

@@ -1,3 +1,7 @@
+// [보안·환경 정리] 서버 주소 하드코딩('http://localhost:5000/api')을 제거했습니다.
+//   주소 결정은 common/js/api.js 의 apiUrl() 한 곳에서만 합니다.
+//   이 페이지들은 모두 api.js 를 먼저(또는 같은 페이지에서) 불러오고,
+//   아래 호출들은 전부 사용자가 버튼을 누른 뒤 실행되므로 apiUrl 은 항상 준비돼 있습니다.
 // js/marketcorrection.js
 // 마켓 수정 페이지 전용 스크립트
 // 흐름: URL에서 marketId 읽기 -> 기존 마켓 정보 조회(GET) -> 폼에 채우기 -> 제출 시 PATCH
@@ -59,7 +63,7 @@ async function loadMarketForEdit(marketId) {
       const statusEl = document.getElementById('image-upload-status');
       statusEl.innerHTML = `
         <p class="form-hint">현재 등록된 이미지</p>
-        <img src="http://localhost:5000/api${market.marketImage}" alt="현재 마켓 이미지"
+        <img src="${apiUrl(market.marketImage)}" alt="현재 마켓 이미지"
              style="max-width:100%; max-height:180px; border-radius:8px; margin-top:6px;" />
       `;
       // [추가] 등록된 이미지가 있을 때만 삭제 버튼을 보여줍니다.
@@ -182,7 +186,7 @@ async function uploadMarketImage() {
   formData.append('marketImage', file);
 
   try {
-    const response = await fetch('http://localhost:5000/api/upload', {
+    const response = await fetch(apiUrl('/upload'), {
       method: 'POST',
       body: formData
     });

@@ -22,14 +22,35 @@ import reviewRoutes from './routes/reviewRoutes.js';
 import { authenticateToken } from './middleware/authMiddleware.js';
 import { hostAreaGuard } from './middleware/roleGuard.js'; // [C-01] 판매자의 주최자 API 접근 차단
 import searchRoutes from './routes/searchRoutes.js';
+import { checkEnv, getCorsOrigins } from './config/envCheck.js'; // [보안·환경 정리] 환경변수 점검 + CORS 허용 목록
 
 
 dotenv.config();
 
+// [보안·환경 정리] .env 상태를 서버 기동 시 한 번 점검합니다.
+//   개발 중에는 경고만 찍고 그대로 뜨고, NODE_ENV=production 이면 필수 값이 없을 때 기동을 막습니다.
+checkEnv();
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors()); // 프론트(5500 등 다른 포트)에서 오는 요청 허용
+// [보안·환경 정리] CORS 를 .env 로 제어합니다.
+//   CORS_ORIGINS 를 지정하면 그 주소들만 허용하고, 비워 두면 기존처럼 전체 허용입니다.
+//   개발 편의를 깨지 않으면서, 배포할 때 한 줄만 넣으면 잠글 수 있게 한 구조입니다.
+//   예) CORS_ORIGINS=http://localhost:5500,http://192.168.0.229:5500
+const corsOrigins = getCorsOrigins();
+app.use(cors(
+  corsOrigins
+    ? {
+        origin(origin, callback) {
+          // origin 이 없는 요청(Postman, 서버 간 호출, same-origin)은 그대로 통과시킵니다.
+          if (!origin || corsOrigins.includes(origin)) return callback(null, true);
+          return callback(new Error(`CORS 차단: 허용되지 않은 출처입니다 (${origin})`));
+        },
+        credentials: true,
+      }
+    : undefined // 미설정 시 기존 동작(전체 허용) 유지
+));
 app.use(express.json());
 app.use(hostAreaGuard); // [C-01] 라우터 등록 전에 역할 가드를 먼저 통과시킵니다.
 app.use('/api/auth', authRoutes);

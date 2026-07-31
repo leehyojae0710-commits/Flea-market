@@ -35,7 +35,68 @@
 //
 // 기존 호출 방식은 그대로입니다: callApi('/markets', { method: 'POST', body: payload })
 
-const API_BASE_URL = 'http://localhost:5000/api';
+/* ------------------------------------------------------------------ */
+/* API 주소 결정                                                       */
+/* ------------------------------------------------------------------ */
+//
+// [보안·환경 정리] 예전에는 이 파일과 다른 4개 파일에 'http://localhost:5000/api' 가
+//   총 9군데 하드코딩돼 있었습니다. 배포할 때 전부 찾아 고쳐야 하고, 하나만 빠뜨려도
+//   운영 화면이 개발 PC 를 호출합니다. 그래서 주소 결정을 여기 한 곳으로 모았습니다.
+//
+// 우선순위
+//   1) window.__API_BASE_URL__       배포 스크립트가 주입 (가장 강함)
+//   2) <meta name="api-base-url">    HTML 한 줄로 지정
+//   3) 현재 접속한 호스트의 5000 포트  (기본값. 팀원끼리 IP 로 접속해도 알아서 맞춰짐)
+//   4) http://localhost:5000/api     파일을 직접 열었을 때(file://) 폴백
+//
+// 배포 시에는 3번이 그대로 동작하거나, 백엔드가 정적 파일까지 서빙하면
+// 같은 오리진의 /api 를 자동으로 씁니다. 고칠 곳은 이 함수 하나뿐입니다.
+function resolveApiBaseUrl() {
+  if (typeof window === 'undefined') return 'http://localhost:5000/api';
+
+  if (window.__API_BASE_URL__) {
+    return String(window.__API_BASE_URL__).replace(/\/+$/, '');
+  }
+
+  var meta = document.querySelector('meta[name="api-base-url"]');
+  if (meta && meta.content) {
+    return meta.content.replace(/\/+$/, '');
+  }
+
+  var loc = window.location;
+  // 파일을 더블클릭해서 연 경우(file://) 에는 호스트가 없습니다.
+  if (loc.protocol === 'file:' || !loc.hostname) {
+    return 'http://localhost:5000/api';
+  }
+
+  // 백엔드가 프론트까지 서빙하는 배포 형태면 같은 오리진을 씁니다.
+  if (loc.port === '5000' || loc.port === '') {
+    return loc.origin + '/api';
+  }
+
+  // Live Server(5500 등)로 열었을 때: 같은 호스트의 5000 포트가 백엔드입니다.
+  return loc.protocol + '//' + loc.hostname + ':5000/api';
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
+
+/**
+ * API·업로드 파일의 전체 주소를 만듭니다.
+ * callApi 를 쓰지 않는 곳(FormData 업로드, <img src>)에서 사용하세요.
+ *   apiUrl('/upload')          -> http://localhost:5000/api/upload
+ *   apiUrl('/images/a.png')    -> http://localhost:5000/api/images/a.png
+ */
+function apiUrl(path) {
+  var p = String(path || '');
+  if (/^https?:\/\//i.test(p)) return p; // 이미 전체 주소면 그대로
+  if (p && p.charAt(0) !== '/') p = '/' + p;
+  return API_BASE_URL + p;
+}
+
+if (typeof window !== 'undefined') {
+  window.API_BASE_URL = API_BASE_URL;
+  window.apiUrl = apiUrl;
+}
 
 /* ------------------------------------------------------------------ */
 /* 세션 저장소                                                         */

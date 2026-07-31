@@ -1,3 +1,7 @@
+// [보안·환경 정리] 서버 주소 하드코딩('http://localhost:5000/api')을 제거했습니다.
+//   주소 결정은 common/js/api.js 의 apiUrl() 한 곳에서만 합니다.
+//   이 페이지들은 모두 api.js 를 먼저(또는 같은 페이지에서) 불러오고,
+//   아래 호출들은 전부 사용자가 버튼을 누른 뒤 실행되므로 apiUrl 은 항상 준비돼 있습니다.
 // js/boothedit.js
 // 부스 수정 페이지 전용 스크립트 (correctionMarket.html의 marketcorrection.js와 동일한 패턴)
 // 흐름: URL에서 applicationId 읽기 -> 내 신청 목록에서 해당 건 찾기 -> 폼에 채우기 -> 제출 시 PATCH
@@ -86,7 +90,7 @@ async function loadApplicationForEdit(applicationId) {
       const statusEl = document.getElementById('current-image-status');
       const imageSrc = application.itemImage.startsWith('http')
         ? application.itemImage
-        : `http://localhost:5000/api${application.itemImage}`;
+        : apiUrl(application.itemImage);
       if (statusEl) {
         statusEl.innerHTML = `
           <p class="form-hint">현재 등록된 이미지</p>
@@ -134,7 +138,7 @@ async function uploadItemImage() {
   formData.append('itemImage', file);
 
   try {
-    const response = await fetch('http://localhost:5000/api/upload/item-image', {
+    const response = await fetch(apiUrl('/upload/item-image'), {
       method: 'POST',
       body: formData,
     });

@@ -1,2 +1,16 @@
+# backend/.gitignore
+# [보안 정리] 루트 .gitignore 와 같은 규칙을 backend 기준으로도 둡니다.
+#   .env 만 적어 두면 `.env.txt.env` 처럼 이름이 조금만 달라도 그대로 커밋됩니다.
+
 node_modules/
+
 .env
+.env.*
+*.env
+!.env.example
+
+uploads/
+
+backup*.sql
+dump*.sql
+*.log

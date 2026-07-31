@@ -1,3 +1,7 @@
+// [보안·환경 정리] 서버 주소 하드코딩('http://localhost:5000/api')을 제거했습니다.
+//   주소 결정은 common/js/api.js 의 apiUrl() 한 곳에서만 합니다.
+//   이 페이지들은 모두 api.js 를 먼저(또는 같은 페이지에서) 불러오고,
+//   아래 호출들은 전부 사용자가 버튼을 누른 뒤 실행되므로 apiUrl 은 항상 준비돼 있습니다.
 document.addEventListener('DOMContentLoaded', () => {
   const mainGrid = document.getElementById('market-grid') || document.querySelector('.market-grid');
   const boothList = document.getElementById('booth-list') || document.querySelector('.booth-list') || document.querySelector('.booth-container');
@@ -43,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const tab = typeof currentTab !== 'undefined' ? currentTab : '';
       const sortValue = document.getElementById('sort-filter')?.value || '';
       const sort = typeof toBackendSort === 'function' ? toBackendSort(sortValue) : sortValue;
-      const response = await fetch(`http://localhost:5000/api/search?keyword=${encodeURIComponent(keyword)}&type=market&tab=${encodeURIComponent(tab)}&sort=${encodeURIComponent(sort)}`);
+      const response = await fetch(apiUrl(`/search?keyword=${encodeURIComponent(keyword)}&type=market&tab=${encodeURIComponent(tab)}&sort=${encodeURIComponent(sort)}`));
       if (!response.ok) throw new Error(`서버 응답 오류: ${response.status}`);
 
       const data = await response.json();
