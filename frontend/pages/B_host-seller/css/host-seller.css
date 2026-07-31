@@ -1342,3 +1342,5 @@ a.btn {
   font-family: "IBM Plex Mono", monospace;
   font-size: 13px;
 }
+.status-tag.paid { background: var(--sage-bg); color: var(--sage-text); }
+.status-tag.refunded { background: #ece1cd; color: var(--ink-soft); }
