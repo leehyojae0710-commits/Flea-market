@@ -77,7 +77,7 @@ let reviewDraftRating = 0; // 별점 입력창에서 아직 제출 전인 값 (0
 let searchKeyword = '';
 
 // ---------- 페이지네이션 ----------
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 20;
 let currentPage = 1;
 
 // ---------- 렌더링 ----------

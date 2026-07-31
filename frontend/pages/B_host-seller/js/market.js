@@ -109,10 +109,136 @@ function formatPrice(price) {
 const STATUS_LABEL = { Pending: '대기중', Approved: '승인됨', Rejected: '반려됨', Paid: '결제 완료', Refunded: '결제 취소', RefundRequested: '환불 신청' };
 const STATUS_CLASS = { Pending: 'pending', Approved: 'approved', Rejected: 'rejected', Paid: 'paid', Refunded: 'refunded', RefundRequested: 'refundRequested' };
 
-let currentApplications = [];
+let currentApplications = []; // 서버에서 받은 원본 전체 신청 목록 (필터/정렬 전)
+let filteredApplications = []; // 상태 필터 + 정렬이 적용되어 실제로 화면에 그려지는 목록
+let applicationStatusFilter = ''; // '' | 'Pending' | 'Approved' | 'Paid' | 'Refund' | 'Rejected'
 let sellerReviewOpenId = null;
 let sellerReviewDraftRating = 0;
 let selectedApplicationIds = new Set();
+
+// ---------- 신청자 목록: 상태 필터 / 정렬 / 페이지네이션 ----------
+
+// [추가] '환불' 필터는 신청 status 값 하나와 1:1로 매핑되지 않아
+//        (환불 요청중 + 환불 완료 두 상태를 함께 묶어야 해서) 별도 매핑 테이블로 처리합니다.
+const APPLICATION_STATUS_FILTER_MAP = {
+  Refund: ['Refunded', 'RefundRequested'],
+};
+
+// [추가] 신청자 목록은 항상 "승인대기 → 결제대기 → 결제완료 → 환불 → 반려" 순으로 정렬합니다.
+//        (승인대기=Pending, 결제대기=Approved, 결제완료=Paid, 환불=Refunded/RefundRequested, 반려=Rejected)
+const APPLICATION_STATUS_ORDER = {
+  Pending: 0,
+  Approved: 1,
+  Paid: 2,
+  RefundRequested: 3,
+  Refunded: 3,
+  Rejected: 4,
+};
+
+function getApplicationSortRank(status) {
+  const rank = APPLICATION_STATUS_ORDER[status];
+  return rank === undefined ? 99 : rank;
+}
+
+// ---------- 신청자 목록 페이지네이션 ----------
+const APPLICATION_PAGE_SIZE = 20;
+let applicationCurrentPage = 1;
+
+// 상태 필터 적용 -> 정렬 -> 1페이지로 리셋 -> 다시 그리기
+function applyApplicationStatusFilter() {
+  const groupedStatuses = APPLICATION_STATUS_FILTER_MAP[applicationStatusFilter];
+  const byStatus = applicationStatusFilter
+    ? currentApplications.filter((a) => {
+        const status = a.status || 'Pending';
+        return groupedStatuses
+          ? groupedStatuses.includes(status)
+          : status === applicationStatusFilter;
+      })
+    : currentApplications;
+
+  filteredApplications = [...byStatus].sort(
+    (a, b) => getApplicationSortRank(a.status || 'Pending') - getApplicationSortRank(b.status || 'Pending'),
+  );
+
+  applicationCurrentPage = 1;
+  renderApplicationList();
+}
+
+function handleApplicationStatusFilterChange() {
+  applicationStatusFilter = document.getElementById('application-status-filter')?.value || '';
+  selectedApplicationIds.clear();
+  applyApplicationStatusFilter();
+}
+
+// main.js / marketdelete.js 와 동일한 축약 페이지 번호 규칙
+function getApplicationPageWindow(current, total) {
+  const SIBLINGS = 2;
+  const first = 1;
+  const last = total;
+
+  if (total <= SIBLINGS * 2 + 3) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+
+  const start = Math.max(current - SIBLINGS, first);
+  const end = Math.min(current + SIBLINGS, last);
+  const pages = [];
+
+  pages.push(first);
+  if (start > first + 1) pages.push('…');
+  else if (start === first + 1) pages.push(first + 1);
+
+  for (let p = start; p <= end; p++) {
+    if (p !== first && p !== last) pages.push(p);
+  }
+
+  if (end < last - 1) pages.push('…');
+  else if (end === last - 1) pages.push(last - 1);
+
+  pages.push(last);
+
+  return pages.filter((p, i) => p === '…' || pages.indexOf(p) === i);
+}
+
+function renderApplicationPagination(totalPages) {
+  const nav = document.getElementById('application-pagination');
+  if (!nav) return;
+  if (totalPages <= 1) { nav.innerHTML = ''; return; }
+
+  const buttons = [];
+  buttons.push(
+    `<button type="button" class="page-btn page-nav" data-page="${applicationCurrentPage - 1}" ${applicationCurrentPage === 1 ? 'disabled' : ''}>‹</button>`
+  );
+
+  getApplicationPageWindow(applicationCurrentPage, totalPages).forEach((p) => {
+    if (p === '…') {
+      buttons.push(`<span class="page-ellipsis">…</span>`);
+    } else {
+      buttons.push(
+        `<button type="button" class="page-btn${p === applicationCurrentPage ? ' is-active' : ''}" data-page="${p}">${p}</button>`
+      );
+    }
+  });
+
+  buttons.push(
+    `<button type="button" class="page-btn page-nav" data-page="${applicationCurrentPage + 1}" ${applicationCurrentPage === totalPages ? 'disabled' : ''}>›</button>`
+  );
+  nav.innerHTML = buttons.join('');
+}
+
+function handleApplicationPaginationClick() {
+  const nav = document.getElementById('application-pagination');
+  if (!nav) return;
+  nav.addEventListener('click', (e) => {
+    const btn = e.target.closest('.page-btn');
+    if (!btn || btn.disabled) return;
+    const page = Number(btn.dataset.page);
+    if (!page || page === applicationCurrentPage) return;
+    applicationCurrentPage = page;
+    renderApplicationList();
+    document.getElementById('application-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+}
 
 // ---------- 마켓 등록 ----------
 
@@ -324,17 +450,33 @@ function handleBoothSelectClick() {
 
 // ---------- 신청자 목록 (주최측 전용) ----------
 
-function renderApplicationList(applications) {
-  currentApplications = applications || [];
+function renderApplicationList() {
   const wrap = document.getElementById('application-list');
+  const countEl = document.getElementById('application-result-count');
   if (!wrap) return;
 
-  if (currentApplications.length === 0) {
-    wrap.innerHTML = '<p class="list-empty">아직 들어온 신청이 없어요.</p>';
+  if (countEl) {
+    countEl.textContent =
+      currentApplications.length === 0 ? '' : `${filteredApplications.length}건`;
+  }
+
+  if (filteredApplications.length === 0) {
+    wrap.innerHTML =
+      currentApplications.length === 0
+        ? '<p class="list-empty">아직 들어온 신청이 없어요.</p>'
+        : '<p class="list-empty">해당 상태의 신청이 없어요.</p>';
+    renderApplicationPagination(0);
+    renderBulkToolbar();
     return;
   }
 
-  wrap.innerHTML = currentApplications
+  const totalPages = Math.max(1, Math.ceil(filteredApplications.length / APPLICATION_PAGE_SIZE));
+  if (applicationCurrentPage > totalPages) applicationCurrentPage = totalPages;
+  if (applicationCurrentPage < 1) applicationCurrentPage = 1;
+  const start = (applicationCurrentPage - 1) * APPLICATION_PAGE_SIZE;
+  const pageItems = filteredApplications.slice(start, start + APPLICATION_PAGE_SIZE);
+
+  wrap.innerHTML = pageItems
     .map((a) => {
       const status = a.status || 'Pending';
       const id = a.applicationId;
@@ -425,6 +567,7 @@ function renderApplicationList(applications) {
     });
   });
 
+  renderApplicationPagination(totalPages);
   renderBulkToolbar();
 }
 function renderBulkToolbar() {
@@ -582,20 +725,20 @@ function renderSellerReviewForm(id) {
 function handleSellerReviewToggle(id) {
   sellerReviewOpenId = sellerReviewOpenId === String(id) ? null : String(id);
   sellerReviewDraftRating = 0;
-  renderApplicationList(currentApplications);
+  renderApplicationList();
 }
 function handleSellerStarPick(value) {
   sellerReviewDraftRating = value;
-  renderApplicationList(currentApplications);
+  renderApplicationList();
 }
 function handleSellerReviewReset() {
   sellerReviewDraftRating = 0;
-  renderApplicationList(currentApplications);
+  renderApplicationList();
 }
 function handleSellerReviewCancel() {
   sellerReviewOpenId = null;
   sellerReviewDraftRating = 0;
-  renderApplicationList(currentApplications);
+  renderApplicationList();
 }
 
 async function handleSellerReviewSubmit(id) {
@@ -679,23 +822,23 @@ function renderSellerReviewForm(id) {
 function handleSellerReviewToggle(id) {
   sellerReviewOpenId = sellerReviewOpenId === String(id) ? null : String(id);
   sellerReviewDraftRating = 0;
-  renderApplicationList(currentApplications);
+  renderApplicationList();
 }
 
 function handleSellerStarPick(value) {
   sellerReviewDraftRating = value;
-  renderApplicationList(currentApplications);
+  renderApplicationList();
 }
 
 function handleSellerReviewReset() {
   sellerReviewDraftRating = 0;
-  renderApplicationList(currentApplications);
+  renderApplicationList();
 }
 
 function handleSellerReviewCancel() {
   sellerReviewOpenId = null;
   sellerReviewDraftRating = 0;
-  renderApplicationList(currentApplications);
+  renderApplicationList();
 }
 
 async function handleSellerReviewSubmit(id) {
@@ -745,13 +888,16 @@ async function loadApplicationList() {
   try {
     const res = await getApplicationList(marketId);
     if (res && res.success) {
-      renderApplicationList(res.data || []);
+      currentApplications = res.data || [];
+      applyApplicationStatusFilter();
     } else {
       currentApplications = [];
+      filteredApplications = [];
       wrap.innerHTML = '<p class="list-empty">신청 목록을 불러오지 못했어요.</p>';
     }
   } catch (err) {
     currentApplications = [];
+    filteredApplications = [];
     wrap.innerHTML = '<p class="list-empty">서버에 연결할 수 없어요.</p>';
   }
 }
@@ -1376,6 +1522,10 @@ document.addEventListener('DOMContentLoaded', () => {
   loadMarketDetail();
   handleBoothSelectClick();
   loadApplicationList();
+  document
+    .getElementById('application-status-filter')
+    ?.addEventListener('change', handleApplicationStatusFilterChange);
+  handleApplicationPaginationClick();
   handleCloseMarketClick();
   loadCommentList();
   handleCommentSubmit();

@@ -180,7 +180,7 @@ let expandedId = null; // 상세정보가 펼쳐진 마켓 id
 let searchKeyword = '';
 
 // ---------- 페이지네이션 ----------
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 20;
 let currentPage = 1;
 
 // ---------- 정렬 (클라이언트 안전망) ----------
