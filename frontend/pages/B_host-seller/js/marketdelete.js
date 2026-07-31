@@ -166,7 +166,10 @@ function renderDDayBadges(market, statusKey) {
 
 let allMarkets = [];
 let myMarkets = [];
-let statusFilter = '';
+// [수정] 사용자 기준 필터: 주최자가 열었을 때 가장 먼저 필요한 건 "지금 관리해야 할" 마켓이므로
+//        기본값을 마감 전(모집중, isExpired=0) 마켓만 보이도록 'open'으로 둡니다.
+//        마감/취소된 마켓은 상태 필터에서 언제든 다시 선택해서 볼 수 있습니다.
+let statusFilter = 'open';
 let sortOption = ''; // '' | 'recruitEnd' | 'region' | 'eventDate'
 let expandedId = null; // 상세정보가 펼쳐진 마켓 id
 // [수정] 검색 키워드. search.js 가 window.setMyMarketSearchKeyword() 로 넘겨줍니다.
