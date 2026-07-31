@@ -450,12 +450,14 @@ body {
   background: #ece1cd;
   color: var(--ink-soft);
 }
-.status-tag.paid{
-  background: var(--coral-bg);
-  color: var(--coral-text);
+/* [merge] feat/강민훈 브랜치 값으로 확정 (2026-07-31)
+   파일 끝에 같은 선택자를 또 붙이면 뒤엣것이 이겨서 헷갈리므로, 원래 자리의 값을 직접 바꿨습니다. */
+.status-tag.paid {
+  background: var(--sage-bg);
+  color: var(--sage-text);
 }
-.status-tag.refunded{
-  background: rgb(158, 202, 197);
+.status-tag.refunded {
+  background: #ece1cd;
   color: var(--ink-soft);
 }
 .status-tag.refundRequested{
@@ -1342,7 +1344,6 @@ a.btn {
   font-family: "IBM Plex Mono", monospace;
   font-size: 13px;
 }
-<<<<<<< HEAD
 
 /* ---------------- [추가] 중복 부스 신청 표시 ----------------
  * 한 판매자가 같은 마켓에 부스를 2칸 이상 신청한 경우에만 보이는 배지와 요약 줄입니다.
@@ -1395,7 +1396,3 @@ a.btn {
   white-space: nowrap;
 }
 .filter-strip .filter-check input[type="checkbox"] { margin: 0; cursor: pointer; }
-=======
-.status-tag.paid { background: var(--sage-bg); color: var(--sage-text); }
-.status-tag.refunded { background: #ece1cd; color: var(--ink-soft); }
->>>>>>> origin/feat/강민훈
