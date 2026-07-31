@@ -9,6 +9,7 @@ import {
   deleteMyApplication,
   approveSellerApplication,
   rejectSellerApplication,
+  checkDuplicateApplication,
 } from '../controllers/applicationController.js';
 import { cancelApplication } from '../controllers/dbdeleteController.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
@@ -107,6 +108,59 @@ router.post('/', authenticateToken, applyForBooth);
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
 router.get('/my', authenticateToken, getMyApplications);
+
+/**
+ * @swagger
+ * /applications/duplicate-check:
+ *   get:
+ *     summary: 같은 마켓 중복 신청 여부 확인 (신청 화면 안내용)
+ *     description: |
+ *       로그인한 판매자가 해당 마켓에 이미 몇 건의 부스를 신청 중인지 알려줍니다.
+ *       1인 다부스 신청은 허용 정책이므로 이 API 는 신청을 막지 않고 안내만 합니다.
+ *       세는 기준은 점유 상태(Pending / Approved / Paid)이며, 반려·환불완료 건은 제외합니다.
+ *     tags: [Applications]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: marketId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: 조회 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiEnvelope'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         marketId: { type: integer }
+ *                         marketTitle: { type: string }
+ *                         count: { type: integer, description: 현재 점유 중인 내 신청 건수 }
+ *                         booths: { type: array, items: { type: string } }
+ *                         willBeDuplicate: { type: boolean, description: 여기서 한 건 더 신청하면 중복이 되는지 }
+ *                         isDuplicate: { type: boolean, description: 이미 2건 이상인지 }
+ *       400:
+ *         description: marketId 누락
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       404:
+ *         description: 존재하지 않는 마켓
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         description: 서버 오류
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ */
+router.get('/duplicate-check', authenticateToken, checkDuplicateApplication);
 
 /**
  * @swagger

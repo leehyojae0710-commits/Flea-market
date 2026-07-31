@@ -32,6 +32,11 @@ async function rejectSellerApplication(applicationId) {
   return callApi(`/applications/${applicationId}/reject`, { method: 'PATCH' });
 }
 
+// [중복 부스 신청] 신청 화면에서 "이 마켓에 이미 몇 건 신청 중인지" 미리 확인합니다.
+async function getDuplicateCheck(marketId) {
+  return callApi(`/applications/duplicate-check?marketId=${encodeURIComponent(marketId)}`);
+}
+
 async function applyForBooth(payload) {
   // payload: { marketId, boothNumber, itemName, productDesc }
   return callApi('/applications', { method: 'POST', body: payload });
@@ -115,6 +120,8 @@ let applicationStatusFilter = ''; // '' | 'Pending' | 'Approved' | 'Paid' | 'Ref
 let sellerReviewOpenId = null;
 let sellerReviewDraftRating = 0;
 let selectedApplicationIds = new Set();
+// [중복 부스 신청] 「중복 신청만 보기」 체크 여부. 서버가 내려준 sellerDuplicateCount 로 판단합니다.
+let showDuplicateOnly = false;
 
 // ---------- 신청자 목록: 상태 필터 / 정렬 / 페이지네이션 ----------
 
@@ -156,7 +163,12 @@ function applyApplicationStatusFilter() {
       })
     : currentApplications;
 
-  filteredApplications = [...byStatus].sort(
+  // [중복 부스 신청] 「중복 신청만 보기」가 켜져 있으면 2칸 이상 잡은 판매자의 건만 남깁니다.
+  const byDuplicate = showDuplicateOnly
+    ? byStatus.filter((a) => Number(a.sellerDuplicateCount) >= 2)
+    : byStatus;
+
+  filteredApplications = [...byDuplicate].sort(
     (a, b) => getApplicationSortRank(a.status || 'Pending') - getApplicationSortRank(b.status || 'Pending'),
   );
 
@@ -168,6 +180,60 @@ function handleApplicationStatusFilterChange() {
   applicationStatusFilter = document.getElementById('application-status-filter')?.value || '';
   selectedApplicationIds.clear();
   applyApplicationStatusFilter();
+}
+
+/* ---------------- [추가] 중복 부스 신청 (같은 판매자가 같은 마켓에 여러 칸) ----------------
+ *
+ * 1인 다부스 신청은 허용 정책이라 막지 않습니다. 대신 주최자가 "이 판매자는 이 마켓에서
+ * 부스를 몇 칸 잡고 있는지"를 승인 전에 알 수 있어야 해서, 신청자 목록에 숫자 배지를 답니다.
+ * 세는 기준은 서버(utills/duplicateApplication.js)와 동일하며 반려·환불완료 건은 빠집니다.
+ */
+
+function handleDuplicateOnlyToggle() {
+  const box = document.getElementById('application-duplicate-only');
+  if (!box) return;
+  box.addEventListener('change', () => {
+    showDuplicateOnly = box.checked;
+    selectedApplicationIds.clear();
+    applyApplicationStatusFilter();
+  });
+}
+
+// 카드 제목 옆에 붙는 「중복 N」 배지. 1건뿐이면 아무것도 그리지 않습니다.
+function renderDuplicateBadge(a) {
+  const count = Number(a.sellerDuplicateCount) || 0;
+  if (count < 2) return '';
+  const booths = Array.isArray(a.sellerDuplicateBooths) ? a.sellerDuplicateBooths : [];
+  const boothText = booths.length > 0 ? ` (${booths.slice(0, 5).join(', ')}번${booths.length > 5 ? ' 외' : ''})` : '';
+  return `<span class="dup-badge" title="이 판매자는 이 마켓에서 부스 ${count}칸을 신청 중이에요.${boothText}">중복 ${count}</span>`;
+}
+
+// 목록 위에 붙는 요약 줄. "중복 신청 판매자 3명 · 부스 8칸"
+function renderApplicationDuplicateSummary() {
+  const box = document.getElementById('application-duplicate-summary');
+  if (!box) return;
+
+  const map = new Map();
+  currentApplications.forEach((a) => {
+    const count = Number(a.sellerDuplicateCount) || 0;
+    if (count >= 2) map.set(String(a.sellerId), { count, name: a.sellerNickname || `사용자 ${a.sellerId}` });
+  });
+
+  if (map.size === 0) {
+    box.innerHTML = '';
+    box.hidden = true;
+    return;
+  }
+
+  let booths = 0;
+  const names = [];
+  map.forEach((v) => { booths += v.count; names.push(`${v.name} ${v.count}건`); });
+
+  box.innerHTML = `
+    <strong>중복 부스 신청 ${map.size}명 · 총 ${booths}칸</strong>
+    <span class="dup-summary-names">${names.slice(0, 5).map((n) => ProfileLink.escapeHtml(n)).join(' / ')}${names.length > 5 ? ` 외 ${names.length - 5}명` : ''}</span>
+    <span class="dup-summary-hint">1인 다부스 신청은 허용된 정책이에요. 필요하면 위 「중복 신청만 보기」로 걸러서 확인하세요.</span>`;
+  box.hidden = false;
 }
 
 // main.js / marketdelete.js 와 동일한 축약 페이지 번호 규칙
@@ -460,6 +526,9 @@ function renderApplicationList() {
       currentApplications.length === 0 ? '' : `${filteredApplications.length}건`;
   }
 
+  // [중복 부스 신청] 목록 위 요약 줄은 필터와 무관하게 항상 전체 기준으로 갱신합니다.
+  renderApplicationDuplicateSummary();
+
   if (filteredApplications.length === 0) {
     wrap.innerHTML =
       currentApplications.length === 0
@@ -491,7 +560,7 @@ function renderApplicationList() {
             ${selectedApplicationIds.has(String(id)) ? 'checked' : ''} style="margin-top:3px;" />
         ` : '<span style="width:16px; display:inline-block;"></span>'}
         <div>
-          <div class="item-card-title">${a.itemName || '이름 미입력'} · ${a.boothNumber}번 부스${a.title ? ` · ${a.title}` : ''}</div>
+          <div class="item-card-title">${a.itemName || '이름 미입력'} · ${a.boothNumber}번 부스${a.title ? ` · ${a.title}` : ''} ${renderDuplicateBadge(a)}</div>
           <div class="item-card-meta">신청자: ${ProfileLink.html(a.sellerId, a.sellerNickname)}</div>
         </div>
       </div>
@@ -980,6 +1049,9 @@ function prefillBoothApplyForm() {
   // [추가] 어떤 주최자의 마켓에 신청하는지 닉네임으로 보여주고, 클릭하면 프로필로 이동합니다.
   renderBoothApplyHost(marketIdInput.value);
 
+  // [중복 부스 신청] 이 마켓에 이미 신청한 건이 있으면 화면 위에 알려줍니다. (막지는 않음)
+  renderSameMarketDuplicateNotice(marketIdInput.value);
+
   // [추가] marketId 없이 이 페이지로 들어온 경우, 폼을 다 채워도 서버에서
   // "마켓, 부스 번호, 물품명은 필수입니다"로 실패하게 되므로 미리 안내하고 제출을 막습니다.
   if (!marketIdInput.value) {
@@ -1066,6 +1138,11 @@ function handleBoothApplySubmit() {
       return;
     }
 
+    // [중복 부스 신청] 같은 마켓에 이미 신청한 건이 있으면 한 번 더 확인받습니다.
+    //   실수로 같은 마켓에 두 번 신청하는 경우가 가장 흔한 사고라서, 제출 직전에 물어봅니다.
+    //   (정책상 허용이므로 "확인"을 누르면 그대로 진행됩니다.)
+    if (!(await confirmDuplicateBeforeApply(payload.marketId))) return;
+
     setButtonLoading(submitBtn, true, '신청 중...', '신청하기');
     await uploadItemImage();
     payload.itemImage = document.getElementById('uploaded-item-image-path').value || null;
@@ -1074,10 +1151,19 @@ function handleBoothApplySubmit() {
       const res = await applyForBooth(payload);
 
       if (res && res.success) {
-        renderAlert('부스 신청이 완료됐어요!', 'success');
+        // [중복 부스 신청] 서버가 내려준 duplicate 정보로 "이 마켓에 총 N건"을 알려줍니다.
+        const dup = res.data?.duplicate;
+        if (dup && dup.isDuplicate) {
+          renderAlert(
+            `부스 신청이 완료됐어요! 이 마켓에는 총 ${dup.count}건 신청 중이에요. (${(dup.booths || []).join(', ')}번 부스) 중복 신청 사실은 주최자에게도 함께 알림으로 전달됐어요.`,
+            'success',
+          );
+        } else {
+          renderAlert('부스 신청이 완료됐어요!', 'success');
+        }
         setTimeout(() => {
           window.location.href = `market-detail?marketId=${payload.marketId}`;
-        }, 1000);
+        }, dup && dup.isDuplicate ? 2600 : 1000);
       } else {
         renderAlert(res?.message || '신청에 실패했어요. 입력값을 확인해주세요.');
         setButtonLoading(submitBtn, false, '신청 중...', '신청하기');
@@ -1561,6 +1647,7 @@ document.addEventListener('DOMContentLoaded', () => {
     .getElementById('application-status-filter')
     ?.addEventListener('change', handleApplicationStatusFilterChange);
   handleApplicationPaginationClick();
+  handleDuplicateOnlyToggle();
   handleCloseMarketClick();
   loadCommentList();
   handleCommentSubmit();
@@ -1670,5 +1757,62 @@ async function renderDateOverlapNotice(marketId, currentEventMin, currentEventMa
     box.classList.add('show');
   } catch (err) {
     console.error('날짜 겹침 확인 오류:', err);
+  }
+}
+
+/* ---------------- [추가] 부스 신청 화면: 같은 마켓 중복 신청 안내 ----------------
+ *
+ * 1인 다부스 신청은 확정 정책상 허용입니다. 그래서 막지 않고 "알려주기"만 합니다.
+ *   · 화면 진입 시   : 이미 N건 신청 중이라는 안내 배너
+ *   · 제출 직전      : confirm 으로 한 번 더 확인
+ *   · 신청 완료 후   : 총 몇 건이 됐는지 안내 + 주최자에게도 알림이 갔다는 사실 고지
+ * 판정은 서버(GET /applications/duplicate-check)가 하며, 화면은 결과만 보여줍니다.
+ */
+
+// 화면 진입 시 안내 배너. 신청 이력이 없으면 아무것도 그리지 않습니다.
+async function renderSameMarketDuplicateNotice(marketId) {
+  const box = document.getElementById('duplicate-notice');
+  if (!box || !marketId) return;
+
+  box.classList.remove('show');
+  box.innerHTML = '';
+
+  try {
+    const res = await getDuplicateCheck(marketId);
+    if (!res || !res.success || !res.data) return;
+
+    const { count, booths } = res.data;
+    if (!count || count < 1) return;
+
+    const boothText = (booths || []).length > 0 ? ` (${booths.join(', ')}번 부스)` : '';
+    box.innerHTML = `
+      <p style="margin:0 0 6px;"><strong>이 마켓에 이미 ${count}건 신청 중이에요.${boothText}</strong></p>
+      <p style="margin:0;">한 마켓에 부스를 여러 칸 신청하는 건 가능하지만, 신청하시면 <strong>중복 신청</strong>으로 표시되고 주최자에게도 알림이 갑니다. 실수라면 「내 부스 관리」에서 기존 신청을 확인해 주세요.</p>`;
+    box.classList.add('show');
+  } catch (err) {
+    console.error('중복 신청 확인 오류:', err);
+  }
+}
+
+// 제출 직전 확인. 서버 조회가 실패하면 흐름을 막지 않고 그대로 진행시킵니다.
+async function confirmDuplicateBeforeApply(marketId) {
+  if (!marketId) return true;
+
+  try {
+    const res = await getDuplicateCheck(marketId);
+    if (!res || !res.success || !res.data) return true;
+
+    const { count, booths, marketTitle } = res.data;
+    if (!count || count < 1) return true;
+
+    const boothText = (booths || []).length > 0 ? `\n지금 잡고 있는 부스: ${booths.join(', ')}번` : '';
+    return confirm(
+      `"${marketTitle || '이 마켓'}"에 이미 ${count}건 신청 중이에요.${boothText}\n\n` +
+      `이대로 신청하면 총 ${count + 1}건이 되고, 주최자 화면에 「중복 ${count + 1}」로 표시됩니다.\n` +
+      '계속 신청할까요?'
+    );
+  } catch (err) {
+    console.error('중복 신청 확인 오류:', err);
+    return true;
   }
 }

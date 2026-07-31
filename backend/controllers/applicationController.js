@@ -5,6 +5,12 @@
 import pool from '../config/db.js';
 // [부스 신청 정합성] 신청 자격 판정은 utills/applicationPolicy.js 한 곳에서 합니다.
 import { checkBoothApplyEligibility, toDateKey, todayKey } from '../utills/applicationPolicy.js';
+// [중복 부스 신청 안내] 마켓 단위 중복 판정은 utills/duplicateApplication.js 한 곳에서 합니다.
+import {
+  getSellerDuplicateState,
+  attachDuplicateToMyApplications,
+  formatBoothList,
+} from '../utills/duplicateApplication.js';
 import { createNotification } from '../services/notificationService.js';
 
 // POST /api/applications (로그인 필요, 판매자)
@@ -50,6 +56,14 @@ export async function applyForBooth(req, res) {
     // [추가] 알림에 필요한 마켓 정보(주최자, 마켓명) 조회 — 같은 트랜잭션 안에서 조회
     const [marketRows] = await conn.query('SELECT hostId, title FROM markets WHERE marketId = ?', [marketId]);
 
+    // [중복 부스 신청 안내] 방금 넣은 건까지 포함해서 이 마켓에 내가 몇 칸 잡고 있는지 셉니다.
+    //   막지는 않습니다(1인 다부스 허용 정책). 대신 판매자·주최자 양쪽에 알려줍니다.
+    //   커밋 전에 세야 방금 INSERT 한 건이 빠지지 않고, 동시 신청 상황에서도 숫자가 어긋나지 않습니다.
+    const duplicate = await getSellerDuplicateState(conn, { marketId, sellerId: userId });
+
+    // 신청자 닉네임 — 주최자에게 보내는 알림 문구에 씁니다.
+    const [sellerRows] = await conn.query('SELECT nickname FROM users WHERE userId = ?', [userId]);
+
     await conn.commit();
 
     // [추가] 신청 접수 -> 마켓 주최자에게 알림
@@ -65,10 +79,53 @@ export async function applyForBooth(req, res) {
       });
     }
 
+    // [중복 부스 신청 안내] 2건 이상이면 판매자·주최자 양쪽에 알림을 남깁니다.
+    //   판매자: 실수로 같은 마켓에 또 신청한 건 아닌지 스스로 확인하도록
+    //   주최자: 한 판매자가 부스를 여러 칸 가져간 것을 승인 전에 인지하도록
+    const marketTitle = marketRows.length > 0 ? marketRows[0].title : '마켓';
+    if (duplicate.isDuplicate) {
+      const boothText = formatBoothList(duplicate.booths);
+      const sellerName = sellerRows[0]?.nickname || '판매자';
+
+      await createNotification({
+        userId,
+        audience: 'seller',
+        type: 'application_duplicate',
+        title: '같은 마켓 중복 신청',
+        message: `"${marketTitle}" 마켓에 총 ${duplicate.count}건 신청 중입니다. (${boothText}) 실수로 여러 번 신청한 게 아닌지 확인해 주세요.`,
+        marketId: Number(marketId),
+        applicationId: result.insertId,
+      });
+
+      if (marketRows.length > 0) {
+        await createNotification({
+          userId: marketRows[0].hostId,
+          audience: 'host',
+          type: 'application_duplicate',
+          title: '중복 부스 신청',
+          message: `"${marketTitle}" 마켓에 ${sellerName} 판매자가 부스 ${duplicate.count}건을 신청했습니다. (${boothText})`,
+          marketId: Number(marketId),
+          applicationId: result.insertId,
+        });
+      }
+    }
+
     return res.status(201).json({
       success: true,
-      data: { applicationId: result.insertId, status: 'Pending' },
-      message: '부스 신청이 완료되었습니다.',
+      data: {
+        applicationId: result.insertId,
+        status: 'Pending',
+        // 화면에서 "이 마켓에 N건째 신청입니다" 안내를 띄우는 데 씁니다.
+        duplicate: {
+          isDuplicate: duplicate.isDuplicate,
+          count: duplicate.count,
+          booths: duplicate.booths,
+          marketTitle,
+        },
+      },
+      message: duplicate.isDuplicate
+        ? `부스 신청이 완료되었습니다. 이 마켓에는 총 ${duplicate.count}건 신청 중입니다.`
+        : '부스 신청이 완료되었습니다.',
     });
   } catch (error) {
     await conn.rollback().catch(() => {});
@@ -113,10 +170,53 @@ export async function getMyApplications(req, res) {
       [userId]
     );
 
-    return res.status(200).json({ success: true, data: rows, message: '내 부스 신청 목록을 조회했습니다.' });
+    // [중복 부스 신청 안내] 같은 마켓에 2건 이상 신청한 건에 marketDuplicateCount 를 붙입니다.
+    //   이미 내 신청을 전부 받아온 목록이라 추가 쿼리 없이 배열 안에서 셉니다.
+    const withDuplicate = attachDuplicateToMyApplications(rows);
+
+    return res.status(200).json({ success: true, data: withDuplicate, message: '내 부스 신청 목록을 조회했습니다.' });
   } catch (error) {
     console.error('내 부스 목록 조회 오류:', error.message);
     return res.status(500).json({ success: false, data: null, message: '서버 오류로 목록을 불러오지 못했습니다.' });
+  }
+}
+
+// GET /api/applications/duplicate-check?marketId=123 (로그인 필요, 판매자 본인)
+// [중복 부스 신청 안내] 신청 화면에 들어왔을 때 "이 마켓에 이미 N건 신청 중"을 미리 알려주기 위한 조회.
+//   신청을 막는 API 가 아니라 안내용이며, 실제 등록 시 판정은 applyForBooth 가 다시 합니다.
+export async function checkDuplicateApplication(req, res) {
+  const { userId } = req.user;
+  const { marketId } = req.query;
+
+  if (!marketId) {
+    return res.status(400).json({ success: false, data: null, message: 'marketId 는 필수입니다.' });
+  }
+
+  try {
+    const [marketRows] = await pool.query('SELECT marketId, title FROM markets WHERE marketId = ?', [marketId]);
+    if (marketRows.length === 0) {
+      return res.status(404).json({ success: false, data: null, message: '해당 마켓을 찾을 수 없습니다.' });
+    }
+
+    const state = await getSellerDuplicateState(pool, { marketId, sellerId: userId });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        marketId: Number(marketId),
+        marketTitle: marketRows[0].title,
+        // 지금 이미 잡고 있는 건수. 여기서 한 건 더 신청하면 count + 1 건이 됩니다.
+        count: state.count,
+        booths: state.booths,
+        // 한 건이라도 있으면 이번 신청이 곧 중복이 됩니다.
+        willBeDuplicate: state.count >= 1,
+        isDuplicate: state.isDuplicate,
+      },
+      message: '중복 신청 여부를 조회했습니다.',
+    });
+  } catch (error) {
+    console.error('중복 신청 조회 오류:', error.message);
+    return res.status(500).json({ success: false, data: null, message: '서버 오류로 조회에 실패했습니다.' });
   }
 }
 

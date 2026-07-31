@@ -329,6 +329,12 @@ header.nav.gnav .gnav-notify-tag-application_auto_approved {
   background: rgba(75, 141, 96, 0.14);
   color: #337048;
 }
+/* [추가] 중복 부스 신청 알림 - 막는 게 아니라 알려주는 알림이라 주의(주황) 톤 */
+header.nav.gnav .gnav-notify-tag-application_duplicate {
+  background: #fdf1df;
+  color: #a65a12;
+}
+
 header.nav.gnav .gnav-notify-tag-refund_requested,
 header.nav.gnav .gnav-notify-tag-refund_completed,
 header.nav.gnav .gnav-notify-tag-settlement_notified {

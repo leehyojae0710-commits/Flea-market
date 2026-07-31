@@ -8,10 +8,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../../common/css/style.css" />
-  <link rel="stylesheet" href="css/host-seller.css?v=2" />
+  <link rel="stylesheet" href="css/host-seller.css?v=3" />
   <!-- [공통] 상단 고정 네비게이션 바 (모든 화면 공통) -->
-  <link rel="stylesheet" href="../../common/css/global-nav.css?v=2" />
-  <script src="../../common/js/global-nav.js?v=2" defer></script>
+  <link rel="stylesheet" href="../../common/css/global-nav.css?v=3" />
+  <script src="../../common/js/global-nav.js?v=4" defer></script>
 </head>
 <body>
   <div class="page-wrap">
@@ -30,6 +30,8 @@
       <div id="alert-box" class="alert alert-error" role="alert"></div>
       <!-- [추가] 겹치는 날짜의 다른 마켓 신청 안내 - 신청을 막지는 않고 알려주기만 함 -->
       <div id="date-overlap-notice" class="alert alert-warning" role="status"></div>
+      <!-- [추가] 같은 마켓에 이미 신청한 건이 있을 때 안내 - 신청을 막지는 않음 -->
+      <div id="duplicate-notice" class="alert alert-warning" role="status"></div>
 
       <form id="booth-apply-form" novalidate>
         <input type="hidden" id="market-id" />
@@ -75,6 +77,6 @@
 
   <script src="../../common/js/api.js?v=4"></script>
   <script src="../../common/js/profile-link.js?v=1"></script>
-  <script src="js/market.js?v=9"></script>
+  <script src="js/market.js?v=14"></script>
 </body>
 </html>

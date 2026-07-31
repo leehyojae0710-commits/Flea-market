@@ -2,6 +2,8 @@
 // 마켓(공고) 관련 로직 - 조회는 담당 C, 등록/신청목록은 담당 D, 좌표 저장은 담당 E
 
 import pool from '../config/db.js';
+// [중복 부스 신청 안내] 신청자 목록에 "이 판매자가 이 마켓에 몇 칸"을 붙입니다.
+import { attachDuplicateToMarketApplications, summarizeDuplicates } from '../utills/duplicateApplication.js';
 import { createNotification, createNotifications } from '../services/notificationService.js';
 
 // GET /api/markets?region=&sort=latest|eventDate|priceLow&includeExpired=
@@ -240,7 +242,19 @@ export async function getApplicationsByMarket(req, res) {
         ORDER BY a.applicationId DESC`,
         [marketId]
       );
-      return res.status(200).json({ success: true, data: rows, message: '신청 목록을 조회했습니다.' });
+
+      // [중복 부스 신청 안내] 한 판매자가 이 마켓에서 부스를 몇 칸 잡고 있는지 각 행에 붙입니다.
+      //   목록 전체를 이미 들고 있으므로 추가 쿼리 없이 배열 안에서 셉니다.
+      //   화면(market.js)은 sellerDuplicateCount 로 "중복 N" 배지를 그립니다.
+      const withDuplicate = attachDuplicateToMarketApplications(rows);
+      const duplicateSummary = summarizeDuplicates(withDuplicate);
+
+      return res.status(200).json({
+        success: true,
+        data: withDuplicate,
+        duplicateSummary,
+        message: '신청 목록을 조회했습니다.',
+      });
     }
 
     // [단방향 전환 규칙 검증 - 버그 수정]

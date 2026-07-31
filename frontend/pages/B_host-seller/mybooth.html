@@ -11,13 +11,13 @@
         href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap"
         rel="stylesheet" />
     <link rel="stylesheet" href="../../common/css/style.css" />
-    <link rel="stylesheet" href="css/host-seller.css?v=2" />
+    <link rel="stylesheet" href="css/host-seller.css?v=3" />
     <link rel="stylesheet" href="/common/css/search.css" />
   <!-- [C-01/C-02] 역할별 화면 분기 · 주최자 역할 전환 버튼 -->
   <script src="../../common/js/role-routing.js?v=3"></script>
   <!-- [공통] 상단 고정 네비게이션 바 (모든 화면 공통) -->
   <link rel="stylesheet" href="../../common/css/global-nav.css?v=3" />
-  <script src="../../common/js/global-nav.js?v=3" defer></script>
+  <script src="../../common/js/global-nav.js?v=4" defer></script>
 </head>
 
 <body>
@@ -45,8 +45,16 @@
                         <option value="Refund">환불</option>
                     </select>
                 </label>
+                <!-- [추가] 같은 마켓에 여러 칸 신청한 건만 골라 보기 -->
+                <label class="filter-field filter-check">
+                    <input type="checkbox" id="booth-duplicate-only" />
+                    중복 신청만 보기
+                </label>
                 <span id="result-count" class="result-count"></span>
             </div>
+
+            <!-- [추가] 중복 신청 요약 (mybooth.js 가 채웁니다) -->
+            <div id="booth-duplicate-summary" class="dup-summary" hidden></div>
 
             <div id="alert-box" class="alert alert-error" role="alert"></div>
 
@@ -61,7 +69,7 @@
 
     <script src="../../common/js/api.js?v=4"></script>
   <script src="../../common/js/profile-link.js?v=1"></script>
-    <script src="js/mybooth.js?v=11"></script>
+    <script src="js/mybooth.js?v=12"></script>
     <script src="/common/js/search.js?v=3"></script>
 </body>
 

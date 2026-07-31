@@ -8,12 +8,12 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../../common/css/style.css" />
-  <link rel="stylesheet" href="css/host-seller.css?v=2" />
+  <link rel="stylesheet" href="css/host-seller.css?v=3" />
   <!-- [C-01/C-02] 역할별 화면 분기 · 주최자 역할 전환 버튼 -->
   <script src="../../common/js/role-routing.js?v=3"></script>
   <!-- [공통] 상단 고정 네비게이션 바 (모든 화면 공통) -->
-  <link rel="stylesheet" href="../../common/css/global-nav.css?v=2" />
-  <script src="../../common/js/global-nav.js?v=2" defer></script>
+  <link rel="stylesheet" href="../../common/css/global-nav.css?v=3" />
+  <script src="../../common/js/global-nav.js?v=4" defer></script>
 </head>
 <body>
   <div class="page-wrap">
@@ -62,8 +62,16 @@
             <option value="Rejected">반려</option>
           </select>
         </label>
+        <!-- [추가] 중복 부스 신청(같은 판매자가 이 마켓에 여러 칸)만 골라 보기 -->
+        <label class="filter-field filter-check">
+          <input type="checkbox" id="application-duplicate-only" />
+          중복 신청만 보기
+        </label>
         <span id="application-result-count" class="result-count"></span>
       </div>
+
+      <!-- [추가] 중복 부스 신청 요약 (market.js 가 채웁니다) -->
+      <div id="application-duplicate-summary" class="dup-summary" hidden></div>
 
       <div id="bulk-actions-toolbar"></div>
       <div id="application-list">
@@ -92,7 +100,7 @@
 
   <script src="../../common/js/api.js?v=4"></script>
   <script src="../../common/js/profile-link.js?v=1"></script>
-  <script src="js/market.js?v=13"></script>
+  <script src="js/market.js?v=14"></script>
   <script src="js/market-detail-extra.js?v=2"></script>
   <script src="js/market-role-view.js?v=2"></script>
 </body>

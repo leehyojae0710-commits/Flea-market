@@ -75,6 +75,8 @@ let reviewDraftRating = 0; // 별점 입력창에서 아직 제출 전인 값 (0
 // (페이지네이션으로 한 페이지에 5건만 DOM에 있다 보니, 다른 페이지의 신청 내역은
 //  기존 방식(화면에 그려진 카드만 텍스트 검색)으로는 못 찾았습니다.)
 let searchKeyword = '';
+// [중복 부스 신청] 「중복 신청만 보기」 체크 여부. 서버가 내려준 marketDuplicateCount 로 판단합니다.
+let duplicateOnly = false;
 
 // ---------- 페이지네이션 ----------
 const PAGE_SIZE = 20;
@@ -92,6 +94,9 @@ function renderBoothList() {
     countEl.textContent =
       allApplications.length === 0 ? '' : `${myApplications.length}건`;
   }
+
+  // [중복 부스 신청] 요약 줄은 필터와 무관하게 전체 목록 기준으로 갱신합니다.
+  renderMyDuplicateSummary();
 
   if (!myApplications || myApplications.length === 0) {
     wrap.innerHTML = '';
@@ -254,6 +259,51 @@ function renderBoothRecruitGauge(a) {
     </div>`;
 }
 
+/* ---------------- [추가] 같은 마켓 중복 신청 표시 ----------------
+ *
+ * 한 마켓에 부스를 여러 칸 신청하는 것은 허용 정책이라 막지 않습니다.
+ * 다만 판매자 본인이 "내가 이 마켓에 몇 칸 신청했는지"를 한눈에 봐야 실수를 잡을 수 있어서
+ * 카드에 「중복 N」 배지를, 목록 위에 요약 줄을 답니다.
+ * 세는 기준은 서버(utills/duplicateApplication.js)와 같고 반려·환불완료 건은 빠집니다.
+ */
+
+function renderMyDuplicateBadge(a) {
+  const count = Number(a.marketDuplicateCount) || 0;
+  if (count < 2) return '';
+  const booths = Array.isArray(a.marketDuplicateBooths) ? a.marketDuplicateBooths : [];
+  const boothText = booths.length > 0 ? ` (${booths.slice(0, 5).join(', ')}번${booths.length > 5 ? ' 외' : ''})` : '';
+  return `<span class="dup-badge" title="이 마켓에 부스 ${count}칸을 신청 중이에요.${boothText}">중복 ${count}</span>`;
+}
+
+function renderMyDuplicateSummary() {
+  const box = document.getElementById('booth-duplicate-summary');
+  if (!box) return;
+
+  const map = new Map();
+  allApplications.forEach((a) => {
+    const count = Number(a.marketDuplicateCount) || 0;
+    if (count >= 2) map.set(String(a.marketId), { count, title: a.marketTitle || `마켓 ${a.marketId}` });
+  });
+
+  if (map.size === 0) {
+    box.innerHTML = '';
+    box.hidden = true;
+    return;
+  }
+
+  const rows = [];
+  let booths = 0;
+  map.forEach((v) => { booths += v.count; rows.push(`${v.title} ${v.count}칸`); });
+
+  const escape = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  box.innerHTML = `
+    <strong>중복 신청한 마켓 ${map.size}곳 · 총 ${booths}칸</strong>
+    <span class="dup-summary-names">${rows.slice(0, 5).map(escape).join(' / ')}${rows.length > 5 ? ` 외 ${rows.length - 5}곳` : ''}</span>
+    <span class="dup-summary-hint">한 마켓에 여러 칸 신청하는 건 가능해요. 실수로 넣은 신청이 있다면 대기중일 때 취소할 수 있어요.</span>`;
+  box.hidden = false;
+}
+
 function renderBoothCard(a) {
   const id = a.applicationId;
   const status = a.status || 'Pending';
@@ -265,7 +315,7 @@ function renderBoothCard(a) {
     <div class="item-card" data-application-id="${id}">
       <div class="item-card-top">
         <div data-action="toggle" data-id="${id}" style="cursor:pointer;">
-          <div class="item-card-title">${a.marketTitle || '마켓 정보 없음'} · ${a.boothNumber}번 부스${a.title ? ` · ${a.title}` : ''}</div>
+          <div class="item-card-title">${a.marketTitle || '마켓 정보 없음'} · ${a.boothNumber}번 부스${a.title ? ` · ${a.title}` : ''} ${renderMyDuplicateBadge(a)}</div>
           <div class="item-card-meta">${a.itemName || '이름 미입력'}</div>
           <!-- [추가] 이 부스를 신청한 마켓의 주최자 -->
           <div class="item-card-meta">주최자: ${ProfileLink.html(a.hostId, a.hostNickname)}</div>
@@ -643,8 +693,22 @@ function applyStatusFilter() {
           : status === statusFilter;
       })
     : allApplications;
-  myApplications = byStatus.filter(matchesSearchKeyword);
+  const byDuplicate = duplicateOnly
+    ? byStatus.filter((a) => Number(a.marketDuplicateCount) >= 2)
+    : byStatus;
+  myApplications = byDuplicate.filter(matchesSearchKeyword);
   renderBoothList();
+}
+
+function handleDuplicateOnlyToggle() {
+  const box = document.getElementById('booth-duplicate-only');
+  if (!box) return;
+  box.addEventListener('change', () => {
+    duplicateOnly = box.checked;
+    expandedId = null;
+    currentPage = 1;
+    applyStatusFilter();
+  });
 }
 
 function handleFilterChange() {
@@ -699,5 +763,6 @@ document.addEventListener('DOMContentLoaded', () => {
     .getElementById('status-filter')
     ?.addEventListener('change', handleFilterChange);
   handlePaginationClick();
+  handleDuplicateOnlyToggle();
   loadMyBoothList();
 });

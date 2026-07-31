@@ -1342,3 +1342,55 @@ a.btn {
   font-family: "IBM Plex Mono", monospace;
   font-size: 13px;
 }
+
+/* ---------------- [추가] 중복 부스 신청 표시 ----------------
+ * 한 판매자가 같은 마켓에 부스를 2칸 이상 신청한 경우에만 보이는 배지와 요약 줄입니다.
+ * 신청을 막는 게 아니라 "알려주는" 표시라서, 오류(빨강)가 아닌 주의(주황) 톤을 씁니다.
+ */
+
+.dup-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border: 1px solid #d98324;
+  border-radius: 999px;
+  background: #fdf1df;
+  color: #a65a12;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.7;
+  vertical-align: middle;
+  white-space: nowrap;
+  cursor: help;
+}
+
+.dup-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border: 1px solid #e7c9a0;
+  border-left: 4px solid #d98324;
+  border-radius: 8px;
+  background: #fdf6ec;
+  color: #6b4a24;
+  font-size: 13px;
+}
+
+.dup-summary strong { color: #a65a12; font-size: 13.5px; }
+.dup-summary .dup-summary-names { color: #7a5a34; font-size: 12.5px; }
+.dup-summary .dup-summary-hint { color: #967a56; font-size: 12px; }
+
+/* 필터 줄에 들어가는 체크박스형 필터 */
+.filter-strip .filter-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.filter-strip .filter-check input[type="checkbox"] { margin: 0; cursor: pointer; }

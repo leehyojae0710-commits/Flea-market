@@ -108,6 +108,7 @@
   // 알림 종류 -> 목록에 붙는 짧은 태그 라벨
   var NOTIFY_TYPE_LABELS = {
     application_received: '신청',
+    application_duplicate: '중복신청',
     application_cancelled: '취소',
     application_approved: '승인',
     application_rejected: '반려',
