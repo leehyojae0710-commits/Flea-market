@@ -143,9 +143,27 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 5. mybooth / mymarketpage용 실시간 필터링
+  //
+  // [수정] mybooth.html / mymarketpage.html 은 이제 페이지네이션 때문에
+  //   한 번에 5건만 DOM(container.children)에 그려져 있어서, 예전처럼
+  //   화면에 보이는 카드 텍스트만 훑으면 다른 페이지에 있는 항목은
+  //   검색해도 걸리지 않는 문제가 있었습니다.
+  //   그래서 각 목록 스크립트(mybooth.js/marketdelete.js)가 전체 데이터를
+  //   기준으로 다시 필터링하도록 window.setMyBoothSearchKeyword /
+  //   window.setMyMarketSearchKeyword 훅을 우선 사용하고,
+  //   그 훅이 없는 화면에서는 기존 방식(화면에 보이는 카드만 훑기)으로 동작합니다.
   function filterClientSideCards() {
     const keyword = inputEl.value.trim().toLowerCase();
     clearBtn.style.display = keyword.length > 0 ? 'block' : 'none';
+
+    if (myMarketList && typeof window.setMyMarketSearchKeyword === 'function') {
+      window.setMyMarketSearchKeyword(keyword);
+      return;
+    }
+    if (boothList && typeof window.setMyBoothSearchKeyword === 'function') {
+      window.setMyBoothSearchKeyword(keyword);
+      return;
+    }
 
     const cards = container.children;
     let visibleCount = 0;

@@ -9,11 +9,19 @@
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../../common/css/style.css" />
   <link rel="stylesheet" href="css/auth.css?v=2" />
+  <!-- [C-01] 역할별 첫 화면 분기 / 주최자 전용 화면 접근 차단 (mypage.html, login.html 과 동일하게 추가) -->
+  <script src="../../common/js/role-routing.js?v=3"></script>
   <!-- [공통] 상단 고정 네비게이션 바 (모든 화면 공통) -->
   <link rel="stylesheet" href="../../common/css/global-nav.css?v=1" />
   <script src="../../common/js/global-nav.js?v=1" defer></script>
 </head>
 <body>
+  <!-- [수정] mypage.html 등 로그인 후 화면과 동일하게 <header class="nav"> 를 직접 둬서
+       global-nav.js 가 만드는 상단 고정 바가 항상 같은 마크업/타이밍으로 붙게 합니다. -->
+  <header class="nav">
+    <a href="../../index.html" class="brand"><span class="pin-dot" aria-hidden="true"></span>플리마켓</a>
+  </header>
+
   <div class="auth-wrap auth-wrap-wide">
     <a href="mypage.html" class="auth-brand">
       <span class="pin-dot" aria-hidden="true"></span>플리마켓

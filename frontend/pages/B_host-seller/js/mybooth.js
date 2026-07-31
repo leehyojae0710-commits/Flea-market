@@ -71,6 +71,10 @@ let statusFilter = '';
 let expandedId = null; // 상세정보가 펼쳐진 신청 id
 let reviewOpenId = null; // 별점 입력창이 펼쳐진 신청 id (문자열로 비교)
 let reviewDraftRating = 0; // 별점 입력창에서 아직 제출 전인 값 (0~5)
+// [수정] 검색 키워드. search.js 가 window.setMyBoothSearchKeyword() 로 넘겨줍니다.
+// (페이지네이션으로 한 페이지에 5건만 DOM에 있다 보니, 다른 페이지의 신청 내역은
+//  기존 방식(화면에 그려진 카드만 텍스트 검색)으로는 못 찾았습니다.)
+let searchKeyword = '';
 
 // ---------- 페이지네이션 ----------
 const PAGE_SIZE = 5;
@@ -96,7 +100,9 @@ function renderBoothList() {
       emptyState.textContent =
         allApplications.length === 0
           ? '아직 신청한 부스가 없어요.'
-          : '해당 상태의 신청이 없어요.';
+          : searchKeyword
+            ? `'${searchKeyword}'에 대한 검색 결과가 없어요.`
+            : '해당 상태의 신청이 없어요.';
     }
     renderPagination(0);
     return;
@@ -566,10 +572,21 @@ async function requestRefund_(a_id, a_status) {
 
 // ---------- 필터 ----------
 
+// 검색 키워드가 신청 내역 하나와 맞는지 확인 (마켓명/부스번호/상품명/주최자명을 훑음)
+function matchesSearchKeyword(a) {
+  if (!searchKeyword) return true;
+  const haystack = [a.marketTitle, a.title, a.itemName, a.hostNickname, a.boothNumber]
+    .filter((v) => v !== undefined && v !== null)
+    .join(' ')
+    .toLowerCase();
+  return haystack.includes(searchKeyword);
+}
+
 function applyStatusFilter() {
-  myApplications = statusFilter
+  const byStatus = statusFilter
     ? allApplications.filter((a) => (a.status || 'Pending') === statusFilter)
     : allApplications;
+  myApplications = byStatus.filter(matchesSearchKeyword);
   renderBoothList();
 }
 
@@ -581,6 +598,18 @@ function handleFilterChange() {
   currentPage = 1;
   applyStatusFilter();
 }
+
+// [수정] search.js 의 실시간 검색창이 호출하는 훅.
+// allApplications(서버에서 받은 전체 목록) 기준으로 다시 필터링하므로,
+// 지금 화면에 없는(다른 페이지의) 신청 내역도 검색됩니다.
+window.setMyBoothSearchKeyword = function (keyword) {
+  searchKeyword = (keyword || '').trim().toLowerCase();
+  expandedId = null;
+  reviewOpenId = null;
+  reviewDraftRating = 0;
+  currentPage = 1;
+  applyStatusFilter();
+};
 
 // ---------- 초기 로드 ----------
 
