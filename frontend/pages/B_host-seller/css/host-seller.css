@@ -880,6 +880,9 @@ a.btn {
 .mb-gauge[data-level="high"] {
   --mb-gauge-fill: #e2725b;
 } /* 마감 임박 - coral */
+.mb-gauge[data-level="over"] {
+  --mb-gauge-fill: #c94a36;
+} /* 정원 초과 */
 
 .mb-gauge-head {
   display: flex;

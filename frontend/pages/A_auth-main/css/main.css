@@ -450,6 +450,7 @@ body {
 }
 .booth-gauge[data-level="mid"]  { --gauge-fill: var(--mustard); }
 .booth-gauge[data-level="high"] { --gauge-fill: var(--coral); }
+.booth-gauge[data-level="over"] { --gauge-fill: var(--coral-2); }
 
 .booth-gauge-track {
   position: relative;

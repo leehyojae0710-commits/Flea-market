@@ -221,14 +221,18 @@ function sortMarkets(list) {
 // ---------- 부스 모집 현황 게이지 ----------
 
 // 마켓의 총 부스 수 / 현재 신청된 부스 수 / 참여율(%)
+// [수정] 초과 신청(allowOvercapacity)이 허용된 마켓은 신청 부스 수가 총 부스 수를
+//   넘을 수 있는데, 예전에는 Math.min(100, ...)으로 100%에서 잘라버려 게이지가
+//   더 이상 늘지 않는 것처럼 보였습니다. 이제 실제 비율(100% 초과)을 그대로 보여줍니다.
 function getBoothRecruitStats(m) {
   const total = Number(m.maxparticipants ?? m.maxParticipants) || 0;
   const applied = Number(m.appliedBooths) || 0;
-  const pct = total > 0 ? Math.min(100, Math.round((applied / total) * 100)) : 0;
+  const pct = total > 0 ? Math.round((applied / total) * 100) : 0;
   return { applied, total, pct };
 }
 
 function boothRecruitLevel(pct) {
+  if (pct > 100) return 'over'; // 정원 초과
   if (pct >= 80) return 'high'; // 마감 임박
   if (pct >= 50) return 'mid'; // 보통
   return 'low'; // 여유
@@ -239,6 +243,8 @@ function renderBoothRecruitGauge(m) {
   const { applied, total, pct } = getBoothRecruitStats(m);
   if (total === 0) return '';
   const level = boothRecruitLevel(pct);
+  // 진행바 채우기는 100%에서 시각적으로만 멈추고, 숫자(${pct}%)는 실제 값을 그대로 보여줍니다.
+  const fillPct = Math.min(100, pct);
   return `
     <div class="mb-gauge" data-level="${level}">
       <div class="mb-gauge-head">
@@ -248,7 +254,7 @@ function renderBoothRecruitGauge(m) {
       <div class="mb-gauge-track" role="progressbar"
            aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"
            aria-label="부스 모집률 ${pct}%">
-        <div class="mb-gauge-fill" style="width:${pct}%"></div>
+        <div class="mb-gauge-fill" style="width:${fillPct}%"></div>
       </div>
       <div class="mb-gauge-foot">
         <span class="mb-gauge-count"><strong>${applied}</strong> / ${total} 부스 모집</span>

@@ -75,6 +75,11 @@ export async function getMyApplications(req, res) {
          a.productDesc, a.itemImage, a.status,a.paymentDueAt,
          m.title AS marketTitle, m.eventDate_min, m.eventDate_max, m.locationName,m.boothPrice,
          m.hostId, hu.nickname AS hostNickname,
+         m.maxparticipants,
+         (SELECT COUNT(*) FROM applications a2
+           WHERE a2.marketId = a.marketId
+             AND a2.status IN ('Pending', 'Approved', 'Paid')
+         ) AS appliedBooths,
          (m.eventDate_min <= CURDATE()) AS eventEnded,
          r.rating AS myRating,
          EXISTS(

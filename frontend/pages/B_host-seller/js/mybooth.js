@@ -213,6 +213,47 @@ function handlePaginationClick() {
   });
 }
 
+// ---------- 부스 모집 현황 게이지 (내가 신청한 마켓 기준) ----------
+// [추가] 내가 신청한 마켓의 총 부스 수 / 현재 신청된 부스 수 / 참여율(%).
+//   내 마켓 관리(marketdelete.js)의 게이지와 동일한 계산식이며, 초과 신청
+//   (allowOvercapacity)이 허용된 마켓은 100%를 넘는 실제 비율을 그대로 보여줍니다.
+function getBoothRecruitStats(a) {
+  const total = Number(a.maxparticipants ?? a.maxParticipants) || 0;
+  const applied = Number(a.appliedBooths) || 0;
+  const pct = total > 0 ? Math.round((applied / total) * 100) : 0;
+  return { applied, total, pct };
+}
+
+function boothRecruitLevel(pct) {
+  if (pct > 100) return 'over'; // 정원 초과
+  if (pct >= 80) return 'high'; // 마감 임박
+  if (pct >= 50) return 'mid'; // 보통
+  return 'low'; // 여유
+}
+
+// 판매자 화면과 동일한 mb-gauge-* 스타일 재사용
+function renderBoothRecruitGauge(a) {
+  const { applied, total, pct } = getBoothRecruitStats(a);
+  if (total === 0) return '';
+  const level = boothRecruitLevel(pct);
+  const fillPct = Math.min(100, pct);
+  return `
+    <div class="mb-gauge" data-level="${level}">
+      <div class="mb-gauge-head">
+        <span class="mb-gauge-title">부스 모집 현황</span>
+        <span class="mb-gauge-pct">${pct}%</span>
+      </div>
+      <div class="mb-gauge-track" role="progressbar"
+           aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"
+           aria-label="부스 모집률 ${pct}%">
+        <div class="mb-gauge-fill" style="width:${fillPct}%"></div>
+      </div>
+      <div class="mb-gauge-foot">
+        <span class="mb-gauge-count"><strong>${applied}</strong> / ${total} 부스 모집</span>
+      </div>
+    </div>`;
+}
+
 function renderBoothCard(a) {
   const id = a.applicationId;
   const status = a.status || 'Pending';
@@ -231,6 +272,8 @@ function renderBoothCard(a) {
         </div>
         <span class="status-tag ${STATUS_CLASS[status] || 'pending'}">${STATUS_LABEL[status] || status}</span>
       </div>
+
+      ${renderBoothRecruitGauge(a)}
 
     <div class="item-card-actions">
       <div class="action-group">
