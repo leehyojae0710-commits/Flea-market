@@ -1,7 +1,7 @@
 // backend/routes/payRoutes.js
 // 담당 D: 모의 결제 (실제 PG 연동은 3주 일정상 제외)
 import express from 'express';
-import { confirmPayment,refundPayment,requestRefund } from '../controllers/payController.js';
+import { confirmPayment,refundPayment,requestRefund,paymentHistory } from '../controllers/payController.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -72,6 +72,6 @@ const router = express.Router();
 router.post('/confirm', authenticateToken, confirmPayment);
 router.post('/request-refund', authenticateToken, requestRefund);
 router.post('/refund',authenticateToken, refundPayment);
-//router.post('/history',authenticateToken, paymentHistory);
+router.post('/history',authenticateToken, paymentHistory);
 
 export default router;

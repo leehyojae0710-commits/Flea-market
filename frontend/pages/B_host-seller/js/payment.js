@@ -17,33 +17,96 @@ async function confirmPayment(applicationId, paymentId) {
 }
 
 // //테스트
-// async function historys(applicationId) {
-//   console.log("눌림");
-//   console.log(applicationId);
-//   return callApi('/payments/history', {
-//     method: 'POST',
-//     body: { applicationId }
-//   })
-// }
-// async function payment_history(applicationId) {
-//   console.log("클릭");
-//   console.log(applicationId);
-//   if(!applicationId)
-//     return;
-//   try{
-//     const data = await historys(applicationId)
-//     if(data && data.success)
-//     {
-//       console.log(data);
-//     }
-//     else{
-//       console.log("없음");
-//     }
-//   }
-//   catch(error){
-//     renderAlert("오류");
-//   }
-// }
+let paymentGroups = [];
+let expandedMarketId = null;
+
+async function historys() {
+  return callApi('/payments/history', {
+    method: 'POST',
+  })
+}
+async function payment_history() {
+  try {
+    const data = await historys();
+    if (data && data.success) {
+      paymentGroups = groupByMarket(data.data);
+      renderPaymentGroups();
+    } else {
+      document.getElementById('payment-list').innerHTML = '<p class="list-empty">내역을 불러오지 못했습니다.</p>';
+    }
+  } catch (error) {
+    renderAlert("오류");
+  }
+}
+function groupByMarket(items) {
+  const groups = new Map();
+
+  items.forEach((item) => {
+    const key = item.marketId;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        marketId: item.marketId,
+        marketTitle: item.marketTitle,
+        status: item.status,
+        totalAmount: 0,
+        items: [],
+      });
+    }
+    const group = groups.get(key);
+    if (item.status === 'Paid')
+      group.totalAmount += Number(item.price) || 0;
+    // else{
+    //   group.totalAmount +=()
+    // }
+    group.items.push(item);
+  });
+  return Array.from(groups.values());
+}
+
+function renderPaymentGroups() {
+  const ui = document.getElementById('payment-list');
+  if (paymentGroups.length === 0) {
+    ui.innerHTML = '<p class="list-empty">결제/환불 내역이 없습니다.</p>';
+    return;
+  }
+
+  ui.innerHTML = paymentGroups.map((group) => `
+    <div class="item-card">
+      <div class="item-card-top">
+        <span class="item-card-title">${group.marketTitle}</span>
+        <span class="item-card-meta">총 ${group.totalAmount.toLocaleString()}원</span>
+      </div>
+      <button type="button" class="btn btn-outline btn-sm" data-action="toggle-detail" data-market-id="${group.marketId}" data-group='${group}'>
+        자세히 보기
+      </button>
+      <div id="detail-${group.marketId}">
+        ${expandedMarketId === String(group.marketId) ? renderGroupDetail(group) : ''}
+      </div>
+    </div>
+  `).join('');
+
+  ui.querySelectorAll('[data-action="toggle-detail"]').forEach((btn) => {
+    btn.addEventListener('click', () => handleToggleDetail(btn.dataset.marketId));
+  });
+}
+function renderGroupDetail(group) {
+  return `
+    <div class="item-card-detail">
+      ${group.items.map((item) => `
+        <div class="item-card-meta">
+          판매자: ${item.sellerNickname}
+          원금 ${Number(item.amount).toLocaleString()}원
+          환불 금액 ${Number(item.refundAmount)}원
+          결제 금액 ${Number(item.amount - item.refundAmount)}
+        </div>
+      `).join('')}
+    </div>`;
+}
+function handleToggleDetail(marketId,group) {
+  const isCollapsing = String(expandedMarketId) === String(marketId);
+  expandedMarketId = isCollapsing ? null : marketId;
+  renderPaymentGroups(); // 그룹 개수가 보통 많지 않을 테니, 전체 다시 그려도 부담 적음
+}
 
 // ============================================
 // 알림 관련 유틸
