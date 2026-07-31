@@ -312,8 +312,6 @@ export async function paymentHistory(req, res) {
     const [dataA] = await pool.query(
       `SELECT * FROM users WHERE userId =?`, [hostId]
     );
-    console.log(dataA);
-    console.log(dataA[0].userType);
     if (dataA[0].userType === 1) {
       console.log("주최자")
       const [hostData] = await pool.query(
@@ -358,10 +356,8 @@ export async function paymentHistory(req, res) {
         a.status,
         m.title AS marketTitle,
         u.nickname AS sellerNickname,
-        CASE
-        WHEN a.status = 'Paid' THEN p.amount
-          ELSE p.refundAmount
-        END AS price
+        p.amount,
+        IFNULL(p.refundAmount,0) AS refundAmount
         FROM applications a
         INNER JOIN markets m ON a.marketId = m.marketId
         INNER JOIN users u ON a.sellerId = u.userId
@@ -369,7 +365,11 @@ export async function paymentHistory(req, res) {
         WHERE a.sellerId =? AND a.status IN ('Paid','Refunded','RefundRequested')
         `,[hostId]
       );
-      console.log(sellerData);
+      return res.status(200).json({
+        success: true,
+        data: sellerData,
+        message: "데이터 보내기 성공"
+      });
     }
   }
   catch (error) {
