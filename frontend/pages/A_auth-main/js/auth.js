@@ -167,6 +167,38 @@ if (passwordInput && registerForm) {
   });
 }
 
+/* ---------------------- 회원가입: 비밀번호 확인 일치 검사 ---------------------- */
+const passwordConfirmInput = document.getElementById('password-confirm');
+const passwordConfirmMsg = document.getElementById('password-confirm-msg');
+
+function setPasswordConfirmMsg(message, ok) {
+  if (!passwordConfirmMsg) return;
+  passwordConfirmMsg.textContent = message;
+  passwordConfirmMsg.classList.remove('ok', 'error');
+  if (message) passwordConfirmMsg.classList.add(ok ? 'ok' : 'error');
+}
+
+function checkPasswordMatch() {
+  if (!passwordInput || !passwordConfirmInput) return;
+  const confirmValue = passwordConfirmInput.value;
+  if (!confirmValue) {
+    setPasswordConfirmMsg('', false);
+  } else if (confirmValue !== passwordInput.value) {
+    setPasswordConfirmMsg('비밀번호가 일치하지 않아요.', false);
+  } else {
+    setPasswordConfirmMsg('비밀번호가 일치해요.', true);
+  }
+}
+
+if (passwordConfirmInput && registerForm) {
+  passwordConfirmInput.addEventListener('input', checkPasswordMatch);
+}
+
+// 비밀번호 원본을 수정하면 확인란도 다시 검사 (원본만 바꾸고 제출하는 것 방지)
+if (passwordInput && passwordConfirmInput && registerForm) {
+  passwordInput.addEventListener('input', checkPasswordMatch);
+}
+
 /* ---------------------- 회원가입: 닉네임 중복 확인 ---------------------- */
 const nicknameInput = document.getElementById('nickname');
 const checkNicknameBtn = document.getElementById('check-nickname-btn');
@@ -276,6 +308,7 @@ if (registerForm) {
     const nickname = nicknameInput ? nicknameInput.value.trim() : '';
     const email = document.getElementById('email')?.value.trim();
     const password = document.getElementById('password')?.value;
+    const passwordConfirm = document.getElementById('password-confirm')?.value;
     const phone = document.getElementById('phone')?.value.trim();
     const region = document.getElementById('region')?.value.trim();
     const introText = document.getElementById('intro-text')?.value.trim();
@@ -285,7 +318,7 @@ if (registerForm) {
       showAlert('가입 역할을 선택해주세요.');
       return;
     }
-    if (!nickname || !email || !password || !phone || !region) {
+    if (!nickname || !email || !password || !passwordConfirm || !phone || !region) {
       showAlert('모든 항목을 입력해주세요.');
       return;
     }
@@ -307,6 +340,10 @@ if (registerForm) {
     }
     if (!isValidPassword(password)) {
       showAlert('비밀번호는 8자 이상이면서 영문 소문자와 특수문자를 포함해야 합니다.');
+      return;
+    }
+    if (password !== passwordConfirm) {
+      showAlert('비밀번호가 일치하지 않습니다.');
       return;
     }
 
