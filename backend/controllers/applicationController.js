@@ -3,12 +3,9 @@
 // [추가] 판매자 본인의 신청 목록 조회 / 수정 / 취소(삭제)
 
 import pool from '../config/db.js';
-<<<<<<< HEAD
 // [부스 신청 정합성] 신청 자격 판정은 utills/applicationPolicy.js 한 곳에서 합니다.
 import { checkBoothApplyEligibility, toDateKey, todayKey } from '../utills/applicationPolicy.js';
-=======
 import { createNotification } from '../services/notificationService.js';
->>>>>>> origin/feat/이효재
 
 // POST /api/applications (로그인 필요, 판매자)
 export async function applyForBooth(req, res) {
@@ -25,7 +22,6 @@ export async function applyForBooth(req, res) {
   const conn = await pool.getConnection();
 
   try {
-<<<<<<< HEAD
     await conn.beginTransaction();
 
     const check = await checkBoothApplyEligibility(conn, {
@@ -43,14 +39,6 @@ export async function applyForBooth(req, res) {
         code: check.code,
         message: check.message,
       });
-=======
-    const [marketRows] = await pool.query('SELECT marketId, isExpired, hostId, title FROM markets WHERE marketId = ?', [marketId]);
-    if (marketRows.length === 0) {
-      return res.status(404).json({ success: false, data: null, message: '해당 마켓을 찾을 수 없습니다.' });
-    }
-    if (marketRows[0].isExpired) {
-      return res.status(409).json({ success: false, data: null, message: '마감된 마켓에는 신청할 수 없습니다.' });
->>>>>>> origin/feat/이효재
     }
 
     const [result] = await conn.query(
@@ -59,20 +47,23 @@ export async function applyForBooth(req, res) {
       [marketId, userId, boothNumber, title || null, itemName, productDesc || null, itemImage || null]
     );
 
-<<<<<<< HEAD
+    // [추가] 알림에 필요한 마켓 정보(주최자, 마켓명) 조회 — 같은 트랜잭션 안에서 조회
+    const [marketRows] = await conn.query('SELECT hostId, title FROM markets WHERE marketId = ?', [marketId]);
+
     await conn.commit();
-=======
+
     // [추가] 신청 접수 -> 마켓 주최자에게 알림
-    await createNotification({
-      userId: marketRows[0].hostId,
-      audience: 'host',
-      type: 'application_received',
-      title: '새 부스 신청',
-      message: `"${marketRows[0].title}" 마켓 ${boothNumber}번 부스에 새로운 신청이 도착했습니다. (${itemName})`,
-      marketId: Number(marketId),
-      applicationId: result.insertId,
-    });
->>>>>>> origin/feat/이효재
+    if (marketRows.length > 0) {
+      await createNotification({
+        userId: marketRows[0].hostId,
+        audience: 'host',
+        type: 'application_received',
+        title: '새 부스 신청',
+        message: `"${marketRows[0].title}" 마켓 ${boothNumber}번 부스에 새로운 신청이 도착했습니다. (${itemName})`,
+        marketId: Number(marketId),
+        applicationId: result.insertId,
+      });
+    }
 
     return res.status(201).json({
       success: true,
@@ -303,11 +294,8 @@ export async function approveSellerApplication(req, res) {
 
   try {
     const [rows] = await pool.query(
-<<<<<<< HEAD
-      `SELECT a.applicationId, a.marketId, a.boothNumber, m.hostId, m.allowOvercapacity, m.eventDate_min
-=======
-      `SELECT a.applicationId, a.marketId, a.boothNumber, a.sellerId, a.itemName, m.hostId, m.title AS marketTitle
->>>>>>> origin/feat/이효재
+      `SELECT a.applicationId, a.marketId, a.boothNumber, a.sellerId, a.itemName,
+              m.hostId, m.title AS marketTitle, m.allowOvercapacity, m.eventDate_min
        FROM applications a
        JOIN markets m ON m.marketId = a.marketId
        WHERE a.applicationId = ?`,

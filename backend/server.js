@@ -22,11 +22,8 @@ import reviewRoutes from './routes/reviewRoutes.js';
 import { authenticateToken } from './middleware/authMiddleware.js';
 import { hostAreaGuard } from './middleware/roleGuard.js'; // [C-01] 판매자의 주최자 API 접근 차단
 import searchRoutes from './routes/searchRoutes.js';
-<<<<<<< HEAD
 import { checkEnv, getCorsOrigins } from './config/envCheck.js'; // [보안·환경 정리] 환경변수 점검 + CORS 허용 목록
-=======
 import notificationRoutes from './routes/notificationRoutes.js'; // [추가] 알림(종 버튼)
->>>>>>> origin/feat/이효재
 
 
 dotenv.config();
