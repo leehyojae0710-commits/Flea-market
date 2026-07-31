@@ -30,27 +30,8 @@ export const searchItems = async (req, res) => {
       const statusClause = TAB_STATUS_CONDITIONS[tab] ? `AND (${TAB_STATUS_CONDITIONS[tab]})` : '';
       const orderClause = SORT_CLAUSES[sort] || 'm.updated_at DESC';
 
-<<<<<<< HEAD
-      // [수정] 메인 목록(getMarketList)과 동일하게 주최자 닉네임(hostNickname)과
-      //   실시간 부스 신청 수(appliedBooths)를 함께 계산해서 내려줘야 합니다.
-      //   기존에는 m.* 만 조회해서 이 두 값이 응답에 없었고, 그 결과 프론트의
-      //   getBoothStats()가 appliedBooths를 0으로 처리해 검색 시 부스 신청
-      //   게이지가 0%로 초기화되는 문제가 있었습니다.
-=======
-      // [수정] main.js 카드 렌더링은 m.hostNickname 을 쓰는데, 이 쿼리는 markets 테이블만
-      // 봐서 hostNickname 이 없었습니다. 그래서 검색 결과 카드에는 닉네임 대신
-      // ProfileLink 가 폴백으로 쓰는 hostId(숫자)가 그대로 보였습니다.
-      // getMarketList()(marketController.js)와 동일하게 users 조인 + 모집 부스 수를 추가합니다.
->>>>>>> main
       const marketQuery = `
-        SELECT m.*,
-          u.nickname AS hostNickname,
-          (SELECT COUNT(*) FROM applications a
-            WHERE a.marketId = m.marketId
-              AND a.status IN ('Pending', 'Approved', 'Paid')
-          ) AS appliedBooths
-        FROM markets m
-        JOIN users u ON u.userId = m.hostId
+        SELECT m.* FROM markets m
         WHERE (? = '' OR m.title LIKE ? OR m.description LIKE ? OR m.locationName LIKE ? OR m.region LIKE ?)
         ${statusClause}
         ORDER BY ${orderClause}

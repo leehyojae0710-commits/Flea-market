@@ -189,19 +189,15 @@ document.addEventListener('DOMContentLoaded', () => {
     updateEmptyMessage(container, visibleCount, keyword);
   }
 
-  // 6. 실시간 키워드 입력 및 삭제 이벤트
+  // 6. 키워드 입력 (검색은 안 하고, 지우기 버튼만 보였다 숨겼다 함)
+  //
+  // [수정] 예전에는 타이핑할 때마다(300ms 디바운스) 서버 검색 API를 계속 호출해서
+  //   서버 부담도 크고 결과가 자꾸 깜빡여서 로딩도 오래 걸리는 느낌이 있었습니다.
+  //   이제는 입력 중엔 검색을 실행하지 않고, 검색 버튼을 누르거나(또는 Enter)
+  //   지우기(✕) 버튼을 눌렀을 때만 검색/초기화가 실행됩니다.
   inputEl.addEventListener('input', () => {
     const keyword = inputEl.value.trim();
     clearBtn.style.display = keyword.length > 0 ? 'block' : 'none';
-
-    if (isMainPage) {
-      clearTimeout(window.searchTimer);
-      window.searchTimer = setTimeout(() => {
-        fetchSearchResults(keyword);
-      }, 300);
-    } else {
-      filterClientSideCards();
-    }
   });
 
   clearBtn.addEventListener('click', () => {
