@@ -109,10 +109,136 @@ function formatPrice(price) {
 const STATUS_LABEL = { Pending: '대기중', Approved: '승인됨', Rejected: '반려됨', Paid: '결제 완료', Refunded: '결제 취소', RefundRequested: '환불 신청' };
 const STATUS_CLASS = { Pending: 'pending', Approved: 'approved', Rejected: 'rejected', Paid: 'paid', Refunded: 'refunded', RefundRequested: 'refundRequested' };
 
-let currentApplications = [];
+let currentApplications = []; // 서버에서 받은 원본 전체 신청 목록 (필터/정렬 전)
+let filteredApplications = []; // 상태 필터 + 정렬이 적용되어 실제로 화면에 그려지는 목록
+let applicationStatusFilter = ''; // '' | 'Pending' | 'Approved' | 'Paid' | 'Refund' | 'Rejected'
 let sellerReviewOpenId = null;
 let sellerReviewDraftRating = 0;
 let selectedApplicationIds = new Set();
+
+// ---------- 신청자 목록: 상태 필터 / 정렬 / 페이지네이션 ----------
+
+// [추가] '환불' 필터는 신청 status 값 하나와 1:1로 매핑되지 않아
+//        (환불 요청중 + 환불 완료 두 상태를 함께 묶어야 해서) 별도 매핑 테이블로 처리합니다.
+const APPLICATION_STATUS_FILTER_MAP = {
+  Refund: ['Refunded', 'RefundRequested'],
+};
+
+// [추가] 신청자 목록은 항상 "승인대기 → 결제대기 → 결제완료 → 환불 → 반려" 순으로 정렬합니다.
+//        (승인대기=Pending, 결제대기=Approved, 결제완료=Paid, 환불=Refunded/RefundRequested, 반려=Rejected)
+const APPLICATION_STATUS_ORDER = {
+  Pending: 0,
+  Approved: 1,
+  Paid: 2,
+  RefundRequested: 3,
+  Refunded: 3,
+  Rejected: 4,
+};
+
+function getApplicationSortRank(status) {
+  const rank = APPLICATION_STATUS_ORDER[status];
+  return rank === undefined ? 99 : rank;
+}
+
+// ---------- 신청자 목록 페이지네이션 ----------
+const APPLICATION_PAGE_SIZE = 20;
+let applicationCurrentPage = 1;
+
+// 상태 필터 적용 -> 정렬 -> 1페이지로 리셋 -> 다시 그리기
+function applyApplicationStatusFilter() {
+  const groupedStatuses = APPLICATION_STATUS_FILTER_MAP[applicationStatusFilter];
+  const byStatus = applicationStatusFilter
+    ? currentApplications.filter((a) => {
+        const status = a.status || 'Pending';
+        return groupedStatuses
+          ? groupedStatuses.includes(status)
+          : status === applicationStatusFilter;
+      })
+    : currentApplications;
+
+  filteredApplications = [...byStatus].sort(
+    (a, b) => getApplicationSortRank(a.status || 'Pending') - getApplicationSortRank(b.status || 'Pending'),
+  );
+
+  applicationCurrentPage = 1;
+  renderApplicationList();
+}
+
+function handleApplicationStatusFilterChange() {
+  applicationStatusFilter = document.getElementById('application-status-filter')?.value || '';
+  selectedApplicationIds.clear();
+  applyApplicationStatusFilter();
+}
+
+// main.js / marketdelete.js 와 동일한 축약 페이지 번호 규칙
+function getApplicationPageWindow(current, total) {
+  const SIBLINGS = 2;
+  const first = 1;
+  const last = total;
+
+  if (total <= SIBLINGS * 2 + 3) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+
+  const start = Math.max(current - SIBLINGS, first);
+  const end = Math.min(current + SIBLINGS, last);
+  const pages = [];
+
+  pages.push(first);
+  if (start > first + 1) pages.push('…');
+  else if (start === first + 1) pages.push(first + 1);
+
+  for (let p = start; p <= end; p++) {
+    if (p !== first && p !== last) pages.push(p);
+  }
+
+  if (end < last - 1) pages.push('…');
+  else if (end === last - 1) pages.push(last - 1);
+
+  pages.push(last);
+
+  return pages.filter((p, i) => p === '…' || pages.indexOf(p) === i);
+}
+
+function renderApplicationPagination(totalPages) {
+  const nav = document.getElementById('application-pagination');
+  if (!nav) return;
+  if (totalPages <= 1) { nav.innerHTML = ''; return; }
+
+  const buttons = [];
+  buttons.push(
+    `<button type="button" class="page-btn page-nav" data-page="${applicationCurrentPage - 1}" ${applicationCurrentPage === 1 ? 'disabled' : ''}>‹</button>`
+  );
+
+  getApplicationPageWindow(applicationCurrentPage, totalPages).forEach((p) => {
+    if (p === '…') {
+      buttons.push(`<span class="page-ellipsis">…</span>`);
+    } else {
+      buttons.push(
+        `<button type="button" class="page-btn${p === applicationCurrentPage ? ' is-active' : ''}" data-page="${p}">${p}</button>`
+      );
+    }
+  });
+
+  buttons.push(
+    `<button type="button" class="page-btn page-nav" data-page="${applicationCurrentPage + 1}" ${applicationCurrentPage === totalPages ? 'disabled' : ''}>›</button>`
+  );
+  nav.innerHTML = buttons.join('');
+}
+
+function handleApplicationPaginationClick() {
+  const nav = document.getElementById('application-pagination');
+  if (!nav) return;
+  nav.addEventListener('click', (e) => {
+    const btn = e.target.closest('.page-btn');
+    if (!btn || btn.disabled) return;
+    const page = Number(btn.dataset.page);
+    if (!page || page === applicationCurrentPage) return;
+    applicationCurrentPage = page;
+    renderApplicationList();
+    document.getElementById('application-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+}
 
 // ---------- 마켓 등록 ----------
 
@@ -324,22 +450,38 @@ function handleBoothSelectClick() {
 
 // ---------- 신청자 목록 (주최측 전용) ----------
 
-function renderApplicationList(applications) {
-  currentApplications = applications || [];
+function renderApplicationList() {
   const wrap = document.getElementById('application-list');
+  const countEl = document.getElementById('application-result-count');
   if (!wrap) return;
 
-  if (currentApplications.length === 0) {
-    wrap.innerHTML = '<p class="list-empty">아직 들어온 신청이 없어요.</p>';
+  if (countEl) {
+    countEl.textContent =
+      currentApplications.length === 0 ? '' : `${filteredApplications.length}건`;
+  }
+
+  if (filteredApplications.length === 0) {
+    wrap.innerHTML =
+      currentApplications.length === 0
+        ? '<p class="list-empty">아직 들어온 신청이 없어요.</p>'
+        : '<p class="list-empty">해당 상태의 신청이 없어요.</p>';
+    renderApplicationPagination(0);
+    renderBulkToolbar();
     return;
   }
 
-  wrap.innerHTML = currentApplications
+  const totalPages = Math.max(1, Math.ceil(filteredApplications.length / APPLICATION_PAGE_SIZE));
+  if (applicationCurrentPage > totalPages) applicationCurrentPage = totalPages;
+  if (applicationCurrentPage < 1) applicationCurrentPage = 1;
+  const start = (applicationCurrentPage - 1) * APPLICATION_PAGE_SIZE;
+  const pageItems = filteredApplications.slice(start, start + APPLICATION_PAGE_SIZE);
+
+  wrap.innerHTML = pageItems
     .map((a) => {
       const status = a.status || 'Pending';
       const id = a.applicationId;
       const canShowReview = status === 'Paid'; // 결제 완료된 건만 평가 대상
-      const canSelect = status === 'Pending' || status === 'Paid'; // 승인/반려/환불 대상만 선택 가능
+      const canSelect = status === 'Pending' || status === 'Approved' || status === 'Paid'; // 승인/반려/환불 대상만 선택 가능 (반려는 승인됨 상태에서도 가능)
       return `
       <div class="item-card" data-application-id="${id}">
     <div class="item-card-top">
@@ -425,13 +567,54 @@ function renderApplicationList(applications) {
     });
   });
 
+  renderApplicationPagination(totalPages);
   renderBulkToolbar();
 }
+// [수정] 일괄 처리 가능 여부는 '선택 여부'가 아니라 '선택된 신청들의 실제 상태'로 판단합니다.
+//        - 일괄 승인: 대기중(Pending) 건에만 의미가 있음
+//        - 일괄 반려: 대기중(Pending) · 승인됨(Approved) 건 모두 가능 (승인 후에도 반려로 되돌릴 수 있음)
+//        - 일괄 결제취소: 결제완료(Paid) 건에만 의미가 있음
+const BULK_ACTION_ELIGIBLE_STATUSES = {
+  approve: ['Pending'],
+  reject: ['Pending', 'Approved'],
+  refund: ['Paid'],
+};
+
+// 현재 선택된 신청 중, 해당 액션을 적용할 수 있는 상태의 id만 골라냄
+function getEligibleApplicationIds(action) {
+  const eligibleStatuses = BULK_ACTION_ELIGIBLE_STATUSES[action];
+  return Array.from(selectedApplicationIds).filter((id) => {
+    const app = currentApplications.find((a) => String(a.applicationId) === String(id));
+    return app && eligibleStatuses.includes(app.status || 'Pending');
+  });
+}
+
 function renderBulkToolbar() {
   const el = document.getElementById('bulk-actions-toolbar');
   if (!el) return;
 
   const count = selectedApplicationIds.size;
+  const approveIds = getEligibleApplicationIds('approve');
+  const rejectIds = getEligibleApplicationIds('reject');
+  const refundIds = getEligibleApplicationIds('refund');
+
+  // [수정] 선택된 항목의 상태에 맞는 버튼만 만들어서 보여줌 (해당 안 되면 아예 표시 안 함)
+  const buttons = [];
+  if (approveIds.length > 0) {
+    buttons.push(`<button type="button" class="btn btn-sage btn-sm" id="bulk-approve-btn">일괄 승인 (${approveIds.length}건)</button>`);
+  }
+  if (rejectIds.length > 0) {
+    buttons.push(`<button type="button" class="btn btn-danger btn-sm" id="bulk-reject-btn">일괄 반려 (${rejectIds.length}건)</button>`);
+  }
+  if (refundIds.length > 0) {
+    buttons.push(`<button type="button" class="btn btn-outline btn-sm" id="bulk-refund-btn">일괄 결제취소 (${refundIds.length}건)</button>`);
+  }
+
+  const actionsHtml = count === 0
+    ? ''
+    : buttons.length > 0
+      ? buttons.join('')
+      : '<span class="form-hint">선택한 신청에 적용할 수 있는 일괄 처리가 없어요.</span>';
 
   el.innerHTML = `
     <div class="bulk-toolbar">
@@ -441,15 +624,24 @@ function renderBulkToolbar() {
       </label>
       <span class="bulk-count">${count}건 선택됨</span>
       <div class="bulk-actions">
-        <button type="button" class="btn btn-sage btn-sm" id="bulk-approve-btn" ${count === 0 ? 'disabled' : ''}>일괄 승인</button>
-        <button type="button" class="btn btn-danger btn-sm" id="bulk-reject-btn" ${count === 0 ? 'disabled' : ''}>일괄 반려</button>
-        <button type="button" class="btn btn-outline btn-sm" id="bulk-refund-btn" ${count === 0 ? 'disabled' : ''}>일괄 결제취소</button>
+        ${actionsHtml}
       </div>
     </div>`;
 
-  document.getElementById('select-all-checkbox')?.addEventListener('change', (e) => {
-    handleSelectAll(e.target.checked);
-  });
+  const selectAllCheckbox = document.getElementById('select-all-checkbox');
+  if (selectAllCheckbox) {
+    // [추가] '전체 선택' 체크박스가 항상 빈 상태로 다시 그려지던 걸 고쳐서,
+    //        현재 페이지에서 선택 가능한 항목이 모두 선택됐으면 체크, 일부만 선택됐으면
+    //        표시(indeterminate)로 보여줍니다. 이 상태를 기준으로 클릭하면 반대로 토글됩니다.
+    const pageCheckboxes = Array.from(document.querySelectorAll('.application-select-checkbox'));
+    const checkedCount = pageCheckboxes.filter((cb) => cb.checked).length;
+    selectAllCheckbox.checked = pageCheckboxes.length > 0 && checkedCount === pageCheckboxes.length;
+    selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < pageCheckboxes.length;
+
+    selectAllCheckbox.addEventListener('change', (e) => {
+      handleSelectAll(e.target.checked);
+    });
+  }
   document.getElementById('bulk-approve-btn')?.addEventListener('click', () => handleBulkAction('approve'));
   document.getElementById('bulk-reject-btn')?.addEventListener('click', () => handleBulkAction('reject'));
   document.getElementById('bulk-refund-btn')?.addEventListener('click', () => handleBulkAction('refund'));
@@ -461,19 +653,15 @@ function handleSelectAll(checked) {
     if (checked) selectedApplicationIds.add(id);
     else selectedApplicationIds.delete(id);
   });
-  updateToolbar();
-}
-function updateToolbar()
-{
-  const count =selectedApplicationIds.size;
-  document.querySelector('.bulk-count').textContent = `${count}건 선택됨`;
-  const isDisabled = count === 0;
-  const buttons = document.querySelectorAll('.bulk-actions button');
-  buttons.forEach(btn => btn.disabled = isDisabled);
+  // [수정] 전체 선택 시 어떤 버튼을 보여줄지도 선택 상태에 따라 다시 계산해야 하므로
+  //        단순 텍스트/disabled 갱신(updateToolbar)이 아니라 툴바 전체를 다시 그립니다.
+  renderBulkToolbar();
 }
 async function handleBulkAction(action) {
-  if (selectedApplicationIds.size === 0) return;
-  const ids = Array.from(selectedApplicationIds);
+  // [수정] 선택된 전체가 아니라, 해당 액션이 실제로 적용 가능한(상태가 맞는) 건만 처리 대상으로 삼습니다.
+  //        버튼 자체가 적용 가능한 건이 있을 때만 보이므로, 여기 도달했다면 최소 1건은 있습니다.
+  const ids = getEligibleApplicationIds(action);
+  if (ids.length === 0) return;
 
   const confirmMsgMap = {
     approve: `선택한 ${ids.length}건을 일괄 승인하시겠습니까?`,
@@ -493,24 +681,14 @@ async function handleBulkAction(action) {
 
   hideAlert();
 
-  // 각 id마다 상태를 확인해서, 맞는 상태일 때만 실제 API 호출 (섞여 있어도 안전하게 처리)
+  // [수정] ids가 이미 상태로 걸러진 목록이라 여기서 다시 상태를 확인할 필요는 없지만,
+  //        선택 후 클릭 사이에 다른 곳에서 상태가 바뀌었을 수 있는 만큼(동시성) API 호출은 그대로 시도하고
+  //        결과는 서버 응답 기준으로 집계합니다.
   const results = await Promise.allSettled(
     ids.map((id) => {
-      const app = currentApplications.find((a) => String(a.applicationId) === String(id));
-      if (!app) return Promise.resolve({ success: false, message: '데이터 없음' });
-
-      if (action === 'approve') {
-        if (app.status !== 'Pending') return Promise.resolve({ success: false, message: '대기중 상태가 아님' });
-        return approveSellerApplication(id);
-      }
-      if (action === 'reject') {
-        if (app.status !== 'Pending') return Promise.resolve({ success: false, message: '대기중 상태가 아님' });
-        return rejectSellerApplication(id);
-      }
-      if (action === 'refund') {
-        if (app.status !== 'Paid') return Promise.resolve({ success: false, message: '결제완료 상태가 아님' });
-        return refundPayment(id, reason);
-      }
+      if (action === 'approve') return approveSellerApplication(id);
+      if (action === 'reject') return rejectSellerApplication(id);
+      if (action === 'refund') return refundPayment(id, reason);
     })
   );
 
@@ -523,7 +701,7 @@ async function handleBulkAction(action) {
     renderAlert(`${successCount}건 처리 완료했어요.`, 'success');
   } else {
     renderAlert(
-      `${successCount}건 처리 완료, ${failCount}건은 상태가 맞지 않아 처리되지 않았어요.`,
+      `${successCount}건 처리 완료, ${failCount}건은 처리 중 상태가 바뀌어 반영되지 않았어요.`,
       successCount > 0 ? 'success' : 'error'
     );
   }
@@ -582,20 +760,20 @@ function renderSellerReviewForm(id) {
 function handleSellerReviewToggle(id) {
   sellerReviewOpenId = sellerReviewOpenId === String(id) ? null : String(id);
   sellerReviewDraftRating = 0;
-  renderApplicationList(currentApplications);
+  renderApplicationList();
 }
 function handleSellerStarPick(value) {
   sellerReviewDraftRating = value;
-  renderApplicationList(currentApplications);
+  renderApplicationList();
 }
 function handleSellerReviewReset() {
   sellerReviewDraftRating = 0;
-  renderApplicationList(currentApplications);
+  renderApplicationList();
 }
 function handleSellerReviewCancel() {
   sellerReviewOpenId = null;
   sellerReviewDraftRating = 0;
-  renderApplicationList(currentApplications);
+  renderApplicationList();
 }
 
 async function handleSellerReviewSubmit(id) {
@@ -679,23 +857,23 @@ function renderSellerReviewForm(id) {
 function handleSellerReviewToggle(id) {
   sellerReviewOpenId = sellerReviewOpenId === String(id) ? null : String(id);
   sellerReviewDraftRating = 0;
-  renderApplicationList(currentApplications);
+  renderApplicationList();
 }
 
 function handleSellerStarPick(value) {
   sellerReviewDraftRating = value;
-  renderApplicationList(currentApplications);
+  renderApplicationList();
 }
 
 function handleSellerReviewReset() {
   sellerReviewDraftRating = 0;
-  renderApplicationList(currentApplications);
+  renderApplicationList();
 }
 
 function handleSellerReviewCancel() {
   sellerReviewOpenId = null;
   sellerReviewDraftRating = 0;
-  renderApplicationList(currentApplications);
+  renderApplicationList();
 }
 
 async function handleSellerReviewSubmit(id) {
@@ -745,13 +923,16 @@ async function loadApplicationList() {
   try {
     const res = await getApplicationList(marketId);
     if (res && res.success) {
-      renderApplicationList(res.data || []);
+      currentApplications = res.data || [];
+      applyApplicationStatusFilter();
     } else {
       currentApplications = [];
+      filteredApplications = [];
       wrap.innerHTML = '<p class="list-empty">신청 목록을 불러오지 못했어요.</p>';
     }
   } catch (err) {
     currentApplications = [];
+    filteredApplications = [];
     wrap.innerHTML = '<p class="list-empty">서버에 연결할 수 없어요.</p>';
   }
 }
@@ -1376,6 +1557,10 @@ document.addEventListener('DOMContentLoaded', () => {
   loadMarketDetail();
   handleBoothSelectClick();
   loadApplicationList();
+  document
+    .getElementById('application-status-filter')
+    ?.addEventListener('change', handleApplicationStatusFilterChange);
+  handleApplicationPaginationClick();
   handleCloseMarketClick();
   loadCommentList();
   handleCommentSubmit();

@@ -941,6 +941,9 @@ a.btn {
   border-top: 1px solid #eee2cf;
 }
 .payment-gauge-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
   margin-bottom: 6px;
 }
 .payment-gauge-title {
@@ -948,6 +951,15 @@ a.btn {
   font-size: 12.5px;
   font-weight: 600;
   color: #6b5d4a;
+}
+.payment-gauge-total {
+  font-family: "Inter", sans-serif;
+  font-size: 12.5px;
+  color: #6b5d4a;
+}
+.payment-gauge-total strong {
+  color: #2b2b2b;
+  font-weight: 700;
 }
 .payment-gauge-track {
   display: flex;
@@ -962,8 +974,10 @@ a.btn {
   transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .payment-gauge-seg.is-paid { background: #7f9a6e; }      /* 결제완료 - sage */
-.payment-gauge-seg.is-pending { background: #d9a441; }   /* 결제대기 - mustard */
+.payment-gauge-seg.is-pending { background: #d9a441; }   /* 결제대기 / 승인대기 - mustard */
 .payment-gauge-seg.is-refunded { background: #c94a36; }  /* 환불완료 - red */
+.payment-gauge-seg.is-approved { background: #7f9a6e; }  /* 승인됨 - sage */
+.payment-gauge-seg.is-rejected { background: #8a7a63; }  /* 반려 - 중립 브라운(환불완료 빨강과 구분) */
 
 .payment-gauge-legend {
   display: flex;
@@ -992,6 +1006,8 @@ a.btn {
 .payment-gauge-legend-item.is-paid i { background: #7f9a6e; }
 .payment-gauge-legend-item.is-pending i { background: #d9a441; }
 .payment-gauge-legend-item.is-refunded i { background: #c94a36; }
+.payment-gauge-legend-item.is-approved i { background: #7f9a6e; }
+.payment-gauge-legend-item.is-rejected i { background: #8a7a63; }
 
 /* ---------- [추가 07-28] 주최자 내 마켓 목록: 모집 / 개최 D-DAY 배지 ---------- */
 .hm-dday-row {

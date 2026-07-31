@@ -41,7 +41,8 @@
             상태
             <select id="status-filter">
               <option value="">전체</option>
-              <option value="open">모집중</option>
+              <!-- [수정] 사용자 기준 필터: 마감 전(모집중) 마켓을 기본으로 보여줌 -->
+              <option value="open" selected>모집중</option>
               <option value="closed">마감</option>
               <option value="cancel">취소</option>
             </select>
@@ -75,7 +76,7 @@
     </div>
 
     <script src="../../common/js/api.js?v=4"></script>
-    <script src="js/marketdelete.js?v=5"></script>
+    <script src="js/marketdelete.js?v=7"></script>
     <script src="/common/js/search.js?v=3"></script>
   </body>
 </html>

@@ -48,10 +48,28 @@
 
     <div class="panel" id="host-panel" style="display:none;">
       <h2>신청자 목록 <span class="form-hint">(주최측 전용)</span></h2>
+
+      <!-- [추가] 신청자 상태 필터: 승인대기/결제대기/결제완료/환불/반려 -->
+      <div class="filter-strip">
+        <label class="filter-field">
+          상태
+          <select id="application-status-filter">
+            <option value="">전체</option>
+            <option value="Pending">승인대기</option>
+            <option value="Approved">결제대기</option>
+            <option value="Paid">결제완료</option>
+            <option value="Refund">환불</option>
+            <option value="Rejected">반려</option>
+          </select>
+        </label>
+        <span id="application-result-count" class="result-count"></span>
+      </div>
+
       <div id="bulk-actions-toolbar"></div>
       <div id="application-list">
         <p class="list-empty">신청 내역을 불러오는 중...</p>
       </div>
+      <nav id="application-pagination" class="pagination" aria-label="신청자 목록 페이지네이션"></nav>
       <hr class="section-divider" />
       <button type="button" id="close-market-btn" class="btn btn-outline btn-sm">이 마켓 마감 처리하기</button>
     </div>
@@ -74,7 +92,7 @@
 
   <script src="../../common/js/api.js?v=4"></script>
   <script src="../../common/js/profile-link.js?v=1"></script>
-  <script src="js/market.js?v=9"></script>
+  <script src="js/market.js?v=13"></script>
   <script src="js/market-detail-extra.js?v=2"></script>
   <script src="js/market-role-view.js?v=2"></script>
 </body>

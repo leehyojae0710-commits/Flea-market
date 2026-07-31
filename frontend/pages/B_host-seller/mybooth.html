@@ -40,6 +40,9 @@
                         <option value="Pending">대기중</option>
                         <option value="Approved">승인됨</option>
                         <option value="Rejected">반려됨</option>
+                        <!-- [추가] 사용자 기준 필터: 환불 관련 신청을 바로 찾을 수 있도록 추가
+                             (결제대기는 승인됨과 동일한 상태라 별도 옵션을 두지 않음) -->
+                        <option value="Refund">환불</option>
                     </select>
                 </label>
                 <span id="result-count" class="result-count"></span>
@@ -58,7 +61,7 @@
 
     <script src="../../common/js/api.js?v=4"></script>
   <script src="../../common/js/profile-link.js?v=1"></script>
-    <script src="js/mybooth.js?v=8"></script>
+    <script src="js/mybooth.js?v=11"></script>
     <script src="/common/js/search.js?v=3"></script>
 </body>
 

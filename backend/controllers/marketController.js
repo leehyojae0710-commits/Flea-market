@@ -631,7 +631,21 @@ export async function getMyMarket(req, res) {
          ) AS pendingPaymentBooths,
          (SELECT COUNT(*) FROM applications a
             WHERE a.marketId = m.marketId AND a.status IN ('Refunded', 'RefundRequested')
-         ) AS refundedBooths
+         ) AS refundedBooths,
+         -- [추가] 승인 현황 게이지용: 판매자 신청건의 승인 진행 상태 집계
+         --   승인대기 = 'Pending', 반려 = 'Rejected',
+         --   승인됨 = 승인을 한 번이라도 통과한 건 전체
+         --           ('Approved'/'Paid'/'Refunded'/'RefundRequested'/'Expired')
+         (SELECT COUNT(*) FROM applications a
+            WHERE a.marketId = m.marketId AND a.status = 'Pending'
+         ) AS pendingApprovalBooths,
+         (SELECT COUNT(*) FROM applications a
+            WHERE a.marketId = m.marketId
+              AND a.status IN ('Approved', 'Paid', 'Refunded', 'RefundRequested', 'Expired')
+         ) AS approvedBooths,
+         (SELECT COUNT(*) FROM applications a
+            WHERE a.marketId = m.marketId AND a.status = 'Rejected'
+         ) AS rejectedBooths
        FROM markets m
        WHERE m.hostId = ?
          ${includeExpired ? '' : 'AND m.isExpired = 0'}

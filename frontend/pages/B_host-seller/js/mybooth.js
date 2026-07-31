@@ -77,7 +77,7 @@ let reviewDraftRating = 0; // 별점 입력창에서 아직 제출 전인 값 (0
 let searchKeyword = '';
 
 // ---------- 페이지네이션 ----------
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 20;
 let currentPage = 1;
 
 // ---------- 렌더링 ----------
@@ -625,9 +625,23 @@ function matchesSearchKeyword(a) {
   return haystack.includes(searchKeyword);
 }
 
+// [추가] '환불' 필터는 신청 status 값 하나와 1:1로 매핑되지 않아
+//        (환불 요청중 + 환불 완료 두 상태를 함께 묶어야 해서) 별도 매핑 테이블로 처리합니다.
+//        - 환불(Refund): status IN ('Refunded', 'RefundRequested')
+//        (결제대기는 승인됨(status === 'Approved')과 동일한 상태라 별도 옵션을 두지 않습니다.)
+const STATUS_FILTER_MAP = {
+  Refund: ['Refunded', 'RefundRequested'],
+};
+
 function applyStatusFilter() {
+  const groupedStatuses = STATUS_FILTER_MAP[statusFilter];
   const byStatus = statusFilter
-    ? allApplications.filter((a) => (a.status || 'Pending') === statusFilter)
+    ? allApplications.filter((a) => {
+        const status = a.status || 'Pending';
+        return groupedStatuses
+          ? groupedStatuses.includes(status)
+          : status === statusFilter;
+      })
     : allApplications;
   myApplications = byStatus.filter(matchesSearchKeyword);
   renderBoothList();

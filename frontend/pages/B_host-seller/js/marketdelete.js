@@ -166,7 +166,10 @@ function renderDDayBadges(market, statusKey) {
 
 let allMarkets = [];
 let myMarkets = [];
-let statusFilter = '';
+// [수정] 사용자 기준 필터: 주최자가 열었을 때 가장 먼저 필요한 건 "지금 관리해야 할" 마켓이므로
+//        기본값을 마감 전(모집중, isExpired=0) 마켓만 보이도록 'open'으로 둡니다.
+//        마감/취소된 마켓은 상태 필터에서 언제든 다시 선택해서 볼 수 있습니다.
+let statusFilter = 'open';
 let sortOption = ''; // '' | 'recruitEnd' | 'region' | 'eventDate'
 let expandedId = null; // 상세정보가 펼쳐진 마켓 id
 // [수정] 검색 키워드. search.js 가 window.setMyMarketSearchKeyword() 로 넘겨줍니다.
@@ -177,7 +180,7 @@ let expandedId = null; // 상세정보가 펼쳐진 마켓 id
 let searchKeyword = '';
 
 // ---------- 페이지네이션 ----------
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 20;
 let currentPage = 1;
 
 // ---------- 정렬 (클라이언트 안전망) ----------
@@ -264,6 +267,52 @@ function renderBoothRecruitGauge(m) {
 
 // ---------- 렌더링 (목록 전체) ----------
 
+// ---------- 승인 현황 게이지 (승인대기 / 승인됨 / 반려) ----------
+// [추가] 결제 현황과 별개로, 판매자 신청건이 아직 주최자 승인을 기다리는지
+//   / 승인을 받았는지 / 반려됐는지를 보여줍니다. "결제 현황"은 결제 단계
+//   (승인 이후)만 다루므로, 그보다 앞선 승인 단계를 이 게이지가 보완합니다.
+//   - 승인대기: status = 'Pending'
+//   - 승인됨: 승인을 한 번이라도 통과한 건 전체
+//            ('Approved'/'Paid'/'Refunded'/'RefundRequested'/'Expired')
+//   - 반려: status = 'Rejected'
+function getApprovalStats(m) {
+  const pending = Number(m.pendingApprovalBooths) || 0;
+  const approved = Number(m.approvedBooths) || 0;
+  const rejected = Number(m.rejectedBooths) || 0;
+  const total = pending + approved + rejected;
+  return { pending, approved, rejected, total };
+}
+
+// 승인대기/승인됨/반려 3개 구간을 이어붙인 막대 + 하단 범례 (결제 현황과 동일한 스타일 재사용)
+function renderApprovalStatusGauge(m) {
+  const { pending, approved, rejected, total } = getApprovalStats(m);
+  if (total === 0) return '';
+
+  const approvedPct = Math.round((approved / total) * 100);
+  const pendingPct = Math.round((pending / total) * 100);
+  // 반올림 오차는 마지막 구간(반려)에서 흡수해 항상 합이 100%가 되게 함
+  const rejectedPct = Math.max(0, 100 - approvedPct - pendingPct);
+
+  return `
+    <div class="payment-gauge approval-gauge">
+      <div class="payment-gauge-head">
+        <span class="payment-gauge-title">승인 현황</span>
+        <span class="payment-gauge-total">총 <strong>${total}</strong>건 신청</span>
+      </div>
+      <div class="payment-gauge-track" role="img"
+           aria-label="총 ${total}건 중 승인대기 ${pending}건, 승인됨 ${approved}건, 반려 ${rejected}건">
+        ${approved > 0 ? `<div class="payment-gauge-seg is-approved" style="width:${approvedPct}%"></div>` : ''}
+        ${pending > 0 ? `<div class="payment-gauge-seg is-pending" style="width:${pendingPct}%"></div>` : ''}
+        ${rejected > 0 ? `<div class="payment-gauge-seg is-rejected" style="width:${rejectedPct}%"></div>` : ''}
+      </div>
+      <div class="payment-gauge-legend">
+        <span class="payment-gauge-legend-item is-approved"><i></i>승인됨 <strong>${approved}</strong></span>
+        <span class="payment-gauge-legend-item is-pending"><i></i>승인대기 <strong>${pending}</strong></span>
+        <span class="payment-gauge-legend-item is-rejected"><i></i>반려 <strong>${rejected}</strong></span>
+      </div>
+    </div>`;
+}
+
 // ---------- 결제 현황 게이지 (결제완료 / 결제대기 / 환불완료) ----------
 // [추가] 주최자는 "부스 신청 현황"(모집률)은 볼 수 있었지만, 판매자들의 결제
 //   진행 상황(결제까지 마쳤는지 / 아직 결제 전인지 / 환불됐는지)은 확인할 수
@@ -293,9 +342,10 @@ function renderPaymentStatusGauge(m) {
     <div class="payment-gauge">
       <div class="payment-gauge-head">
         <span class="payment-gauge-title">결제 현황</span>
+        <span class="payment-gauge-total">총 <strong>${total}</strong>건 신청</span>
       </div>
       <div class="payment-gauge-track" role="img"
-           aria-label="결제완료 ${paid}건, 결제대기 ${pending}건, 환불완료 ${refunded}건">
+           aria-label="총 ${total}건 중 결제완료 ${paid}건, 결제대기 ${pending}건, 환불완료 ${refunded}건">
         ${paid > 0 ? `<div class="payment-gauge-seg is-paid" style="width:${paidPct}%"></div>` : ''}
         ${pending > 0 ? `<div class="payment-gauge-seg is-pending" style="width:${pendingPct}%"></div>` : ''}
         ${refunded > 0 ? `<div class="payment-gauge-seg is-refunded" style="width:${refundedPct}%"></div>` : ''}
@@ -470,6 +520,7 @@ function renderMarketItem(market) {
   </div>
 
   ${renderBoothRecruitGauge(market)}
+  ${renderApprovalStatusGauge(market)}
   ${renderPaymentStatusGauge(market)}
 
   <!-- 📌 상세 영역은 별도 컨테이너로 분리, id로 특정해서 부분 업데이트 -->
