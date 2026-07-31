@@ -3,6 +3,7 @@ import pool from '../config/db.js';
 import { isOwnMarketPayment } from '../utills/applicationPolicy.js';
 import { verifyPayment, cencelPayment } from '../services/paymentService.js';
 import { calculateRefundRate } from '../utills/refundPolicy.js'
+import { createNotification } from '../services/notificationService.js';
 
 // POST /api/payments/confirm
 // PortOne 결제 완료 후 호출
@@ -24,7 +25,7 @@ export async function confirmPayment(req, res) {
   try {
     // 신청 정보 조회
     const [rows] = await pool.query(
-      `SELECT a.applicationId, a.sellerId, a.status, m.boothPrice
+      `SELECT a.applicationId, a.sellerId, a.status, a.boothNumber, a.itemName, a.marketId, m.boothPrice, m.hostId, m.title AS marketTitle
        FROM applications a
        JOIN markets m ON m.marketId = a.marketId
        WHERE a.applicationId = ?`,
@@ -123,6 +124,17 @@ export async function confirmPayment(req, res) {
       [applicationId]
     );
 
+    // [추가] 결제 완료 -> 마켓 주최자에게 알림
+    await createNotification({
+      userId: application.hostId,
+      audience: 'host',
+      type: 'payment_completed',
+      title: '부스 결제 완료',
+      message: `"${application.marketTitle}" 마켓 ${application.boothNumber}번 부스(${application.itemName}) 결제가 완료되었습니다. (${boothPrice.toLocaleString()}원)`,
+      marketId: application.marketId,
+      applicationId: application.applicationId,
+    });
+
     return res.status(201).json({
       success: true,
       data: {
@@ -155,7 +167,8 @@ export async function refundPayment(req, res) {
   try {
     const [rows] = await pool.query(
       /*sql*/
-      `SELECT p.paymentId, p.paymentKey, p.status, p.amount, p.refundAmount,m.hostId
+      `SELECT p.paymentId, p.paymentKey, p.status, p.amount, p.refundAmount, m.hostId,
+              a.sellerId, a.boothNumber, a.itemName, a.marketId, m.title AS marketTitle
        FROM payments p
        JOIN applications a ON a.applicationId = p.applicationId
        JOIN markets m ON m.marketId = a.marketId
@@ -196,6 +209,19 @@ export async function refundPayment(req, res) {
       SET status = 'Refunded' 
       WHERE applicationId = ?`,
       [applicationId]);
+
+    // [추가] 환불 완료 -> 판매자에게 알림
+    const refundedAmount = payment.status === 'RefundRequested' ? payment.refundAmount : payment.amount;
+    await createNotification({
+      userId: payment.sellerId,
+      audience: 'seller',
+      type: 'refund_completed',
+      title: '환불 완료',
+      message: `"${payment.marketTitle}" 마켓 ${payment.boothNumber}번 부스(${payment.itemName}) 환불이 완료되었습니다. (${Number(refundedAmount || 0).toLocaleString()}원)`,
+      marketId: payment.marketId,
+      applicationId: Number(applicationId),
+    });
+
     return res.status(200).json({
       success: true,
       data: { applicationId, status: 'Refunded' },
@@ -215,7 +241,12 @@ export async function requestRefund(req, res) {
   try {
     const [rows] = await pool.query(
       /*SQL*/
+<<<<<<< HEAD
       `SELECT p.paymentId, p.amount, p.status, a.sellerId, m.hostId, m.eventDate_min
+=======
+      `SELECT p.paymentId, p.amount, p.status, a.sellerId, m.eventDate_min,
+              m.hostId, m.title AS marketTitle, a.boothNumber, a.itemName, a.marketId
+>>>>>>> origin/feat/이효재
        FROM payments p
        JOIN applications a ON a.applicationId = p.applicationId
        JOIN markets m ON m.marketId = a.marketId
@@ -264,6 +295,17 @@ export async function requestRefund(req, res) {
       `UPDATE applications SET status = 'RefundRequested' WHERE applicationId = ?`,
       [applicationId]
     );
+
+    // [추가] 환불 요청 -> 마켓 주최자에게 알림
+    await createNotification({
+      userId: payment.hostId,
+      audience: 'host',
+      type: 'refund_requested',
+      title: '환불 요청',
+      message: `"${payment.marketTitle}" 마켓 ${payment.boothNumber}번 부스(${payment.itemName})에 환불 요청이 접수되었습니다. (예정 금액: ${refundAmount.toLocaleString()}원)`,
+      marketId: payment.marketId,
+      applicationId: Number(applicationId),
+    });
 
     return res.status(200).json({
       success: true,
