@@ -20,6 +20,8 @@
 //      안 돌렸을 때 댓글 등록 자체가 깨지는 것을 막기 위한 안전장치입니다.
 
 import pool from '../config/db.js';
+// [추가] 마켓 댓글 알림 (댓글 등록 / 답글 등록 시 발송)
+import { createNotification } from '../services/notificationService.js';
 
 export const VISIBILITY = {
   PUBLIC: 'public',
@@ -65,6 +67,100 @@ async function findHostId(targetType, targetId) {
   } catch (error) {
     console.error('주최자 조회 오류:', error.message);
     return null;
+  }
+}
+
+/** [추가] 알림 발송용: targetType/targetId 대상 마켓의 hostId + title. market이 아니면 null */
+async function findMarketNotifyTarget(targetType, targetId) {
+  if (targetType !== 'market') return null;
+  try {
+    const [rows] = await pool.query('SELECT hostId, title FROM markets WHERE marketId = ?', [targetId]);
+    return rows.length ? { hostId: Number(rows[0].hostId), title: rows[0].title } : null;
+  } catch (error) {
+    console.error('[comments] 알림용 마켓 정보 조회 오류:', error.message);
+    return null;
+  }
+}
+
+/** [추가] 알림 문구에 넣을 작성자 닉네임 조회. 실패해도 알림 자체는 막지 않습니다. */
+async function findNickname(userId) {
+  try {
+    const [rows] = await pool.query('SELECT nickname FROM users WHERE userId = ?', [userId]);
+    return rows.length ? rows[0].nickname : '알 수 없는 회원';
+  } catch (error) {
+    console.error('[comments] 알림용 닉네임 조회 오류:', error.message);
+    return '알 수 없는 회원';
+  }
+}
+
+/** [추가] 알림 메시지(message 컬럼 VARCHAR(255))에 넣을 댓글 내용 미리보기 */
+function previewOf(content, max = 60) {
+  const trimmed = String(content || '').trim();
+  return trimmed.length > max ? `${trimmed.slice(0, max)}…` : trimmed;
+}
+
+/**
+ * [추가] 마켓 댓글 알림
+ *   1) 내가 주최한 마켓에 댓글/답글이 달렸을 때 -> 주최자
+ *   2) 내가 남긴 댓글에 답글이 달렸을 때 -> 원댓글 작성자 (주최자 또는 판매자)
+ *
+ * 비공개 댓글(host_only/seller_only) 답글은, 원댓글 작성자가 그 답글을 실제로
+ * "열람할 수 있는 대상"일 때만 답글 알림을 보냅니다. 그렇지 않으면(예: 판매자가
+ * 다른 판매자의 공개 댓글에 「주최자 외 비공개」로 답글을 단 경우) 원댓글 작성자에게는
+ * 보이지 않는 내용이므로 알림도 보내지 않습니다 — 목록 마스킹과 동일한 기준입니다.
+ */
+async function notifyMarketComment({
+  targetType,
+  targetId,
+  authorId,
+  content,
+  parentAuthorId,
+  visibility,
+  counterpartId,
+  hostId,
+  marketTitle,
+}) {
+  if (targetType !== 'market' || hostId === null) return; // 현재는 마켓 댓글만 알림 대상
+
+  const preview = previewOf(content);
+  const authorNickname = await findNickname(authorId);
+  const recipients = new Map(); // userId -> 알림 payload (한 사람에게 중복 발송 방지)
+
+  // 2) 내가 남긴 댓글에 대댓글이 달렸을 때 (주최자 / 판매자 모두 대상)
+  if (parentAuthorId !== null && Number(parentAuthorId) !== Number(authorId)) {
+    const parentAuthorCanView =
+      !visibility || visibility === VISIBILITY.PUBLIC
+        ? true
+        : visibility === VISIBILITY.HOST_ONLY
+        ? Number(parentAuthorId) === Number(hostId)
+        : visibility === VISIBILITY.SELLER_ONLY
+        ? Number(parentAuthorId) === Number(counterpartId)
+        : true;
+
+    if (parentAuthorCanView) {
+      recipients.set(Number(parentAuthorId), {
+        userId: parentAuthorId,
+        audience: Number(parentAuthorId) === Number(hostId) ? 'host' : 'seller',
+        type: 'comment_reply_received',
+        title: '댓글에 답글이 달렸습니다',
+        message: `"${marketTitle}" 마켓에서 ${authorNickname}님이 회원님의 댓글에 답글을 남겼습니다. (${preview})`,
+      });
+    }
+  }
+
+  // 1) 내가 주최한 마켓에 댓글이 달렸을 때 (주최자) - 위에서 이미 알림 대상에 포함됐으면 중복 발송하지 않음
+  if (Number(authorId) !== Number(hostId) && !recipients.has(Number(hostId))) {
+    recipients.set(Number(hostId), {
+      userId: hostId,
+      audience: 'host',
+      type: 'market_comment_received',
+      title: '마켓에 새 댓글',
+      message: `"${marketTitle}" 마켓에 ${authorNickname}님이 댓글을 남겼습니다. (${preview})`,
+    });
+  }
+
+  for (const notification of recipients.values()) {
+    await createNotification({ ...notification, marketId: Number(targetId), applicationId: null });
   }
 }
 
@@ -129,19 +225,42 @@ export async function createComment(req, res) {
 
     // --- 마이그레이션 전 DB: 기존 스키마 그대로 등록 (전체 공개) ---
     if (!supported) {
+      let legacyParent = null;
       if (parentId) {
         const [parentRows] = await pool.query(
-          `SELECT commentId FROM comments WHERE commentId = ? AND targetType = ? AND targetId = ?`,
+          `SELECT commentId, userId FROM comments WHERE commentId = ? AND targetType = ? AND targetId = ?`,
           [parentId, targetType, targetId]
         );
         if (parentRows.length === 0) {
           return res.status(400).json({ success: false, data: null, message: '답글을 달 원본 댓글을 찾을 수 없습니다.' });
         }
+        legacyParent = parentRows[0];
       }
       const [legacy] = await pool.query(
         `INSERT INTO comments (targetType, targetId, userId, content, parentId) VALUES (?, ?, ?, ?, ?)`,
         [targetType, targetId, viewerId, content, parentId || null]
       );
+
+      // [추가] 마켓 댓글 알림 (레거시 스키마는 항상 전체 공개이므로 공개 기준으로 처리)
+      try {
+        const market = await findMarketNotifyTarget(targetType, targetId);
+        if (market) {
+          await notifyMarketComment({
+            targetType,
+            targetId,
+            authorId: viewerId,
+            content,
+            parentAuthorId: legacyParent ? Number(legacyParent.userId) : null,
+            visibility: VISIBILITY.PUBLIC,
+            counterpartId: null,
+            hostId: market.hostId,
+            marketTitle: market.title,
+          });
+        }
+      } catch (notifyError) {
+        console.error('댓글 알림 발송 오류:', notifyError.message);
+      }
+
       return res.status(201).json({
         success: true,
         data: {
@@ -228,6 +347,28 @@ export async function createComment(req, res) {
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [targetType, targetId, viewerId, content, parentId || null, visibility, counterpartId]
     );
+
+    // [추가] 마켓 댓글 알림 (주최자 / 답글 대상). 비공개 답글은 원댓글 작성자가
+    // 열람 가능한 경우에만 답글 알림이 나가도록 notifyMarketComment 내부에서 다시 판정합니다.
+    try {
+      if (hostId !== null) {
+        const [marketRows] = await pool.query('SELECT title FROM markets WHERE marketId = ?', [targetId]);
+        const marketTitle = marketRows.length ? marketRows[0].title : '';
+        await notifyMarketComment({
+          targetType,
+          targetId,
+          authorId: viewerId,
+          content,
+          parentAuthorId: parent ? Number(parent.userId) : null,
+          visibility,
+          counterpartId,
+          hostId,
+          marketTitle,
+        });
+      }
+    } catch (notifyError) {
+      console.error('댓글 알림 발송 오류:', notifyError.message);
+    }
 
     return res.status(201).json({
       success: true,
