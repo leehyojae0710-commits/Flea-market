@@ -264,6 +264,50 @@ function renderBoothRecruitGauge(m) {
 
 // ---------- 렌더링 (목록 전체) ----------
 
+// ---------- 결제 현황 게이지 (결제완료 / 결제대기 / 환불완료) ----------
+// [추가] 주최자는 "부스 신청 현황"(모집률)은 볼 수 있었지만, 판매자들의 결제
+//   진행 상황(결제까지 마쳤는지 / 아직 결제 전인지 / 환불됐는지)은 확인할 수
+//   없었습니다. applications.status를 기준으로 3가지로 나눠서 보여줍니다.
+//   - 결제완료: status = 'Paid'
+//   - 결제대기: status = 'Approved' (승인은 됐지만 아직 결제 전)
+//   - 환불완료: status IN ('Refunded', 'RefundRequested') (환불 승인 완료 + 환불 진행중 건 포함)
+function getPaymentStats(m) {
+  const paid = Number(m.paidBooths) || 0;
+  const pending = Number(m.pendingPaymentBooths) || 0;
+  const refunded = Number(m.refundedBooths) || 0;
+  const total = paid + pending + refunded;
+  return { paid, pending, refunded, total };
+}
+
+// 결제완료/결제대기/환불완료 3개 구간을 이어붙인 막대 + 하단 범례
+function renderPaymentStatusGauge(m) {
+  const { paid, pending, refunded, total } = getPaymentStats(m);
+  if (total === 0) return '';
+
+  const paidPct = Math.round((paid / total) * 100);
+  const pendingPct = Math.round((pending / total) * 100);
+  // 반올림 오차는 마지막 구간(환불완료)에서 흡수해 항상 합이 100%가 되게 함
+  const refundedPct = Math.max(0, 100 - paidPct - pendingPct);
+
+  return `
+    <div class="payment-gauge">
+      <div class="payment-gauge-head">
+        <span class="payment-gauge-title">결제 현황</span>
+      </div>
+      <div class="payment-gauge-track" role="img"
+           aria-label="결제완료 ${paid}건, 결제대기 ${pending}건, 환불완료 ${refunded}건">
+        ${paid > 0 ? `<div class="payment-gauge-seg is-paid" style="width:${paidPct}%"></div>` : ''}
+        ${pending > 0 ? `<div class="payment-gauge-seg is-pending" style="width:${pendingPct}%"></div>` : ''}
+        ${refunded > 0 ? `<div class="payment-gauge-seg is-refunded" style="width:${refundedPct}%"></div>` : ''}
+      </div>
+      <div class="payment-gauge-legend">
+        <span class="payment-gauge-legend-item is-paid"><i></i>결제완료 <strong>${paid}</strong></span>
+        <span class="payment-gauge-legend-item is-pending"><i></i>결제대기 <strong>${pending}</strong></span>
+        <span class="payment-gauge-legend-item is-refunded"><i></i>환불완료 <strong>${refunded}</strong></span>
+      </div>
+    </div>`;
+}
+
 function renderMarketList() {
   const listEl = document.getElementById('market-list');
   const emptyEl = document.getElementById('empty-state');
@@ -426,6 +470,7 @@ function renderMarketItem(market) {
   </div>
 
   ${renderBoothRecruitGauge(market)}
+  ${renderPaymentStatusGauge(market)}
 
   <!-- 📌 상세 영역은 별도 컨테이너로 분리, id로 특정해서 부분 업데이트 -->
   <div class="market-detail-slot" id="market-detail-${id}">${isExpanded ? renderMarketDetail(market) : ''}</div>
