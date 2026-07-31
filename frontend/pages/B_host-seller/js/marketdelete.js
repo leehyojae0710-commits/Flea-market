@@ -170,6 +170,10 @@ let statusFilter = '';
 let sortOption = ''; // '' | 'recruitEnd' | 'region' | 'eventDate'
 let expandedId = null; // 상세정보가 펼쳐진 마켓 id
 
+// ---------- 페이지네이션 ----------
+const PAGE_SIZE = 5;
+let currentPage = 1;
+
 // ---------- 정렬 (클라이언트 안전망) ----------
 
 // 날짜 문자열 -> 정렬용 숫자. 값이 없으면 Infinity 로 두어 항상 뒤로 밀림
@@ -268,19 +272,97 @@ function renderMarketList() {
           ? '등록한 마켓이 없어요. 마켓을 등록해보세요.'
           : '해당 상태의 마켓이 없어요.';
     }
+    renderPagination(0);
     return;
   }
   if (emptyEl) emptyEl.hidden = true;
 
-  listEl.innerHTML = myMarkets
+  const totalPages = Math.max(1, Math.ceil(myMarkets.length / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+  if (currentPage < 1) currentPage = 1;
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pageItems = myMarkets.slice(start, start + PAGE_SIZE);
+
+  listEl.innerHTML = pageItems
     .map((market) => renderMarketItem(market))
     .join('');
+  renderPagination(totalPages);
 
   listEl.querySelectorAll('[data-action="toggle"]').forEach((el) => {
     el.addEventListener('click', () => handleToggleDetail(el.dataset.id));
   });
   listEl.querySelectorAll('[data-action="delete"]').forEach((btn) => {
     btn.addEventListener('click', () => handleDeleteClick(btn.dataset.id));
+  });
+}
+
+// 현재 페이지 기준으로 보여줄 페이지 번호 목록을 만듦 (main.js와 동일한 축약 규칙)
+function getPageWindow(current, total) {
+  const SIBLINGS = 2;
+  const first = 1;
+  const last = total;
+
+  if (total <= SIBLINGS * 2 + 3) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+
+  const start = Math.max(current - SIBLINGS, first);
+  const end = Math.min(current + SIBLINGS, last);
+  const pages = [];
+
+  pages.push(first);
+  if (start > first + 1) pages.push('…');
+  else if (start === first + 1) pages.push(first + 1);
+
+  for (let p = start; p <= end; p++) {
+    if (p !== first && p !== last) pages.push(p);
+  }
+
+  if (end < last - 1) pages.push('…');
+  else if (end === last - 1) pages.push(last - 1);
+
+  pages.push(last);
+
+  return pages.filter((p, i) => p === '…' || pages.indexOf(p) === i);
+}
+
+function renderPagination(totalPages) {
+  const nav = document.getElementById('pagination');
+  if (!nav) return;
+  if (totalPages <= 1) { nav.innerHTML = ''; return; }
+
+  const buttons = [];
+  buttons.push(
+    `<button type="button" class="page-btn page-nav" data-page="${currentPage - 1}" ${currentPage === 1 ? 'disabled' : ''}>‹</button>`
+  );
+
+  getPageWindow(currentPage, totalPages).forEach((p) => {
+    if (p === '…') {
+      buttons.push(`<span class="page-ellipsis">…</span>`);
+    } else {
+      buttons.push(
+        `<button type="button" class="page-btn${p === currentPage ? ' is-active' : ''}" data-page="${p}">${p}</button>`
+      );
+    }
+  });
+
+  buttons.push(
+    `<button type="button" class="page-btn page-nav" data-page="${currentPage + 1}" ${currentPage === totalPages ? 'disabled' : ''}>›</button>`
+  );
+  nav.innerHTML = buttons.join('');
+}
+
+function handlePaginationClick() {
+  const nav = document.getElementById('pagination');
+  if (!nav) return;
+  nav.addEventListener('click', (e) => {
+    const btn = e.target.closest('.page-btn');
+    if (!btn || btn.disabled) return;
+    const page = Number(btn.dataset.page);
+    if (!page || page === currentPage) return;
+    currentPage = page;
+    renderMarketList();
+    document.getElementById('market-list-container')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 }
 
@@ -424,6 +506,7 @@ function applyStatusFilter() {
 function handleFilterChange() {
   statusFilter = document.getElementById('status-filter')?.value || '';
   expandedId = null;
+  currentPage = 1;
   applyStatusFilter();
 }
 
@@ -431,6 +514,7 @@ function handleFilterChange() {
 async function handleSortChange() {
   sortOption = document.getElementById('sort-filter')?.value || '';
   expandedId = null;
+  currentPage = 1;
   await loadMyMarkets();
 }
 
@@ -466,5 +550,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document
     .getElementById('sort-filter')
     ?.addEventListener('change', handleSortChange);
+  handlePaginationClick();
   loadMyMarkets();
 });
