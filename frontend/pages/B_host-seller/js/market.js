@@ -481,7 +481,7 @@ function renderApplicationList() {
       const status = a.status || 'Pending';
       const id = a.applicationId;
       const canShowReview = status === 'Paid'; // 결제 완료된 건만 평가 대상
-      const canSelect = status === 'Pending' || status === 'Paid'; // 승인/반려/환불 대상만 선택 가능
+      const canSelect = status === 'Pending' || status === 'Approved' || status === 'Paid'; // 승인/반려/환불 대상만 선택 가능 (반려는 승인됨 상태에서도 가능)
       return `
       <div class="item-card" data-application-id="${id}">
     <div class="item-card-top">
@@ -570,11 +570,51 @@ function renderApplicationList() {
   renderApplicationPagination(totalPages);
   renderBulkToolbar();
 }
+// [수정] 일괄 처리 가능 여부는 '선택 여부'가 아니라 '선택된 신청들의 실제 상태'로 판단합니다.
+//        - 일괄 승인: 대기중(Pending) 건에만 의미가 있음
+//        - 일괄 반려: 대기중(Pending) · 승인됨(Approved) 건 모두 가능 (승인 후에도 반려로 되돌릴 수 있음)
+//        - 일괄 결제취소: 결제완료(Paid) 건에만 의미가 있음
+const BULK_ACTION_ELIGIBLE_STATUSES = {
+  approve: ['Pending'],
+  reject: ['Pending', 'Approved'],
+  refund: ['Paid'],
+};
+
+// 현재 선택된 신청 중, 해당 액션을 적용할 수 있는 상태의 id만 골라냄
+function getEligibleApplicationIds(action) {
+  const eligibleStatuses = BULK_ACTION_ELIGIBLE_STATUSES[action];
+  return Array.from(selectedApplicationIds).filter((id) => {
+    const app = currentApplications.find((a) => String(a.applicationId) === String(id));
+    return app && eligibleStatuses.includes(app.status || 'Pending');
+  });
+}
+
 function renderBulkToolbar() {
   const el = document.getElementById('bulk-actions-toolbar');
   if (!el) return;
 
   const count = selectedApplicationIds.size;
+  const approveIds = getEligibleApplicationIds('approve');
+  const rejectIds = getEligibleApplicationIds('reject');
+  const refundIds = getEligibleApplicationIds('refund');
+
+  // [수정] 선택된 항목의 상태에 맞는 버튼만 만들어서 보여줌 (해당 안 되면 아예 표시 안 함)
+  const buttons = [];
+  if (approveIds.length > 0) {
+    buttons.push(`<button type="button" class="btn btn-sage btn-sm" id="bulk-approve-btn">일괄 승인 (${approveIds.length}건)</button>`);
+  }
+  if (rejectIds.length > 0) {
+    buttons.push(`<button type="button" class="btn btn-danger btn-sm" id="bulk-reject-btn">일괄 반려 (${rejectIds.length}건)</button>`);
+  }
+  if (refundIds.length > 0) {
+    buttons.push(`<button type="button" class="btn btn-outline btn-sm" id="bulk-refund-btn">일괄 결제취소 (${refundIds.length}건)</button>`);
+  }
+
+  const actionsHtml = count === 0
+    ? ''
+    : buttons.length > 0
+      ? buttons.join('')
+      : '<span class="form-hint">선택한 신청에 적용할 수 있는 일괄 처리가 없어요.</span>';
 
   el.innerHTML = `
     <div class="bulk-toolbar">
@@ -584,15 +624,24 @@ function renderBulkToolbar() {
       </label>
       <span class="bulk-count">${count}건 선택됨</span>
       <div class="bulk-actions">
-        <button type="button" class="btn btn-sage btn-sm" id="bulk-approve-btn" ${count === 0 ? 'disabled' : ''}>일괄 승인</button>
-        <button type="button" class="btn btn-danger btn-sm" id="bulk-reject-btn" ${count === 0 ? 'disabled' : ''}>일괄 반려</button>
-        <button type="button" class="btn btn-outline btn-sm" id="bulk-refund-btn" ${count === 0 ? 'disabled' : ''}>일괄 결제취소</button>
+        ${actionsHtml}
       </div>
     </div>`;
 
-  document.getElementById('select-all-checkbox')?.addEventListener('change', (e) => {
-    handleSelectAll(e.target.checked);
-  });
+  const selectAllCheckbox = document.getElementById('select-all-checkbox');
+  if (selectAllCheckbox) {
+    // [추가] '전체 선택' 체크박스가 항상 빈 상태로 다시 그려지던 걸 고쳐서,
+    //        현재 페이지에서 선택 가능한 항목이 모두 선택됐으면 체크, 일부만 선택됐으면
+    //        표시(indeterminate)로 보여줍니다. 이 상태를 기준으로 클릭하면 반대로 토글됩니다.
+    const pageCheckboxes = Array.from(document.querySelectorAll('.application-select-checkbox'));
+    const checkedCount = pageCheckboxes.filter((cb) => cb.checked).length;
+    selectAllCheckbox.checked = pageCheckboxes.length > 0 && checkedCount === pageCheckboxes.length;
+    selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < pageCheckboxes.length;
+
+    selectAllCheckbox.addEventListener('change', (e) => {
+      handleSelectAll(e.target.checked);
+    });
+  }
   document.getElementById('bulk-approve-btn')?.addEventListener('click', () => handleBulkAction('approve'));
   document.getElementById('bulk-reject-btn')?.addEventListener('click', () => handleBulkAction('reject'));
   document.getElementById('bulk-refund-btn')?.addEventListener('click', () => handleBulkAction('refund'));
@@ -604,19 +653,15 @@ function handleSelectAll(checked) {
     if (checked) selectedApplicationIds.add(id);
     else selectedApplicationIds.delete(id);
   });
-  updateToolbar();
-}
-function updateToolbar()
-{
-  const count =selectedApplicationIds.size;
-  document.querySelector('.bulk-count').textContent = `${count}건 선택됨`;
-  const isDisabled = count === 0;
-  const buttons = document.querySelectorAll('.bulk-actions button');
-  buttons.forEach(btn => btn.disabled = isDisabled);
+  // [수정] 전체 선택 시 어떤 버튼을 보여줄지도 선택 상태에 따라 다시 계산해야 하므로
+  //        단순 텍스트/disabled 갱신(updateToolbar)이 아니라 툴바 전체를 다시 그립니다.
+  renderBulkToolbar();
 }
 async function handleBulkAction(action) {
-  if (selectedApplicationIds.size === 0) return;
-  const ids = Array.from(selectedApplicationIds);
+  // [수정] 선택된 전체가 아니라, 해당 액션이 실제로 적용 가능한(상태가 맞는) 건만 처리 대상으로 삼습니다.
+  //        버튼 자체가 적용 가능한 건이 있을 때만 보이므로, 여기 도달했다면 최소 1건은 있습니다.
+  const ids = getEligibleApplicationIds(action);
+  if (ids.length === 0) return;
 
   const confirmMsgMap = {
     approve: `선택한 ${ids.length}건을 일괄 승인하시겠습니까?`,
@@ -636,24 +681,14 @@ async function handleBulkAction(action) {
 
   hideAlert();
 
-  // 각 id마다 상태를 확인해서, 맞는 상태일 때만 실제 API 호출 (섞여 있어도 안전하게 처리)
+  // [수정] ids가 이미 상태로 걸러진 목록이라 여기서 다시 상태를 확인할 필요는 없지만,
+  //        선택 후 클릭 사이에 다른 곳에서 상태가 바뀌었을 수 있는 만큼(동시성) API 호출은 그대로 시도하고
+  //        결과는 서버 응답 기준으로 집계합니다.
   const results = await Promise.allSettled(
     ids.map((id) => {
-      const app = currentApplications.find((a) => String(a.applicationId) === String(id));
-      if (!app) return Promise.resolve({ success: false, message: '데이터 없음' });
-
-      if (action === 'approve') {
-        if (app.status !== 'Pending') return Promise.resolve({ success: false, message: '대기중 상태가 아님' });
-        return approveSellerApplication(id);
-      }
-      if (action === 'reject') {
-        if (app.status !== 'Pending') return Promise.resolve({ success: false, message: '대기중 상태가 아님' });
-        return rejectSellerApplication(id);
-      }
-      if (action === 'refund') {
-        if (app.status !== 'Paid') return Promise.resolve({ success: false, message: '결제완료 상태가 아님' });
-        return refundPayment(id, reason);
-      }
+      if (action === 'approve') return approveSellerApplication(id);
+      if (action === 'reject') return rejectSellerApplication(id);
+      if (action === 'refund') return refundPayment(id, reason);
     })
   );
 
@@ -666,7 +701,7 @@ async function handleBulkAction(action) {
     renderAlert(`${successCount}건 처리 완료했어요.`, 'success');
   } else {
     renderAlert(
-      `${successCount}건 처리 완료, ${failCount}건은 상태가 맞지 않아 처리되지 않았어요.`,
+      `${successCount}건 처리 완료, ${failCount}건은 처리 중 상태가 바뀌어 반영되지 않았어요.`,
       successCount > 0 ? 'success' : 'error'
     );
   }
