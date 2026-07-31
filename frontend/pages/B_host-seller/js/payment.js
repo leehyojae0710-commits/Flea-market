@@ -16,7 +16,7 @@ async function confirmPayment(applicationId, paymentId) {
   });
 }
 
-// //테스트
+// 결제 내역
 let paymentGroups = [];
 let expandedMarketId = null;
 
@@ -30,6 +30,7 @@ async function payment_history() {
     const data = await historys();
     if (data && data.success) {
       paymentGroups = groupByMarket(data.data);
+      console.log(data.data[0]);
       renderPaymentGroups();
     } else {
       document.getElementById('payment-list').innerHTML = '<p class="list-empty">내역을 불러오지 못했습니다.</p>';
@@ -53,11 +54,11 @@ function groupByMarket(items) {
       });
     }
     const group = groups.get(key);
+    console.log(item.status);
     if (item.status === 'Paid')
-      group.totalAmount += Number(item.price) || 0;
-    // else{
-    //   group.totalAmount +=()
-    // }
+      group.totalAmount += Number(item.amount) || 0;
+    else if(item.status === 'Refunded')
+      group.totalAmount += Number(item.amount-item.refundAmount) || 0;
     group.items.push(item);
   });
   return Array.from(groups.values());
@@ -84,7 +85,6 @@ function renderPaymentGroups() {
       </div>
     </div>
   `).join('');
-
   ui.querySelectorAll('[data-action="toggle-detail"]').forEach((btn) => {
     btn.addEventListener('click', () => handleToggleDetail(btn.dataset.marketId));
   });
@@ -271,4 +271,5 @@ document.addEventListener('DOMContentLoaded', () => {
   const { amount } = getPaymentParamsFromUrl();
   prefillPaymentAmount(amount);
   handlePaymentClick();
+  payment_history();
 });

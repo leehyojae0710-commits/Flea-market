@@ -1342,6 +1342,7 @@ a.btn {
   font-family: "IBM Plex Mono", monospace;
   font-size: 13px;
 }
+<<<<<<< HEAD
 
 /* ---------------- [추가] 중복 부스 신청 표시 ----------------
  * 한 판매자가 같은 마켓에 부스를 2칸 이상 신청한 경우에만 보이는 배지와 요약 줄입니다.
@@ -1394,3 +1395,7 @@ a.btn {
   white-space: nowrap;
 }
 .filter-strip .filter-check input[type="checkbox"] { margin: 0; cursor: pointer; }
+=======
+.status-tag.paid { background: var(--sage-bg); color: var(--sage-text); }
+.status-tag.refunded { background: #ece1cd; color: var(--ink-soft); }
+>>>>>>> origin/feat/강민훈
