@@ -5,6 +5,7 @@
 import pool from '../config/db.js';
 // [부스 신청 정합성] 신청 자격 판정은 utills/applicationPolicy.js 한 곳에서 합니다.
 import { checkBoothApplyEligibility, toDateKey, todayKey } from '../utills/applicationPolicy.js';
+import { createNotification } from '../services/notificationService.js';
 
 // POST /api/applications (로그인 필요, 판매자)
 export async function applyForBooth(req, res) {
@@ -46,7 +47,23 @@ export async function applyForBooth(req, res) {
       [marketId, userId, boothNumber, title || null, itemName, productDesc || null, itemImage || null]
     );
 
+    // [추가] 알림에 필요한 마켓 정보(주최자, 마켓명) 조회 — 같은 트랜잭션 안에서 조회
+    const [marketRows] = await conn.query('SELECT hostId, title FROM markets WHERE marketId = ?', [marketId]);
+
     await conn.commit();
+
+    // [추가] 신청 접수 -> 마켓 주최자에게 알림
+    if (marketRows.length > 0) {
+      await createNotification({
+        userId: marketRows[0].hostId,
+        audience: 'host',
+        type: 'application_received',
+        title: '새 부스 신청',
+        message: `"${marketRows[0].title}" 마켓 ${boothNumber}번 부스에 새로운 신청이 도착했습니다. (${itemName})`,
+        marketId: Number(marketId),
+        applicationId: result.insertId,
+      });
+    }
 
     return res.status(201).json({
       success: true,
@@ -178,7 +195,11 @@ export async function deleteMyApplication(req, res) {
 
   try {
     const [rows] = await pool.query(
-      'SELECT applicationId, sellerId, status FROM applications WHERE applicationId = ?',
+      `SELECT a.applicationId, a.sellerId, a.status, a.boothNumber, a.itemName,
+              m.marketId, m.hostId, m.title AS marketTitle
+       FROM applications a
+       JOIN markets m ON m.marketId = a.marketId
+       WHERE a.applicationId = ?`,
       [applicationId]
     );
     if (rows.length === 0) {
@@ -194,6 +215,16 @@ export async function deleteMyApplication(req, res) {
 
     await pool.query('DELETE FROM applications WHERE applicationId = ?', [applicationId]);
 
+    // [추가] 신청 취소 -> 마켓 주최자에게 알림 (삭제 전에 확보해 둔 정보 사용, applicationId는 삭제 후라 연결하지 않음)
+    await createNotification({
+      userId: application.hostId,
+      audience: 'host',
+      type: 'application_cancelled',
+      title: '부스 신청 취소',
+      message: `"${application.marketTitle}" 마켓 ${application.boothNumber}번 부스 신청이 판매자에 의해 취소되었습니다. (${application.itemName})`,
+      marketId: application.marketId,
+    });
+
     return res.status(200).json({
       success: true,
       data: { applicationId: Number(applicationId) },
@@ -205,13 +236,15 @@ export async function deleteMyApplication(req, res) {
   }
 }
 
-async function updateApplicationStatus(req, res, nextStatus, successMessage) {
+// [추가] buildNotification(row) => { type, title, message } | null 을 넘기면
+// 상태 변경 성공 후 row(신청+마켓 정보)를 바탕으로 판매자에게 알림을 보냅니다.
+async function updateApplicationStatus(req, res, nextStatus, successMessage, buildNotification) {
   const { userId } = req.user;
   const { applicationId } = req.params;
 
   try {
     const [rows] = await pool.query(
-      `SELECT a.applicationId, m.hostId
+      `SELECT a.applicationId, a.sellerId, a.boothNumber, a.itemName, m.marketId, m.hostId, m.title AS marketTitle
        FROM applications a
        JOIN markets m ON m.marketId = a.marketId
        WHERE a.applicationId = ?`,
@@ -221,11 +254,25 @@ async function updateApplicationStatus(req, res, nextStatus, successMessage) {
     if (rows.length === 0) {
       return res.status(404).json({ success: false, data: null, message: '해당 신청을 찾을 수 없습니다.' });
     }
-    if (Number(rows[0].hostId) !== Number(userId)) {
+    const application = rows[0];
+    if (Number(application.hostId) !== Number(userId)) {
       return res.status(403).json({ success: false, data: null, message: '본인 마켓의 신청 건만 처리할 수 있습니다.' });
     }
 
     await pool.query('UPDATE applications SET status = ? WHERE applicationId = ?', [nextStatus, applicationId]);
+
+    if (typeof buildNotification === 'function') {
+      const n = buildNotification(application);
+      if (n) {
+        await createNotification({
+          userId: application.sellerId,
+          audience: 'seller',
+          marketId: application.marketId,
+          applicationId: application.applicationId,
+          ...n,
+        });
+      }
+    }
 
     return res.status(200).json({ success: true, data: { applicationId: Number(applicationId), status: nextStatus }, message: successMessage });
   } catch (error) {
@@ -247,7 +294,8 @@ export async function approveSellerApplication(req, res) {
 
   try {
     const [rows] = await pool.query(
-      `SELECT a.applicationId, a.marketId, a.boothNumber, m.hostId, m.allowOvercapacity, m.eventDate_min
+      `SELECT a.applicationId, a.marketId, a.boothNumber, a.sellerId, a.itemName,
+              m.hostId, m.title AS marketTitle, m.allowOvercapacity, m.eventDate_min
        FROM applications a
        JOIN markets m ON m.marketId = a.marketId
        WHERE a.applicationId = ?`,
@@ -288,6 +336,17 @@ export async function approveSellerApplication(req, res) {
 
     const [updatedRows] = await pool.query('SELECT paymentDueAt FROM applications WHERE applicationId = ?', [applicationId]);
 
+    // [추가] 승인 -> 판매자에게 알림
+    await createNotification({
+      userId: application.sellerId,
+      audience: 'seller',
+      type: 'application_approved',
+      title: '부스 신청 승인',
+      message: `"${application.marketTitle}" 마켓 ${application.boothNumber}번 부스 신청이 승인되었습니다. 기한 내에 결제를 완료해 주세요. (${application.itemName})`,
+      marketId: application.marketId,
+      applicationId: application.applicationId,
+    });
+
     return res.status(200).json({
       success: true,
       data: { applicationId: Number(applicationId), status: 'Approved', paymentDueAt: updatedRows[0].paymentDueAt },
@@ -301,5 +360,9 @@ export async function approveSellerApplication(req, res) {
 
 // PATCH /api/applications/:applicationId/reject (로그인 필요, 마켓 주최자)
 export async function rejectSellerApplication(req, res) {
-  return updateApplicationStatus(req, res, 'Rejected', '신청을 반려했습니다.');
+  return updateApplicationStatus(req, res, 'Rejected', '신청을 반려했습니다.', (application) => ({
+    type: 'application_rejected',
+    title: '부스 신청 반려',
+    message: `"${application.marketTitle}" 마켓 ${application.boothNumber}번 부스 신청이 반려되었습니다. (${application.itemName})`,
+  }));
 }

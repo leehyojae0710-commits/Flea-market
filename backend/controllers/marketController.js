@@ -2,6 +2,7 @@
 // 마켓(공고) 관련 로직 - 조회는 담당 C, 등록/신청목록은 담당 D, 좌표 저장은 담당 E
 
 import pool from '../config/db.js';
+import { createNotification, createNotifications } from '../services/notificationService.js';
 
 // GET /api/markets?region=&sort=latest|eventDate|priceLow&includeExpired=
 export async function getMarketList(req, res) {
@@ -406,7 +407,7 @@ export async function notifySettlement(req, res) {
   const { marketId } = req.params;
 
   try {
-    const [marketRows] = await pool.query('SELECT hostId FROM markets WHERE marketId = ?', [marketId]);
+    const [marketRows] = await pool.query('SELECT hostId, title FROM markets WHERE marketId = ?', [marketId]);
     if (marketRows.length === 0) {
       return res.status(404).json({ success: false, data: null, message: '해당 마켓을 찾을 수 없습니다.' });
     }
@@ -416,6 +417,27 @@ export async function notifySettlement(req, res) {
 
     await pool.query('UPDATE markets SET settlementNotifiedAt = NOW() WHERE marketId = ?', [marketId]);
     const [rows] = await pool.query('SELECT settlementNotifiedAt FROM markets WHERE marketId = ?', [marketId]);
+
+    // [추가] 정산 통보 -> 결제 완료(Paid)한 셀러 전원에게 알림
+    const [paidSellers] = await pool.query(
+      `SELECT DISTINCT a.sellerId
+       FROM applications a
+       JOIN payments p ON p.applicationId = a.applicationId
+       WHERE a.marketId = ? AND p.status = 'Paid'`,
+      [marketId]
+    );
+    if (paidSellers.length > 0) {
+      await createNotifications(
+        paidSellers.map((row) => ({
+          userId: row.sellerId,
+          audience: 'seller',
+          type: 'settlement_notified',
+          title: '정산 금액 통보',
+          message: `"${marketRows[0].title}" 마켓의 정산 금액이 확정되어 통보되었습니다. 내 부스 관리에서 확인해 주세요.`,
+          marketId: Number(marketId),
+        }))
+      );
+    }
 
     return res.status(200).json({
       success: true,
@@ -475,17 +497,18 @@ export async function processQueueTimeouts(req, res) {
   const paymentWindowMinutes = Number(req.body?.paymentWindowMinutes) || 1440;
 
   try {
-    const [marketRows] = await pool.query('SELECT hostId FROM markets WHERE marketId = ?', [marketId]);
+    const [marketRows] = await pool.query('SELECT hostId, title FROM markets WHERE marketId = ?', [marketId]);
     if (marketRows.length === 0) {
       return res.status(404).json({ success: false, data: null, message: '해당 마켓을 찾을 수 없습니다.' });
     }
     if (Number(marketRows[0].hostId) !== Number(userId)) {
       return res.status(403).json({ success: false, data: null, message: '본인이 등록한 마켓만 처리할 수 있습니다.' });
     }
+    const marketTitle = marketRows[0].title;
 
     // 결제 기한이 지났는데 아직 결제(payments.status='Paid')가 안 된 승인 건들을 찾음
     const [overdue] = await pool.query(
-      `SELECT a.applicationId, a.boothNumber
+      `SELECT a.applicationId, a.boothNumber, a.sellerId, a.itemName
        FROM applications a
        LEFT JOIN payments p ON p.applicationId = a.applicationId AND p.status = 'Paid'
        WHERE a.marketId = ? AND a.status = 'Approved' AND a.paymentDueAt IS NOT NULL
@@ -503,8 +526,19 @@ export async function processQueueTimeouts(req, res) {
       );
       expired.push({ applicationId: row.applicationId, boothNumber: row.boothNumber });
 
+      // [추가] 결제 기한 만료 -> 판매자에게 알림
+      await createNotification({
+        userId: row.sellerId,
+        audience: 'seller',
+        type: 'application_expired',
+        title: '결제 기한 만료',
+        message: `"${marketTitle}" 마켓 ${row.boothNumber}번 부스(${row.itemName}) 신청이 결제 기한을 넘겨 만료되었습니다.`,
+        marketId: Number(marketId),
+        applicationId: row.applicationId,
+      });
+
       const [nextRows] = await pool.query(
-        `SELECT applicationId FROM applications
+        `SELECT applicationId, sellerId, itemName FROM applications
          WHERE marketId = ? AND boothNumber = ? AND status = 'Pending'
          ORDER BY applicationId ASC LIMIT 1`,
         [marketId, row.boothNumber]
@@ -517,6 +551,17 @@ export async function processQueueTimeouts(req, res) {
           [paymentWindowMinutes, nextId]
         );
         approved.push({ applicationId: nextId, boothNumber: row.boothNumber });
+
+        // [추가] 대기열 자동 승인 -> 다음 순번 판매자에게 알림
+        await createNotification({
+          userId: nextRows[0].sellerId,
+          audience: 'seller',
+          type: 'application_auto_approved',
+          title: '부스 신청 자동 승인',
+          message: `"${marketTitle}" 마켓 ${row.boothNumber}번 부스(${nextRows[0].itemName}) 신청이 앞 순번 취소로 자동 승인되었습니다. 기한 내에 결제를 완료해 주세요.`,
+          marketId: Number(marketId),
+          applicationId: nextId,
+        });
       }
     }
 

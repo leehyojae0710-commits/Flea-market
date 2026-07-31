@@ -23,6 +23,7 @@ import { authenticateToken } from './middleware/authMiddleware.js';
 import { hostAreaGuard } from './middleware/roleGuard.js'; // [C-01] 판매자의 주최자 API 접근 차단
 import searchRoutes from './routes/searchRoutes.js';
 import { checkEnv, getCorsOrigins } from './config/envCheck.js'; // [보안·환경 정리] 환경변수 점검 + CORS 허용 목록
+import notificationRoutes from './routes/notificationRoutes.js'; // [추가] 알림(종 버튼)
 
 
 dotenv.config();
@@ -71,6 +72,7 @@ app.use('/api/uploads', express.static(marketUploadDir()));
 app.use('/api/uploads', express.static(sellerUploadDir()));
 app.use('/api/uploads', express.static(profileUploadDir()));
 app.use('/api/search', searchRoutes);
+app.use('/api/notifications', notificationRoutes); // [추가] 알림(종 버튼)
 
 // 🌐 http://localhost:5000 접속 시 DB 데이터를 HTML 표로 보여주는 라우터
 app.get('/', async (req, res) => {

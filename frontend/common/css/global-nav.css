@@ -142,6 +142,220 @@ header.nav.gnav .btn-logout:hover {
   border-color: #e4d8c5;
 }
 
+/* ---------- 알림 종 버튼 + 팝업 ---------- */
+header.nav.gnav .gnav-notify {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+header.nav.gnav .gnav-notify-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid rgba(228, 216, 197, 0.35);
+  border-radius: 50%;
+  background: rgba(251, 246, 236, 0.06);
+  color: #e4d8c5;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+header.nav.gnav .gnav-notify-btn:hover {
+  background: rgba(251, 246, 236, 0.14);
+  border-color: #e4d8c5;
+}
+header.nav.gnav .gnav-notify-btn:active {
+  transform: translateY(1px);
+}
+header.nav.gnav .gnav-notify-btn[aria-expanded="true"] {
+  background: var(--mustard, #e8a33d);
+  border-color: var(--mustard, #e8a33d);
+  color: var(--mustard-text, #3d2905);
+}
+
+header.nav.gnav .gnav-notify-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #e0503c;
+  color: #fff;
+  font-family: "Inter", sans-serif;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  box-shadow: 0 0 0 2px #2b2115;
+}
+
+header.nav.gnav .gnav-notify-panel {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  width: 320px;
+  max-width: calc(100vw - 40px);
+  max-height: 420px;
+  display: flex;
+  flex-direction: column;
+  background: #fbf6ec;
+  color: #3d2905;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+  z-index: 1100;
+}
+
+header.nav.gnav .gnav-notify-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 600;
+  font-size: 14.5px;
+  border-bottom: 1px solid rgba(61, 41, 5, 0.12);
+  flex: none;
+}
+
+header.nav.gnav .gnav-notify-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+header.nav.gnav .gnav-notify-readall {
+  border: none;
+  background: transparent;
+  font-family: "Inter", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #a97a1f;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+header.nav.gnav .gnav-notify-readall:hover {
+  color: #7a5713;
+  text-decoration: underline;
+}
+
+header.nav.gnav .gnav-notify-close {
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
+  color: #7a6a4f;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+header.nav.gnav .gnav-notify-close:hover {
+  color: #3d2905;
+}
+
+header.nav.gnav .gnav-notify-body {
+  padding: 8px 0;
+  overflow-y: auto;
+}
+
+header.nav.gnav .gnav-notify-empty {
+  margin: 0;
+  padding: 20px 16px 22px;
+  font-family: "Inter", sans-serif;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #7a6a4f;
+  text-align: center;
+}
+
+header.nav.gnav .gnav-notify-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+header.nav.gnav .gnav-notify-item {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(61, 41, 5, 0.08);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+header.nav.gnav .gnav-notify-item:last-child {
+  border-bottom: none;
+}
+header.nav.gnav .gnav-notify-item:hover {
+  background: rgba(232, 163, 61, 0.1);
+}
+header.nav.gnav .gnav-notify-item.is-unread {
+  background: rgba(232, 163, 61, 0.14);
+}
+header.nav.gnav .gnav-notify-item.is-unread:hover {
+  background: rgba(232, 163, 61, 0.2);
+}
+
+header.nav.gnav .gnav-notify-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+header.nav.gnav .gnav-notify-tag {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(61, 41, 5, 0.1);
+  color: #7a5713;
+  font-family: "Inter", sans-serif;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+header.nav.gnav .gnav-notify-tag-application_rejected,
+header.nav.gnav .gnav-notify-tag-application_expired,
+header.nav.gnav .gnav-notify-tag-application_cancelled {
+  background: rgba(224, 80, 60, 0.14);
+  color: #b1402d;
+}
+header.nav.gnav .gnav-notify-tag-application_approved,
+header.nav.gnav .gnav-notify-tag-payment_completed,
+header.nav.gnav .gnav-notify-tag-application_auto_approved {
+  background: rgba(75, 141, 96, 0.14);
+  color: #337048;
+}
+header.nav.gnav .gnav-notify-tag-refund_requested,
+header.nav.gnav .gnav-notify-tag-refund_completed,
+header.nav.gnav .gnav-notify-tag-settlement_notified {
+  background: rgba(58, 111, 189, 0.14);
+  color: #2f5da3;
+}
+
+header.nav.gnav .gnav-notify-time {
+  font-family: "Inter", sans-serif;
+  font-size: 11px;
+  color: #9a8c72;
+}
+
+header.nav.gnav .gnav-notify-item-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
+header.nav.gnav .gnav-notify-item-msg {
+  font-family: "Inter", sans-serif;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #6b5c42;
+}
+
 /* 로그인/회원가입/내 정보수정 화면은 자체 로고가 따로 있어 중복되므로 숨깁니다. */
 body.gnav-ready .auth-brand {
   display: none;
