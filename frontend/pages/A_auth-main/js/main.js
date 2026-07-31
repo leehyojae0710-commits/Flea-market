@@ -157,13 +157,19 @@ function getPriceChange(m) {
   let direction = "same";
   if (diff < 0) direction = "down";
   else if (diff > 0) direction = "up";
-  const pct = original > 0 ? Math.round(Math.abs(diff) / original * 100) : 0;
-  return { original, current, diff, direction, pct };
+
+  // [수정] 원가(기존 금액)가 무료(0원)였다가 유료로 바뀐 경우, "0원 대비 몇 %"는
+  // 수학적으로 정의가 안 돼서(0으로 나누기) 항상 0%로만 찍혔습니다.
+  // (예: 무료 -> 5,000원이 되어도 "0% 상승"이라고 잘못 표시됨)
+  // 이 경우엔 퍼센트 대신 "무료 -> 유료 전환"이라는 걸 알 수 있게 따로 표시합니다.
+  const fromFree = original === 0 && diff > 0;
+  const pct = fromFree ? null : (original > 0 ? Math.round(Math.abs(diff) / original * 100) : 0);
+  return { original, current, diff, direction, pct, fromFree };
 }
 
 // [참가비 블록] 시안 스타일: 기존 금액 → 변경 금액 + 변동률 배지 + 안내문
 function renderPriceBlock(m) {
-  const { original, current, direction, pct } = getPriceChange(m);
+  const { original, current, direction, pct, fromFree } = getPriceChange(m);
   const isFree = current === 0;
 
   // 무료 참가
@@ -194,9 +200,12 @@ function renderPriceBlock(m) {
   const dirClass = direction === "down" ? "down" : "up";
   const arrow = direction === "down" ? "↓" : "↑";
   const diffAbs = Math.abs(current - original).toLocaleString();
+  const rateLabel = fromFree ? "무료 → 유료" : `${pct}%`;
   const note = direction === "down"
     ? `참가비가 ${diffAbs}원 낮아졌어요!`
-    : `참가비가 ${diffAbs}원 올랐어요!`;
+    : fromFree
+      ? `무료였던 참가비가 ${diffAbs}원으로 바뀌었어요!`
+      : `참가비가 ${diffAbs}원 올랐어요!`;
 
   return `
     <div class="price-block ${dirClass}">
@@ -211,7 +220,7 @@ function renderPriceBlock(m) {
           <strong>${current.toLocaleString()}원</strong>
           <em>(변경 금액)</em>
         </span>
-        <span class="price-rate ${dirClass}">${arrow} ${pct}%</span>
+        <span class="price-rate ${dirClass}">${arrow} ${rateLabel}</span>
       </div>
       <div class="price-note ${dirClass}">${arrow} ${note}</div>
     </div>`;
