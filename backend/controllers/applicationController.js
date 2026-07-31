@@ -3,6 +3,8 @@
 // [추가] 판매자 본인의 신청 목록 조회 / 수정 / 취소(삭제)
 
 import pool from '../config/db.js';
+// [부스 신청 정합성] 신청 자격 판정은 utills/applicationPolicy.js 한 곳에서 합니다.
+import { checkBoothApplyEligibility } from '../utills/applicationPolicy.js';
 
 // POST /api/applications (로그인 필요, 판매자)
 export async function applyForBooth(req, res) {
@@ -13,20 +15,38 @@ export async function applyForBooth(req, res) {
     return res.status(400).json({ success: false, data: null, message: '마켓, 부스 번호, 물품명은 필수입니다.' });
   }
 
+  // [부스 신청 정합성] 검사와 INSERT 를 한 트랜잭션으로 묶습니다.
+  //   두 사람이 같은 부스를 동시에 신청하면, 검사 시점에는 둘 다 "빈 부스"로 보이고
+  //   INSERT 는 둘 다 성공해 버립니다. markets 행을 FOR UPDATE 로 잠가 마켓 단위로 줄을 세웁니다.
+  const conn = await pool.getConnection();
+
   try {
-    const [marketRows] = await pool.query('SELECT marketId, isExpired FROM markets WHERE marketId = ?', [marketId]);
-    if (marketRows.length === 0) {
-      return res.status(404).json({ success: false, data: null, message: '해당 마켓을 찾을 수 없습니다.' });
-    }
-    if (marketRows[0].isExpired) {
-      return res.status(409).json({ success: false, data: null, message: '마감된 마켓에는 신청할 수 없습니다.' });
+    await conn.beginTransaction();
+
+    const check = await checkBoothApplyEligibility(conn, {
+      userId,
+      marketId,
+      boothNumber,
+      lock: true,
+    });
+
+    if (!check.ok) {
+      await conn.rollback();
+      return res.status(check.status).json({
+        success: false,
+        data: null,
+        code: check.code,
+        message: check.message,
+      });
     }
 
-    const [result] = await pool.query(
+    const [result] = await conn.query(
       `INSERT INTO applications (marketId, sellerId, boothNumber, title, itemName, productDesc, itemImage, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending')`,
       [marketId, userId, boothNumber, title || null, itemName, productDesc || null, itemImage || null]
     );
+
+    await conn.commit();
 
     return res.status(201).json({
       success: true,
@@ -34,8 +54,11 @@ export async function applyForBooth(req, res) {
       message: '부스 신청이 완료되었습니다.',
     });
   } catch (error) {
+    await conn.rollback().catch(() => {});
     console.error('부스 신청 오류:', error.message);
     return res.status(500).json({ success: false, data: null, message: '서버 오류로 부스 신청에 실패했습니다.' });
+  } finally {
+    conn.release();
   }
 }
 
@@ -85,7 +108,7 @@ export async function updateMyApplication(req, res) {
 
   try {
     const [rows] = await pool.query(
-      'SELECT applicationId, sellerId, status FROM applications WHERE applicationId = ?',
+      'SELECT applicationId, marketId, sellerId, boothNumber, status FROM applications WHERE applicationId = ?',
       [applicationId]
     );
     if (rows.length === 0) {
@@ -97,6 +120,27 @@ export async function updateMyApplication(req, res) {
     }
     if (application.status !== 'Pending') {
       return res.status(409).json({ success: false, data: null, message: '대기중인 신청만 수정할 수 있습니다.' });
+    }
+
+    // [부스 신청 정합성] 부스 번호를 바꾸는 경우, 신규 신청과 똑같은 검사를 다시 합니다.
+    //   이 검사가 없으면 "빈 부스로 신청 -> 수정으로 남의 부스에 끼어들기" 우회가 가능합니다.
+    //   excludeApplicationId 로 자기 자신은 점유/정원 계산에서 빼야 "그대로 저장"이 막히지 않습니다.
+    const nextBooth = boothNumber || application.boothNumber;
+    if (String(nextBooth) !== String(application.boothNumber)) {
+      const check = await checkBoothApplyEligibility(pool, {
+        userId,
+        marketId: application.marketId,
+        boothNumber: nextBooth,
+        excludeApplicationId: application.applicationId,
+      });
+      if (!check.ok) {
+        return res.status(check.status).json({
+          success: false,
+          data: null,
+          code: check.code,
+          message: check.message,
+        });
+      }
     }
 
     await pool.query(

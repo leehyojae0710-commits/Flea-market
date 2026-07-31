@@ -58,13 +58,25 @@ const router = express.Router();
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       403:
+ *         description: "본인이 주최한 마켓 (code: SELF_APPLY_FORBIDDEN)"
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *       404:
- *         description: 존재하지 않는 마켓
+ *         description: "존재하지 않는 마켓 (code: MARKET_NOT_FOUND)"
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *       409:
- *         description: 마감된 마켓
+ *         description: |
+ *           신청 자격 미충족. 응답 code 로 사유를 구분합니다.
+ *           - MARKET_CLOSED / MARKET_CANCELLED : 마감·취소된 마켓
+ *           - RECRUITMENT_NOT_STARTED / RECRUITMENT_CLOSED : 모집 기간 밖
+ *           - DUPLICATE_APPLICATION : 내가 이미 신청한 부스
+ *           - BOOTH_TAKEN : 다른 판매자가 점유한 부스
+ *           - CAPACITY_FULL : 정원(점유 부스 수) 초과
+ *           - DATE_CONFLICT : 개최일이 겹치는 다른 마켓에 이미 신청
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }

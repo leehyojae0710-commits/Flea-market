@@ -1,4 +1,6 @@
 import pool from '../config/db.js';
+// [부스 신청 정합성] 본인 마켓 여부 판정을 신청 정책 모듈과 공유합니다.
+import { isOwnMarketPayment } from '../utills/applicationPolicy.js';
 import { verifyPayment, cencelPayment } from '../services/paymentService.js';
 import { calculateRefundRate } from '../utills/refundPolicy.js'
 
@@ -213,7 +215,7 @@ export async function requestRefund(req, res) {
   try {
     const [rows] = await pool.query(
       /*SQL*/
-      `SELECT p.paymentId, p.amount, p.status, a.sellerId, m.eventDate_min
+      `SELECT p.paymentId, p.amount, p.status, a.sellerId, m.hostId, m.eventDate_min
        FROM payments p
        JOIN applications a ON a.applicationId = p.applicationId
        JOIN markets m ON m.marketId = a.marketId
@@ -229,6 +231,16 @@ export async function requestRefund(req, res) {
 
     if (Number(payment.sellerId) !== Number(userId)) {
       return res.status(403).json({ success: false, message: '본인의 결제 건만 환불 요청할 수 있습니다.' });
+    }
+
+    // [3.11.6.2] 본인이 주최한 마켓의 건은 환불 요청 대상이 아닙니다.
+    //   자기신청 차단으로 이제는 생길 수 없는 데이터지만, 차단 이전에 쌓인 건이 남아 있을 수 있어 함께 막습니다.
+    if (isOwnMarketPayment(payment.hostId, userId)) {
+      return res.status(403).json({
+        success: false,
+        code: 'SELF_MARKET_REFUND_FORBIDDEN',
+        message: '본인이 주최한 마켓의 결제 건입니다. 마켓 관리 화면에서 처리해 주세요.',
+      });
     }
 
     // 📌 환불 비율 계산
