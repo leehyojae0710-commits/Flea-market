@@ -433,10 +433,22 @@ function renderPaymentArea(a) {
       </span>`;
   }
 
+  // [부스 종류] a.boothPrice 는 서버가 "고른 종류의 가격(없으면 마켓 기본가)"으로 내려줍니다.
+  //   화면에 보이는 금액과 결제창 금액이 항상 같아집니다.
+  const typeTag = a.boothTypeName
+    ? `<span class="booth-type-chip">${a.boothTypeName}</span>`
+    : '';
+  // [승인 시 금액 고정] approvedPrice 가 있으면 승인 시점에 확정된 금액입니다.
+  //   주최자가 이후 가격을 바꿔도 이 금액은 안 바뀝니다.
+  const lockTag = a.approvedPrice !== null && a.approvedPrice !== undefined
+    ? `<span class="price-locked-chip" title="승인 시점에 확정된 금액이에요">확정</span>`
+    : '';
+
   return `
     <span class="payment-area">
+      ${typeTag}${lockTag}
       <a class="btn btn-danger btn-sm" href="payment?applicationId=${id}&amount=${a.boothPrice}&orderName=${a.marketTitle + '부스료'}">
-      결제하기
+      ${Number(a.boothPrice || 0).toLocaleString()}원 결제하기
       </a>
       <span class="payment-timer" data-due="${a.paymentDueAt}"></span>
     </span>`;

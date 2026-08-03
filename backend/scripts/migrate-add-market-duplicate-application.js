@@ -33,11 +33,14 @@ async function run() {
   console.log('-----------------------------------------');
 
   if (!(await columnExists('markets', 'allowDuplicateApplication'))) {
+    // [수정] 예전에는 'AFTER allowOvercapacity' 가 고정이라, overcapacity 마이그레이션을
+    //        먼저 돌리지 않으면 이 스크립트 자체가 실패했습니다. 이제 있을 때만 위치를 지정합니다.
+    //        (둘을 한 번에 돌리려면 scripts/migrate-add-market-options.js 를 쓰세요.)
+    const after = (await columnExists('markets', 'allowOvercapacity')) ? ' AFTER allowOvercapacity' : '';
     await pool.query(
       `ALTER TABLE markets
        ADD COLUMN allowDuplicateApplication TINYINT(1) NOT NULL DEFAULT 1
-       COMMENT '0이면 같은 판매자가 이 마켓에 부스를 중복 신청할 수 없음 (기본값 1=허용)'
-       AFTER allowOvercapacity`
+       COMMENT '0이면 같은 판매자가 이 마켓에 부스를 중복 신청할 수 없음 (기본값 1=허용)'${after}`
     );
     console.log('✅ markets.allowDuplicateApplication 컬럼 추가 완료');
   } else {

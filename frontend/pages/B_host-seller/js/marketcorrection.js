@@ -37,8 +37,14 @@ async function loadMarketForEdit(marketId) {
     // 텍스트/숫자 필드 채우기
     document.getElementById('title').value = market.title || '';
     document.getElementById('booth-price').value = market.boothPrice ?? 0;
-    document.getElementById('max-participants').value = market.maxParticipants ?? 0;
+    // [수정] DB 컬럼이 maxparticipants(소문자 p)로 만들어진 환경에서는 maxParticipants 가 undefined 라
+    //        수정 화면의 최대 부스 수가 항상 0으로 보였습니다. 두 표기를 모두 받습니다.
+    document.getElementById('max-participants').value =
+      market.maxParticipants ?? market.maxparticipants ?? 0;
+    // [부스 종류] 서버가 내려준 기존 종류를 편집 UI에 채웁니다. (없으면 A 한 줄로 시작)
+    window.BoothTypes?.setTypes?.(market.boothTypes || []);
     const overcapacityEl = document.getElementById('allow-overcapacity');
+    // 값이 아직 없는(마이그레이션 전) 마켓은 기본값 0(허용 안 함)으로 보여줍니다.
     if (overcapacityEl) overcapacityEl.checked = Number(market.allowOvercapacity) === 1;
     const duplicateApplicationEl = document.getElementById('allow-duplicate-application');
     // 값이 아직 없는(마이그레이션 전) 마켓은 기존 동작과 동일하게 허용 상태로 보여줍니다.
@@ -131,6 +137,12 @@ function correctionMarketClick(marketId) {
       renderAlert('허용 가능한 최대 부스 수는 0 이상의 정수로 입력해주세요.');
       return;
     }
+    // [부스 종류] 가격 형식 검사
+    const boothTypeError = window.BoothTypes?.validate?.();
+    if (boothTypeError) {
+      renderAlert(boothTypeError);
+      return;
+    }
 
     // ---- 3) 새 이미지를 선택했을 때만 업로드 (안 바꿨으면 기존 uploadedImagePath 값 그대로 사용) ----
     const fileInput = document.getElementById('market-image');
@@ -153,6 +165,9 @@ function correctionMarketClick(marketId) {
       maxParticipants: maxParticipantsNum,
       allowOvercapacity: document.getElementById('allow-overcapacity')?.checked || false,
       allowDuplicateApplication: document.getElementById('allow-duplicate-application')?.checked ?? true,
+      // [부스 종류] 화면에 남아 있는 칸이 곧 저장될 목록입니다.
+      //   기존 종류는 boothTypeId 를 그대로 실어 보내 이름/신청 이력이 유지되게 합니다.
+      boothTypes: window.BoothTypes ? (window.BoothTypes.getTypes() || []) : undefined,
       marketImage: document.getElementById('uploadedImagePath').value || null,
     };
 
@@ -162,6 +177,14 @@ function correctionMarketClick(marketId) {
     try {
       const res = await correctionMarket(marketId, payload);
       if (res && res.success) {
+        // [추가] DB에 옵션 컬럼이 아직 없으면 서버가 optionsSkipped 를 돌려줍니다.
+        const skipped = res.data?.optionsSkipped || [];
+        if (skipped.length > 0) {
+          renderAlert(res.message || '마켓은 수정됐지만 일부 옵션이 저장되지 않았어요.');
+          setButtonLoading(submitBtn, false, '수정 중...', '수정하기');
+          setTimeout(() => { window.location.href = 'mymarketpage.html'; }, 3500);
+          return;
+        }
         renderAlert('마켓 정보가 수정됐어요!', 'success');
         setTimeout(() => {
           window.location.href = 'mymarketpage.html';
@@ -235,6 +258,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderAlert('수정할 마켓 정보를 찾을 수 없습니다. (marketId 없음)');
     return;
   }
+  // [부스 종류] 편집 UI를 먼저 붙여야 loadMarketForEdit 의 setTypes 가 반영됩니다.
+  window.BoothTypes?.mount?.({
+    rootId: 'booth-type-rows',
+    addBtnId: 'booth-type-add-btn',
+    countId: 'booth-type-count',
+    priceInputId: 'booth-price',
+    priceHintId: 'booth-price-hint',
+  });
+
   await loadMarketForEdit(marketId);   // 기존 값 채우기
   correctionMarketClick(marketId); 
 });
