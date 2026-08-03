@@ -1,0 +1,39 @@
+.detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.detail-table th {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 2px solid #d9cdb8;
+  color: #6b5a45;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.detail-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #e7ded0;
+  white-space: nowrap;
+}
+
+.detail-table th:not(:first-child),
+.detail-table td:not(:first-child) {
+  text-align: right;
+}
+
+.detail-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.detail-wrap {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.25s ease;
+}
+
+.detail-wrap.open {
+  max-height: 500px; /* 항목이 아주 많으면 값을 늘려주세요 */
+}
