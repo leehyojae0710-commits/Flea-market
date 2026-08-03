@@ -15,8 +15,9 @@ import { fileURLToPath } from 'url';
 import pool from '../config/db.js';
 import {
   normalizeBoothTypes, resolveBoothTypeForApply, getBoothTypes,
-  saveBoothTypes, resetBoothTypeCache,
+  saveBoothTypes, resetBoothTypeCache, validateCapacitySum,
 } from '../utills/boothTypes.js';
+import { createMarket, updateMarketStatus } from '../controllers/marketController.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..', '..');
@@ -46,6 +47,11 @@ const MARKERS = [
   ['frontend/pages/B_host-seller/js/market.js', 'firstOpen', '마감 종류 자동선택 방지'],
   ['frontend/common/css/style.css', '.bt-gauge-fill', '게이지 스타일'],
   ['frontend/common/css/style.css', '.booth-type-cap-wrap', '수량 입력 스타일'],
+  ['backend/utills/boothTypes.js', 'BOOTH_CAPACITY_EXCEEDS_TOTAL', '합계 초과 서버 차단'],
+  ['backend/controllers/marketController.js', 'validateCapacitySum', '등록·수정에서 합계 검사'],
+  ['frontend/common/js/booth-types.js', 'syncCapacitySummary', '실시간 합계 안내'],
+  ['frontend/pages/B_host-seller/market-create.html', 'booth-type-capacity-summary', '합계 표시 영역'],
+  ['frontend/common/css/style.css', '.booth-cap-summary', '합계 안내 스타일'],
 ];
 for (const [file, marker, label] of MARKERS) {
   const body = read(file);
@@ -155,6 +161,78 @@ async function run() {
   const A2 = types2.find((t) => t.name === 'A');
   check('게이지 분자(신청 수) 1로 갱신', A2?.applicationCount === 1, String(A2?.applicationCount));
   check('게이지 분모(수량) 2 유지', A2?.capacity === 2, String(A2?.capacity));
+
+  /* ---------------- 합계가 총 정원을 넘는 경우 ---------------- */
+  console.log('\n[4] 종류별 수량 합계 > 총 정원');
+
+  resetBoothTypeCache();
+  let capCheck = await validateCapacitySum(pool, {
+    marketId, list: [{ capacity: 11 }], requestedMax: 10,
+  });
+  check('합계 11 > 정원 10 → 거부', capCheck.ok === false
+    && capCheck.code === 'BOOTH_CAPACITY_EXCEEDS_TOTAL', JSON.stringify(capCheck));
+  check('안내에 11칸/10칸 표시', capCheck.ok === false
+    && capCheck.message.includes('11칸') && capCheck.message.includes('10칸'), capCheck.message);
+
+  capCheck = await validateCapacitySum(pool, {
+    marketId, list: [{ capacity: 6 }, { capacity: 4 }], requestedMax: 10,
+  });
+  check('합계 10 = 정원 10 → 통과', capCheck.ok === true, JSON.stringify(capCheck));
+
+  capCheck = await validateCapacitySum(pool, {
+    marketId, list: [{ capacity: 0 }, { capacity: 0 }], requestedMax: 10,
+  });
+  check('전부 제한 없음 → 통과', capCheck.ok === true);
+
+  capCheck = await validateCapacitySum(pool, {
+    marketId, list: [{ capacity: 99 }], requestedMax: 0,
+  });
+  check('총 정원 0(제한 없음)이면 통과', capCheck.ok === true);
+
+  // 정원을 안 보내면 DB 현재 값(10)과 비교해야 합니다.
+  capCheck = await validateCapacitySum(pool, {
+    marketId, list: [{ capacity: 11 }], requestedMax: null,
+  });
+  check('정원 미전송 시 DB 값(10)과 비교', capCheck.ok === false, JSON.stringify(capCheck));
+
+  /* ---------------- 컨트롤러 경로(API 직접 호출 차단) ---------------- */
+  console.log('\n[5] API 직접 호출 차단');
+
+  function fakeRes() {
+    const r = { statusCode: null, body: null };
+    r.status = (c) => { r.statusCode = c; return r; };
+    r.json = (b) => { r.body = b; return r; };
+    return r;
+  }
+
+  resetBoothTypeCache();
+  let apiRes = fakeRes();
+  await createMarket({
+    user: { userId: hostId },
+    body: {
+      title: 'CAP 초과 등록', locationName: '부천',
+      eventDate_min: day(20), eventDate_max: day(21),
+      recruitmentDate_min: day(-5), recruitmentDate_max: day(10),
+      boothPrice: 1000, maxparticipants: 10,
+      boothTypes: [{ price: 1000, capacity: 11 }],
+    },
+  }, apiRes);
+  check('등록: 합계 초과 → 400 거부', apiRes.statusCode === 400
+    && apiRes.body?.code === 'BOOTH_CAPACITY_EXCEEDS_TOTAL', `${apiRes.statusCode} ${apiRes.body?.message}`);
+  if (apiRes.body?.data?.marketId) created.markets.push(apiRes.body.data.marketId);
+
+  resetBoothTypeCache();
+  apiRes = fakeRes();
+  await updateMarketStatus({
+    user: { userId: hostId }, params: { marketId },
+    body: { boothTypes: [{ boothTypeId: A.boothTypeId, price: 30000, capacity: 11 }] },
+  }, apiRes);
+  check('수정: 합계 초과 → 400 거부', apiRes.statusCode === 400
+    && apiRes.body?.code === 'BOOTH_CAPACITY_EXCEEDS_TOTAL', `${apiRes.statusCode} ${apiRes.body?.message}`);
+
+  const [[stillTwo]] = await pool.query(
+    'SELECT capacity FROM market_booth_types WHERE boothTypeId = ?', [A.boothTypeId]);
+  check('거부 시 기존 수량(2) 유지', Number(stillTwo.capacity) === 2, String(stillTwo.capacity));
 
   resetBoothTypeCache();
 }

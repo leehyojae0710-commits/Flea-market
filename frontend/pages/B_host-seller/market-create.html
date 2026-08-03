@@ -18,7 +18,7 @@
   <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
   <script src="js/market.js?v=12"></script>
   <script src="../../common/js/api.js?v=4"></script>
-  <script src="../../common/js/booth-types.js?v=2"></script>
+  <script src="../../common/js/booth-types.js?v=3"></script>
   <script type="module" src="js/marketdate.js?v=2"></script>
   <!-- <script type="module" src="js/map-integration.js?v=2"></script> -->
   <!-- [C-01] 역할별 첫 화면 분기 / 주최자 전용 화면 접근 차단 -->
@@ -81,6 +81,8 @@
           <label>부스 종류 <span class="booth-type-count" id="booth-type-count">1 / 3</span></label>
           <p class="form-hint">자리 크기나 위치에 따라 가격을 나누고 싶을 때 쓰세요. 이름은 순서대로 <b>A → B → C</b>로 자동으로 붙고, 최대 3개까지 만들 수 있어요. <b>가격</b>과 <b>수량</b>을 입력하면 됩니다. 수량을 비워두면 그 종류는 개수 제한 없이 받아요.</p>
           <div id="booth-type-rows"></div>
+          <!-- [추가] 종류별 수량 합계 vs 총 부스 수 — 입력하는 즉시 갱신됩니다. -->
+          <p id="booth-type-capacity-summary" class="booth-cap-summary"></p>
           <button type="button" id="booth-type-add-btn" class="btn btn-outline btn-sm booth-type-add">＋ 부스 추가 (B)</button>
           <p class="form-hint">종류를 안 쓰려면 가격을 비워두세요. 그러면 지금처럼 부스료 하나만 받는 마켓이 됩니다.</p>
         </div>

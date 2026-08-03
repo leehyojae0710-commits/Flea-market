@@ -177,12 +177,19 @@ function correctionMarketClick(marketId) {
     try {
       const res = await correctionMarket(marketId, payload);
       if (res && res.success) {
-        // [추가] DB에 옵션 컬럼이 아직 없으면 서버가 optionsSkipped 를 돌려줍니다.
+        // [수정] 예전에는 optionsSkipped 만 확인해서, 부스 수량이 저장되지 않았다는
+        //   서버 안내(res.message)를 그대로 버리고 "수정됐어요!" 를 띄웠습니다.
+        //   주최자는 수량을 입력했는데 왜 0으로 남는지 알 수 없었습니다.
+        //   저장되지 않은 항목이 하나라도 있으면 그 이유를 그대로 보여줍니다.
         const skipped = res.data?.optionsSkipped || [];
-        if (skipped.length > 0) {
-          renderAlert(res.message || '마켓은 수정됐지만 일부 옵션이 저장되지 않았어요.');
+        const capacitySkipped = res.data?.boothTypes?.capacitySkipped === true;
+        if (skipped.length > 0 || capacitySkipped) {
+          renderAlert(res.message || '마켓은 수정됐지만 일부 항목이 저장되지 않았어요.');
           setButtonLoading(submitBtn, false, '수정 중...', '수정하기');
-          setTimeout(() => { window.location.href = 'mymarketpage.html'; }, 3500);
+          // 안내를 읽을 시간을 주고, 수량이 빠진 경우엔 화면을 옮기지 않습니다.
+          if (!capacitySkipped) {
+            setTimeout(() => { window.location.href = 'mymarketpage.html'; }, 3500);
+          }
           return;
         }
         renderAlert('마켓 정보가 수정됐어요!', 'success');

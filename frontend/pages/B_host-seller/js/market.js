@@ -243,6 +243,33 @@ function renderBoothTypeBadge(a) {
     + `<b>${name}</b>${priceText ? ` ${priceText}` : ''}</span>`;
 }
 
+// 칩의 숫자 표기. 수량이 정해져 있으면 "3 / 5칸", 아니면 "3칸".
+function renderChipCount(g) {
+  const cap = Number(g.capacity) || 0;
+  const occ = Number(g.occupied) || 0;
+  return cap > 0 ? `${occ} / ${cap}칸` : `${occ}칸`;
+}
+
+// 칩마다 붙는 게이지. 수량을 안 정한 종류는 막대를 그리지 않습니다.
+//   분모가 없는데 막대를 그리면 다 찬 것처럼 보여 오해하게 됩니다.
+function renderChipGauge(g) {
+  const cap = Number(g.capacity) || 0;
+  const occ = Number(g.occupied) || 0;
+
+  if (cap <= 0) {
+    return '<span class="bts-chip-gauge none" aria-hidden="true"></span>';
+  }
+
+  const pct = Math.round((occ / cap) * 100);
+  const width = Math.min(pct, 100);   // 막대는 100%에서 멈추고 초과분은 숫자로
+  const level = occ > cap ? 'over' : (occ >= cap ? 'full' : (pct >= 70 ? 'high' : 'normal'));
+
+  return `
+    <span class="bts-chip-gauge">
+      <span class="bts-chip-gauge-fill ${level}" style="width:${width}%"></span>
+    </span>`;
+}
+
 // 목록 위 「부스 종류별 현황」 줄. 종류를 안 쓰는 마켓에서는 정원 현황만 보여줍니다.
 function renderBoothTypeSummary() {
   const box = document.getElementById('application-booth-type-summary');
@@ -278,10 +305,13 @@ function renderBoothTypeSummary() {
   }
 
   const chips = boothTypeSummary.map((g) => `
-    <button type="button" class="bts-chip${boothTypeFilter === g.boothTypeName ? ' active' : ''}"
+    <button type="button" class="bts-chip${boothTypeFilter === g.boothTypeName ? ' active' : ''}${g.isActive === false ? ' stopped' : ''}"
             data-booth-type="${g.boothTypeName}">
-      <span class="bts-chip-name">${g.boothTypeName}</span>
-      <span class="bts-chip-count">${g.occupied}칸</span>
+      <span class="bts-chip-head">
+        <span class="bts-chip-name">${g.boothTypeName}${g.isActive === false ? ' <em>중단</em>' : ''}</span>
+        <span class="bts-chip-count">${renderChipCount(g)}</span>
+      </span>
+      ${renderChipGauge(g)}
       <span class="bts-chip-detail">대기 ${g.pending} · 승인 ${g.approved} · 결제 ${g.paid}</span>
     </button>`).join('');
 
@@ -292,8 +322,11 @@ function renderBoothTypeSummary() {
     </div>
     <div class="bts-chips">
       <button type="button" class="bts-chip${boothTypeFilter === '' ? ' active' : ''}" data-booth-type="">
-        <span class="bts-chip-name">전체</span>
-        <span class="bts-chip-count">${occupiedCount}칸</span>
+        <span class="bts-chip-head">
+          <span class="bts-chip-name">전체</span>
+          <span class="bts-chip-count">${renderChipCount({ occupied: occupiedCount, capacity: marketCapacity })}</span>
+        </span>
+        ${renderChipGauge({ occupied: occupiedCount, capacity: marketCapacity })}
         <span class="bts-chip-detail">모든 종류</span>
       </button>
       ${chips}
@@ -523,9 +556,11 @@ function handleMarketCreateSubmit() {
       if (res && res.success) {
         // [추가] DB에 옵션 컬럼이 아직 없으면 서버가 optionsSkipped 를 돌려줍니다.
         //        조용히 무시되면 주최자가 "켰는데 왜 안 되지" 하게 되므로 화면에 알려줍니다.
+        // [수정] 부스 수량 미저장 안내도 함께 봅니다. (예전에는 옵션만 확인하고 버렸습니다)
         const skipped = res.data?.optionsSkipped || [];
-        if (skipped.length > 0) {
-          renderAlert(res.message || '마켓은 등록됐지만 일부 옵션이 저장되지 않았어요.');
+        const capacitySkipped = res.data?.boothTypes?.capacitySkipped === true;
+        if (skipped.length > 0 || capacitySkipped) {
+          renderAlert(res.message || '마켓은 등록됐지만 일부 항목이 저장되지 않았어요.');
           setButtonLoading(submitBtn, false, '등록 중...', '등록하기');
           setTimeout(() => { window.location.href = '../../index.html'; }, 3500);
           return;

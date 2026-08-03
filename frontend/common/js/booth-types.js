@@ -92,6 +92,48 @@
       </div>`;
   }
 
+  /**
+   * [종류별 수량] 합계와 총 정원을 비교해 그 자리에서 알려줍니다.
+   *   저장 버튼을 눌러야만 알 수 있으면, 주최자는 11칸을 다 입력하고 나서야
+   *   총 정원이 10이라는 걸 알게 됩니다. 입력하는 동안 바로 보이게 합니다.
+   */
+  function syncCapacitySummary() {
+    if (!editor.rootEl) return;
+
+    const box = document.getElementById('booth-type-capacity-summary');
+    if (!box) return;
+
+    const totalEl = document.getElementById('max-participants');
+    const total = Number(totalEl?.value);
+    const rows = editor.rows.filter((r) => String(r.price ?? '').trim() !== '');
+    const sum = rows.reduce((acc, r) => acc + (Number(r.capacity) || 0), 0);
+
+    // 수량을 하나도 안 정했으면 비교할 게 없습니다.
+    if (sum <= 0) {
+      box.className = 'booth-cap-summary';
+      box.textContent = '종류별 수량을 비워두면 개수 제한 없이 받아요. (총 부스 수 규칙은 그대로 적용돼요)';
+      return;
+    }
+
+    if (!Number.isFinite(total) || total <= 0) {
+      box.className = 'booth-cap-summary';
+      box.textContent = `종류별 수량 합계 ${sum}칸 · 총 부스 수는 제한 없음`;
+      return;
+    }
+
+    if (sum > total) {
+      box.className = 'booth-cap-summary over';
+      box.textContent = `종류별 수량 합계 ${sum}칸이 총 부스 수 ${total}칸보다 ${sum - total}칸 많아요. `
+        + '이대로는 저장할 수 없어요. 총 부스 수를 늘리거나 종류별 수량을 줄여주세요.';
+      return;
+    }
+
+    const left = total - sum;
+    box.className = 'booth-cap-summary ok';
+    box.textContent = `종류별 수량 합계 ${sum}칸 / 총 부스 수 ${total}칸`
+      + (left > 0 ? ` · ${left}칸은 종류를 안 정한 신청에 쓸 수 있어요.` : ' · 딱 맞아요.');
+  }
+
   function syncBasePrice() {
     // 종류를 쓰는 마켓은 기존 「부스료」 칸을 A 가격으로 맞추고 잠급니다.
     //   markets.boothPrice 는 목록 정렬·검색·기존 화면이 계속 쓰는 값이라 비워둘 수 없고,
@@ -148,6 +190,7 @@
       editor.countEl.textContent = `${editor.rows.length} / ${MAX}`;
     }
     syncBasePrice();
+    syncCapacitySummary();
   }
 
   function addRow() {
@@ -201,8 +244,17 @@
       if (e.target.classList.contains('booth-type-price')) {
         readRowsFromDom();
         syncBasePrice();
+        syncCapacitySummary();
+      }
+      if (e.target.classList.contains('booth-type-capacity')) {
+        readRowsFromDom();
+        syncCapacitySummary();
       }
     });
+    // 총 부스 수를 고치면 합계 비교도 같이 갱신돼야 합니다.
+    const totalEl = document.getElementById('max-participants');
+    totalEl?.addEventListener('input', syncCapacitySummary);
+
     editor.rootEl.addEventListener('change', (e) => {
       if (e.target.classList.contains('booth-type-stop-input')) {
         readRowsFromDom();

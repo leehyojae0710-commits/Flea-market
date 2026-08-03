@@ -332,15 +332,16 @@ body {
   padding: 1px 7px;
   margin-left: 4px;
 }
+/* [수정] 종류가 늘어나면(전체+A/B/C=4칸) 한 줄에 안 들어가 잘렸습니다.
+   grid 로 바꿔 폭이 모자라면 자동으로 다음 줄·세로로 쌓이게 합니다. */
 .booth-type-summary .bts-chips {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 8px;
-  flex-wrap: wrap;
   margin-top: 10px;
 }
 .booth-type-summary .bts-chip {
-  flex: 0 1 auto;
-  min-width: 104px;
+  width: 100%;
   text-align: left;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
@@ -446,3 +447,64 @@ body {
 .bt-gauge-text.full { color: #b91c1c; }
 .bt-gauge-text.muted { color: #9ca3af; font-weight: 500; }
 .booth-type-item { display: block; padding: 6px 0; }
+
+/* [부스 종류] 수량 합계 안내 — 입력 중 바로 보이게 */
+.booth-cap-summary {
+  margin: 6px 0 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+  background: #f3f4f6;
+  color: #4b5563;
+}
+.booth-cap-summary.ok { background: #ecfdf5; color: #065f46; }
+.booth-cap-summary.over { background: #fef2f2; color: #b91c1c; font-weight: 600; }
+
+/* [부스 종류별 현황] 칩 안의 게이지 + 좁은 화면 세로 배치 */
+.booth-type-summary .bts-chip-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+.booth-type-summary .bts-chip-name em {
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 700;
+  color: #92400e;
+  background: #fef3c7;
+  border-radius: 999px;
+  padding: 1px 5px;
+  margin-left: 3px;
+}
+.booth-type-summary .bts-chip.stopped { opacity: .75; }
+.booth-type-summary .bts-chip-count {
+  font-size: 15px;
+  font-weight: 800;
+  color: #111827;
+  white-space: nowrap;
+}
+.bts-chip-gauge {
+  display: block;
+  height: 5px;
+  margin: 6px 0 5px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+.bts-chip-gauge.none { background: transparent; }
+.bts-chip-gauge-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: #10b981;
+  transition: width .3s ease;
+}
+.bts-chip-gauge-fill.high { background: #f59e0b; }
+.bts-chip-gauge-fill.full { background: #ef4444; }
+.bts-chip-gauge-fill.over { background: #b91c1c; }
+
+@media (max-width: 640px) {
+  .booth-type-summary .bts-chips { grid-template-columns: 1fr; }
+}

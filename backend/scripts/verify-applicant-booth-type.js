@@ -47,6 +47,13 @@ const MARKERS = [
   ['frontend/pages/B_host-seller/market-detail.html', 'market.js?v=', '캐시 버전 표기'],
   ['frontend/common/css/style.css', '.booth-type-badge', '배지 스타일'],
   ['frontend/common/css/style.css', '.bts-chip', '현황 칩 스타일'],
+  ['frontend/pages/B_host-seller/js/market.js', 'renderChipGauge', '칩 게이지'],
+  ['frontend/pages/B_host-seller/js/market.js', 'renderChipCount', '칩 숫자(점유/정원)'],
+  ['frontend/common/css/style.css', 'grid-template-columns: repeat(auto-fit', '좁으면 자동 줄바꿈'],
+  ['frontend/common/css/style.css', '.bts-chip-gauge-fill', '칩 게이지 채움'],
+  ['backend/controllers/marketController.js', 'includeInactive: true });', '신청 0건 종류도 포함'],
+  ['backend/utills/boothTypes.js', 'capacitySkipped', '수량 미저장 안내'],
+  ['backend/utills/boothTypes.js', 'const allReady = state.ready', '캐시 조건에 capacity 포함'],
 ];
 for (const [file, marker, label] of MARKERS) {
   const body = read(file);
@@ -147,6 +154,33 @@ async function run() {
   const one = (body.data || []).find((a) => a.boothNumber === 'A-1');
   check('각 신청에 종류명 포함', one?.boothTypeName === 'A', String(one?.boothTypeName));
   check('각 신청에 금액 포함', Number(one?.boothPrice) === 30000, String(one?.boothPrice));
+
+  // [신청 0건 종류] C를 만들되 신청은 넣지 않습니다. 현황에 나와야 합니다.
+  const [tc] = await pool.query(
+    `INSERT INTO market_booth_types (marketId, name, price, sortOrder, isActive, capacity)
+     VALUES (?, 'C', 80000, 2, 1, 4)`, [marketId]);
+  await pool.query('UPDATE market_booth_types SET capacity = 5 WHERE boothTypeId = ?', [typeA]);
+  await pool.query('UPDATE market_booth_types SET capacity = 0 WHERE boothTypeId = ?', [typeB]);
+
+  resetBoothTypeCache();
+  const res3 = fakeRes();
+  await getApplicationsByMarket({ user: { userId: hostId }, params: { marketId }, query: {} }, res3);
+  const s3 = res3.body?.boothTypeSummary || [];
+
+  check('신청 0건인 C도 현황에 나옴', s3.some((g) => g.boothTypeName === 'C'),
+    JSON.stringify(s3.map((g) => g.boothTypeName)));
+  const Cg = s3.find((g) => g.boothTypeName === 'C');
+  check('C 신청 0칸', Cg?.occupied === 0, String(Cg?.occupied));
+  check('C 수량 4 전달(게이지 분모)', Cg?.capacity === 4, String(Cg?.capacity));
+
+  const Ag = s3.find((g) => g.boothTypeName === 'A');
+  check('A 수량 5 전달', Ag?.capacity === 5, String(Ag?.capacity));
+  const Bg = s3.find((g) => g.boothTypeName === 'B');
+  check('B 수량 0(제한 없음)', Bg?.capacity === 0, String(Bg?.capacity));
+
+  check('A→B→C 순서 유지', s3.filter((g) => ['A','B','C'].includes(g.boothTypeName))
+    .map((g) => g.boothTypeName).join('') === 'ABC',
+    JSON.stringify(s3.map((g) => g.boothTypeName)));
 
   // 종류를 안 쓰는 마켓 — '기본' 으로 묶여야 함
   const [m2] = await pool.query(

@@ -9,6 +9,8 @@ import { buildInsertOptions, buildUpdateOptions, describeSkippedOptions } from '
 // [부스 종류] 마켓별 부스 종류(최대 3개)의 저장·조회를 한 곳에서 처리합니다.
 import {
   normalizeBoothTypes, saveBoothTypes, attachBoothTypes, describeBoothTypeSave, boothTypePriceSql,
+  getBoothTypes,
+  validateCapacitySum,
 } from '../utills/boothTypes.js';
 import { createNotification, createNotifications } from '../services/notificationService.js';
 
@@ -117,6 +119,21 @@ export async function createMarket(req, res) {
     return res.status(400).json({ success: false, data: null, message: boothTypes.message });
   }
 
+  // [종류별 수량] 합계가 총 정원을 넘으면 등록을 막습니다.
+  //   화면에도 같은 검사가 있지만 API 직접 호출로 뚫리므로 서버에서 다시 확인합니다.
+  {
+    const capCheck = await validateCapacitySum(pool, {
+      marketId: null,
+      list: boothTypes.list,
+      requestedMax: maxparticipants,
+    });
+    if (!capCheck.ok) {
+      return res.status(capCheck.status).json({
+        success: false, data: null, code: capCheck.code, message: capCheck.message,
+      });
+    }
+  }
+
   try {
     // [추가] 부스 신청 옵션 두 가지를 등록 시점부터 반영합니다.
     //   - allowOvercapacity         : 예전에는 INSERT 에서 아예 빠져 있어, 새 마켓은 항상 0(불가)이었고
@@ -150,9 +167,13 @@ export async function createMarket(req, res) {
     // [부스 종류] 등록 화면에서 「부스 추가」로 만든 종류를 저장합니다. (최대 3개)
     //   종류를 하나도 안 만들면 기존과 똑같은 단일가 마켓이 됩니다.
     let boothTypeNotice = '';
+    let boothTypeResult = null;
     if (boothTypes.list && boothTypes.list.length > 0) {
-      const saveResult = await saveBoothTypes(pool, result.insertId, boothTypes.list);
-      if (saveResult.skipped) boothTypeNotice = describeBoothTypeSave(saveResult);
+      boothTypeResult = await saveBoothTypes(pool, result.insertId, boothTypes.list);
+      // [수정] 예전에는 테이블이 통째로 없을 때(skipped)만 안내했습니다.
+      //   수량 컬럼만 없는 경우(capacitySkipped)는 조용히 넘어가서,
+      //   주최자가 수량을 입력해도 왜 0으로 남는지 알 수 없었습니다.
+      boothTypeNotice = describeBoothTypeSave(boothTypeResult);
     }
 
     return res.status(201).json({
@@ -162,6 +183,7 @@ export async function createMarket(req, res) {
         options: options.applied,
         optionsSkipped: options.skipped,
         boothTypeCount: boothTypes.list ? boothTypes.list.length : 0,
+        boothTypes: boothTypeResult,
       },
       message: `마켓이 등록되었습니다.${notice ? ' ' + notice : ''}${boothTypeNotice ? ' ' + boothTypeNotice : ''}`,
     });
@@ -226,6 +248,19 @@ export async function updateMarketStatus(req, res) {
     }
     let boothTypeResult = null;
     if (boothTypes.list !== null) {
+      // [종류별 수량] 합계가 총 정원을 넘으면 저장 자체를 막습니다.
+      //   정원을 함께 수정 중이면 그 값과, 아니면 DB 의 현재 값과 비교합니다.
+      const capCheck = await validateCapacitySum(pool, {
+        marketId,
+        list: boothTypes.list,
+        requestedMax: maxParticipants,
+      });
+      if (!capCheck.ok) {
+        return res.status(capCheck.status).json({
+          success: false, data: null, code: capCheck.code, message: capCheck.message,
+        });
+      }
+
       boothTypeResult = await saveBoothTypes(pool, marketId, boothTypes.list);
 
       // [삭제 차단] 신청자가 있는 종류를 지우려 한 경우 — 마켓의 다른 항목도 저장하지 않고 되돌립니다.
@@ -374,6 +409,21 @@ export async function getApplicationsByMarket(req, res) {
       const typeMap = new Map();
       let occupiedTotal = 0;
 
+      // [수정] 예전에는 "신청이 들어온 종류"만 집계해서, 아직 신청이 0건인 종류(C 등)가
+      //   현황에서 통째로 빠졌습니다. 주최자는 C를 만들어 뒀는데 화면에 없으니
+      //   저장이 안 된 줄 알게 됩니다. 마켓에 등록된 종류를 먼저 전부 깔아둡니다.
+      const marketTypes = await getBoothTypes(pool, marketId, { includeInactive: true });
+      for (const t of marketTypes) {
+        typeMap.set(t.name, {
+          boothTypeName: t.name, total: 0, occupied: 0,
+          pending: 0, approved: 0, paid: 0, rejected: 0,
+          amount: 0,
+          // 게이지 분모. 0 이면 이 종류는 수량 제한 없음.
+          capacity: Number(t.capacity) || 0,
+          isActive: t.isActive !== false,
+        });
+      }
+
       for (const r of withDuplicate) {
         const occupying = OCCUPYING.includes(r.status);
         if (occupying) occupiedTotal += 1;
@@ -381,10 +431,11 @@ export async function getApplicationsByMarket(req, res) {
         // 종류를 안 쓰는 마켓이거나 종류 지정 전 신청은 '기본'으로 묶습니다.
         const key = r.boothTypeName || '기본';
         if (!typeMap.has(key)) {
+          // 종류를 안 고른 신청('기본')이나, 지워진 종류로 남은 신청이 여기로 옵니다.
           typeMap.set(key, {
             boothTypeName: key, total: 0, occupied: 0,
             pending: 0, approved: 0, paid: 0, rejected: 0,
-            amount: 0,
+            amount: 0, capacity: 0, isActive: true,
           });
         }
         const g = typeMap.get(key);

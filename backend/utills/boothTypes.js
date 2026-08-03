@@ -103,7 +103,13 @@ export async function getBoothTypeReadiness(db) {
   }
 
   readyCache = state;
-  readyCacheExpires = now + (state.ready && state.lockColumn ? PRESENT_TTL_MS : MISSING_TTL_MS);
+  // [버그 수정] capacityColumn 이 이 조건에서 빠져 있었습니다.
+  //   그래서 서버를 켠 뒤에 capacity 마이그레이션을 돌리면,
+  //   다른 컬럼이 이미 다 있다는 이유로 "완비" 로 판정돼 10분간 캐시됐고
+  //   그동안 부스 수량이 저장되지 않았습니다. (에러도 없이 0으로만 남음)
+  //   하나라도 없으면 짧게 잡아 마이그레이션 직후 곧 반영되게 합니다.
+  const allReady = state.ready && state.lockColumn && state.capacityColumn;
+  readyCacheExpires = now + (allReady ? PRESENT_TTL_MS : MISSING_TTL_MS);
   return readyCache;
 }
 
@@ -175,6 +181,68 @@ export function normalizeBoothTypes(input) {
   }
 
   return { ok: true, list };
+}
+
+/* ------------------------------------------------------------------ */
+/* 종류별 수량 합계 검증                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 종류별 수량 합계가 마켓 총 정원을 넘지 않는지 확인합니다.
+ *
+ * 왜 서버에서도 하나
+ *   이 검사는 원래 화면(booth-types.js)에만 있었습니다. 그래서 API 를 직접 호출하면
+ *   총 정원 10인 마켓에 A를 11칸으로 저장할 수 있었습니다.
+ *   그렇게 되면 A만으로 총 정원을 넘겨 신청을 받게 되고,
+ *   "최대 10칸"이라고 걸어둔 마켓에 11명이 들어오는 앞뒤가 안 맞는 상태가 됩니다.
+ *   화면 검사는 안내용이고, 실제로 막는 것은 여기입니다.
+ *
+ * @param requestedMax 이번 요청에 함께 온 총 정원. 안 왔으면 null 을 넘기세요.
+ *                     (수정 화면에서 정원은 그대로 두고 종류만 고치는 경우)
+ * @returns {Promise<{ ok:true } | { ok:false, status:number, code:string, message:string }>}
+ */
+export async function validateCapacitySum(db, { marketId, list, requestedMax = null }) {
+  if (!Array.isArray(list) || list.length === 0) return { ok: true };
+
+  const sum = list.reduce((acc, t) => acc + (Number(t.capacity) || 0), 0);
+  if (sum <= 0) return { ok: true }; // 전부 "제한 없음" 이면 비교할 게 없습니다.
+
+  // [주의] Number(null) 은 NaN 이 아니라 0 입니다.
+  //   그래서 requestedMax 를 그냥 Number() 로 감싸면, 정원을 안 보낸 요청이
+  //   "정원 0 = 제한 없음" 으로 해석돼 검사가 통째로 건너뛰어집니다.
+  //   값이 실제로 왔는지를 먼저 가려야 합니다.
+  const hasRequestedMax = requestedMax !== null
+    && requestedMax !== undefined
+    && String(requestedMax).trim() !== '';
+  let total = hasRequestedMax ? Number(requestedMax) : NaN;
+
+  // 요청에 총 정원이 없으면 DB 의 현재 값과 비교합니다.
+  if (!Number.isFinite(total)) {
+    try {
+      const [rows] = await db.query('SELECT * FROM markets WHERE marketId = ?', [marketId]);
+      const row = rows[0] || {};
+      // 컬럼 표기가 환경마다 달라 두 가지를 모두 봅니다.
+      total = Number(row.maxParticipants ?? row.maxparticipants ?? 0);
+    } catch (error) {
+      console.warn('[boothTypes] 총 정원 조회 실패, 합계 검사를 건너뜁니다:', error.message);
+      return { ok: true };
+    }
+  }
+
+  // 0 이나 음수는 "정원 제한 없음" 이므로 검사하지 않습니다.
+  if (!Number.isFinite(total) || total <= 0) return { ok: true };
+
+  if (sum > total) {
+    return {
+      ok: false,
+      status: 400,
+      code: 'BOOTH_CAPACITY_EXCEEDS_TOTAL',
+      message: `부스 종류별 수량 합계(${sum}칸)가 허용 가능한 최대 부스 수(${total}칸)보다 많습니다. `
+        + '총 부스 수를 늘리거나 종류별 수량을 줄여주세요.',
+    };
+  }
+
+  return { ok: true };
 }
 
 /* ------------------------------------------------------------------ */
@@ -306,7 +374,13 @@ export async function saveBoothTypes(db, marketId, list) {
     .filter((i) => (i.isActive ?? 1) === 0)
     .map((i, idx) => i.name || boothTypeLabel(idx));
 
-  return { ok: true, saved, stopped, removed, skipped: false };
+  // [안내] capacity 컬럼이 없으면 수량이 조용히 0으로 남습니다.
+  //   주최자는 "분명 입력했는데 왜 0이지" 하게 되므로 저장 결과로 알려줍니다.
+  const capacityRequested = list.some((i) => (Number(i.capacity) || 0) > 0);
+  return {
+    ok: true, saved, stopped, removed, skipped: false,
+    capacitySkipped: capacityRequested && !schemaHasCapacity,
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -552,6 +626,10 @@ export function describeBoothTypeSave(result) {
     return '부스 종류는 DB에 아직 테이블이 없어 저장되지 않았어요. '
       + '백엔드에서 "node scripts/migrate-add-booth-types.js" 를 한 번 실행해주세요.';
   }
+  if (result.capacitySkipped) {
+    return '부스 종류별 수량은 DB에 아직 컬럼이 없어 저장되지 않았어요. '
+      + '백엔드에서 "node scripts/migrate-add-booth-types.js" 를 실행한 뒤 서버를 재시작해주세요.';
+  }
   if (result.stopped && result.stopped.length > 0) {
     return `부스 ${result.stopped.join(', ')}는 신규 신청을 받지 않도록 바꿨어요. `
       + '이미 신청한 판매자는 그대로 유지됩니다.';
@@ -569,6 +647,7 @@ export default {
   attachBoothTypes,
   getBoothTypes,
   countApplicationsByType,
+  validateCapacitySum,
   lockApprovedPrice,
   resolveBoothTypeForApply,
   boothTypePriceSql,
