@@ -36,7 +36,14 @@
       <form id="booth-apply-form" novalidate>
         <input type="hidden" id="market-id" />
 
-        <div class="form-field">
+                <!-- [부스 종류] 주최자가 A/B/C 로 나눠 올린 경우에만 보입니다. -->
+        <div class="form-field" id="booth-type-field" hidden>
+          <label for="booth-type">부스 종류 *</label>
+          <select id="booth-type" class="form-input"></select>
+          <p class="form-hint" id="booth-type-hint">종류에 따라 부스료가 달라요. 승인되면 선택한 종류의 금액으로 결제하게 됩니다.</p>
+        </div>
+
+<div class="form-field">
           <label for="booth-number">부스 번호</label>
           <input type="text" id="booth-number" class="form-input" placeholder="예: 1, A1" maxlength="10" required />
           <p class="form-hint">최대 10자까지 입력할 수 있어요.</p>
@@ -76,7 +83,8 @@
   </div>
 
   <script src="../../common/js/api.js?v=4"></script>
+  <script src="../../common/js/booth-types.js?v=3"></script>
   <script src="../../common/js/profile-link.js?v=1"></script>
-  <script src="js/market.js?v=14"></script>
+  <script src="js/market.js?v=18"></script>
 </body>
 </html>

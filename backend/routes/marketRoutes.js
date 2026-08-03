@@ -17,7 +17,7 @@ import {
   processQueueTimeouts,
   getMyMarket,
 } from '../controllers/marketController.js';
-import { deleteMarket } from '../controllers/dbdeleteController.js';
+import { deleteMarket, getCancelPreview } from '../controllers/dbdeleteController.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 import { requireHost } from '../middleware/hostOnlyMiddleware.js';
 import { validateMarketInput } from '../middleware/marketValidationMiddleware.js';
@@ -159,6 +159,84 @@ router.get('/', getMarketList);
  */
 router.get('/mine', authenticateToken, getMyMarket);
 
+/**
+ * @swagger
+ * /markets:
+ *   post:
+ *     summary: 마켓 등록 (로그인한 주최자만)
+ *     description: |
+ *       마켓을 새로 등록합니다. 부스 신청 옵션 2가지를 등록 시점부터 지정할 수 있습니다.
+ *
+ *       - `allowOvercapacity` (기본 false) : 정원(maxparticipants)이 차도 행사 시작일 전까지는
+ *         초과 신청/승인/결제를 허용합니다. 행사가 시작되면 이 값이 true 여도 다시 막힙니다.
+ *       - `allowDuplicateApplication` (기본 true) : 같은 판매자가 이 마켓에 부스를 여러 개
+ *         신청할 수 있습니다. false 로 두면 판매자당 1건만 신청 가능합니다.
+ *
+ *       두 옵션은 markets 테이블 컬럼입니다. 마이그레이션(`node scripts/migrate-add-market-options.js`)을
+ *       아직 실행하지 않은 DB 에서는 해당 옵션만 저장되지 않고 응답의 `data.optionsSkipped` 로 알려줍니다.
+ *       (마켓 등록 자체는 정상 처리됩니다.)
+ *     tags: [Markets]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [title, eventDate_min, eventDate_max, locationName]
+ *             properties:
+ *               title: { type: string, maxLength: 100 }
+ *               description: { type: string, maxLength: 2000 }
+ *               locationName: { type: string }
+ *               region: { type: string, nullable: true }
+ *               latitude: { type: number }
+ *               longitude: { type: number }
+ *               eventDate_min: { type: string, format: date }
+ *               eventDate_max: { type: string, format: date }
+ *               recruitmentDate_min: { type: string, format: date }
+ *               recruitmentDate_max: { type: string, format: date }
+ *               boothPrice: { type: integer, minimum: 0 }
+ *               maxparticipants: { type: integer, minimum: 0, description: "허용 최대 부스 수 (0 = 제한 없음)" }
+ *               allowOvercapacity: { type: boolean, default: false, description: "정원 초과 신청 허용" }
+ *               allowDuplicateApplication: { type: boolean, default: true, description: "같은 판매자의 중복 부스 신청 허용" }
+ *               marketImage: { type: string, nullable: true }
+ *     responses:
+ *       201:
+ *         description: 등록 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiEnvelope'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         marketId: { type: integer }
+ *                         options:
+ *                           type: object
+ *                           description: "실제로 저장된 옵션 값 (0/1)"
+ *                         optionsSkipped:
+ *                           type: array
+ *                           description: "DB 컬럼이 없어 저장하지 못한 옵션 키 목록"
+ *                           items: { type: string }
+ *       400:
+ *         description: 입력값 오류
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       403:
+ *         description: 주최자 계정이 아님
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         description: 서버 오류
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ */
 router.post(
   '/',
   authenticateToken,
@@ -218,9 +296,22 @@ router.post(
  *               isExpired: { type: boolean }
  *               title: { type: string }
  *               description: { type: string }
+ *               eventDate_min: { type: string, format: date }
+ *               eventDate_max: { type: string, format: date }
+ *               recruitmentDate_min: { type: string, format: date }
+ *               recruitmentDate_max: { type: string, format: date }
+ *               boothPrice: { type: integer, minimum: 0 }
+ *               maxParticipants: { type: integer, minimum: 0 }
+ *               allowOvercapacity:
+ *                 type: boolean
+ *                 description: "정원 초과 신청 허용. 보내지 않으면 기존 값 유지, false 로 보내면 꺼집니다."
+ *               allowDuplicateApplication:
+ *                 type: boolean
+ *                 description: "같은 판매자의 중복 부스 신청 허용. 보내지 않으면 기존 값 유지, false 로 보내면 판매자당 1건으로 제한됩니다."
+ *               marketImage: { type: string, nullable: true, description: "null 이나 빈 문자열을 보내면 이미지 삭제" }
  *     responses:
  *       200:
- *         description: 수정 성공
+ *         description: "수정 성공. data.options 에 저장된 옵션 값, data.optionsSkipped 에 DB 컬럼이 없어 저장하지 못한 옵션 키가 담깁니다."
  *         content:
  *           application/json:
  *             schema:
@@ -228,7 +319,11 @@ router.post(
  *                 - $ref: '#/components/schemas/ApiEnvelope'
  *                 - type: object
  *                   properties:
- *                     data: { type: object, nullable: true, example: null }
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         options: { type: object, description: "실제로 저장된 옵션 값 (0/1)" }
+ *                         optionsSkipped: { type: array, items: { type: string } }
  *       400:
  *         description: 수정할 내용 없음
  *         content:
@@ -253,6 +348,66 @@ router.post(
 router.get('/:marketId', getMarketDetail);
 //router.get('/closed/:marketId', authenticateToken,marketClosed);
 router.patch('/:marketId', authenticateToken, updateMarketStatus);
+/**
+ * @swagger
+ * /markets/{marketId}/cancel-preview:
+ *   get:
+ *     summary: 마켓 취소 미리보기 (주최자 본인)
+ *     description: |
+ *       마켓을 취소하면 누구에게 얼마를 환불해야 하는지 미리 계산합니다. DB 를 바꾸지 않습니다.
+ *       부스 종류(A/B/C)별 건수·금액과 총 환불 예상액, 결제 전 신청 건수를 함께 돌려줍니다.
+ *     tags: [Markets]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: marketId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: "byBoothType(종류별 집계) / refundCount / refundTotal / unpaidCount / sellerCount / items"
+ *       403: { description: 본인 마켓이 아님 }
+ *       404: { description: 존재하지 않는 마켓 }
+ */
+router.get('/:marketId/cancel-preview', authenticateToken, getCancelPreview);
+
+/**
+ * @swagger
+ * /markets/closed/{marketId}:
+ *   patch:
+ *     summary: 마켓 취소 (주최자 본인) — 전액 환불 + 신청자 알림
+ *     description: |
+ *       마켓을 취소 상태(isExpired=2)로 바꾸고, 결제 완료 건을 전액 환불한 뒤 신청자 전원에게 알립니다.
+ *
+ *       결제 완료 건이 하나라도 있으면 `confirmRefund: true` 없이는 **409 CANCEL_CONFIRM_REQUIRED** 로 거부하고
+ *       환불 예상 내역을 `data` 에 담아 돌려줍니다. 금액을 확인시키지 않은 채 돈이 빠져나가는 것을 막기 위함입니다.
+ *
+ *       환불에 실패한 건이 있어도 마켓 취소는 진행합니다. (판매자에게 통보는 반드시 가야 하므로)
+ *       실패 목록은 `data.failed` 로 반환되며, 결제 내역의 개별 환불로 재시도할 수 있습니다.
+ *     tags: [Markets]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: marketId
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               confirmRefund:
+ *                 type: boolean
+ *                 description: "환불 금액을 확인했다는 표시. 결제 건이 있으면 필수"
+ *               reason:
+ *                 type: string
+ *                 description: "환불 사유 (기본값: 주최자의 마켓 취소)"
+ *     responses:
+ *       200: { description: "취소 완료 — refundedCount / refundedTotal / failed / cancelledUnpaid / notifiedCount" }
+ *       409: { description: "CANCEL_CONFIRM_REQUIRED — 환불 예상 내역을 data 로 반환" }
+ *       403: { description: 본인 마켓이 아님 }
+ */
 router.patch('/closed/:marketId', authenticateToken, deleteMarket);
 /**
  * @swagger

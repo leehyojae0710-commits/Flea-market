@@ -16,8 +16,9 @@
     <script type="module" src="js/marketmap.js?v=2"></script>
     <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
     <script src="../../common/js/api.js?v=4"></script>
+    <script src="../../common/js/booth-types.js?v=3"></script>
     <script type="module" src="js/marketdate.js?v=2"></script>
-    <script type="module" src="js/marketcorrection.js?v=3"></script>
+    <script type="module" src="js/marketcorrection.js?v=6"></script>
     <!-- <script src="../../common/js/api.js"></script> -->
   <!-- [C-01] 역할별 첫 화면 분기 / 주최자 전용 화면 접근 차단 -->
   <script src="../../common/js/role-routing.js?v=3"></script>
@@ -66,7 +67,7 @@
                 <div class="form-field">
                     <label for="booth-price">부스료 (원)</label>
                     <input type="number" id="booth-price" class="form-input" placeholder="0" min="0" required />
-                    <p class="form-hint">참가비가 없다면 0을 입력해주세요.</p>
+                    <p class="form-hint" id="booth-price-hint">참가비가 없다면 0을 입력해주세요.</p>
                 </div>
 
                 <div class="form-field">
@@ -74,16 +75,27 @@
                     <input type="number" id="max-participants" class="form-input" placeholder="0" min="0" required />
                     <p class="form-hint">부스 수량에 제한이 없다면 0을 입력해주세요.</p>
                 </div>
+            <div class="form-field booth-type-field">
+              <label>부스 종류 <span class="booth-type-count" id="booth-type-count">1 / 3</span></label>
+              <p class="form-hint">자리 크기나 위치에 따라 가격을 나누고 싶을 때 쓰세요. 이름은 순서대로 <b>A → B → C</b>로 자동으로 붙고, 최대 3개까지 만들 수 있어요. <b>가격</b>과 <b>수량</b>을 입력하면 됩니다. 수량을 비워두면 그 종류는 개수 제한 없이 받아요.</p>
+              <div id="booth-type-rows"></div>
+          <!-- [추가] 종류별 수량 합계 vs 총 부스 수 — 입력하는 즉시 갱신됩니다. -->
+          <p id="booth-type-capacity-summary" class="booth-cap-summary"></p>
+              <button type="button" id="booth-type-add-btn" class="btn btn-outline btn-sm booth-type-add">＋ 부스 추가 (B)</button>
+              <p class="form-hint">종류를 안 쓰려면 가격을 비워두세요. 그러면 지금처럼 부스료 하나만 받는 마켓이 됩니다.</p>
+            </div>
                 <div class="form-field">
                     <label for="allow-overcapacity" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
                         <input type="checkbox" id="allow-overcapacity" style="width:auto;" />
                         정원이 차도 초과 신청 허용하기
                     </label>
-                    <p class="form-hint">켜두면 부스가 다 찼어도 행사 시작 전까지는 신청·결제를 계속 받을 수 있어요. 행사가 시작되면 자동으로 다시 막혀요.</p>
+                    <p class="form-hint">켜두면 부스가 다 찼어도 행사 시작 전까지는 신청·승인·결제를 계속 받을 수 있어요. 행사가 시작되면 자동으로 다시 막혀요.</p>
                 </div>
                 <div class="form-field">
                     <label for="allow-duplicate-application" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                        <input type="checkbox" id="allow-duplicate-application" style="width:auto;" />
+                        <!-- [수정] 기본값을 checked 로 둡니다. 마켓 정보를 못 불러온 상태에서 저장할 때
+                                    체크가 꺼진 것으로 잘못 전송되어 중복 신청이 막히는 일을 방지합니다. -->
+                        <input type="checkbox" id="allow-duplicate-application" style="width:auto;" checked />
                         같은 판매자의 중복 부스 신청 허용하기
                     </label>
                     <p class="form-hint">꺼두면 한 판매자는 이 마켓에 부스를 하나만 신청할 수 있어요. 같은 상품이든 다른 상품이든 이미 신청(대기/승인/결제완료) 중이면 추가 신청이 막혀요.</p>

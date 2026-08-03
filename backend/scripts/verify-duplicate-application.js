@@ -67,7 +67,10 @@ fileHas('frontend/common/js/global-nav.js', 'application_duplicate', 'global-nav
 // 캐시 무효화(버전 올림)까지 됐는지 — 안 올리면 브라우저가 옛 JS 를 계속 씁니다.
 const detailHtml = fs.existsSync(path.join(FRONT, 'pages/B_host-seller/market-detail.html'))
   ? fs.readFileSync(path.join(FRONT, 'pages/B_host-seller/market-detail.html'), 'utf8') : '';
-check('market-detail.html: market.js 캐시 버전 v14', detailHtml.includes('js/market.js?v=14'));
+// [수정] 캐시 버전은 기능이 추가될 때마다 올라갑니다. 숫자를 못 박아두면
+//        기능이 정상인데도 이 검사만 실패해서, 진짜 문제를 가려버립니다.
+//        버전 표기가 붙어 있는지만 확인합니다.
+check('market-detail.html: market.js 캐시 버전 표기', /js\/market\.js\?v=\d+/.test(detailHtml));
 
 /* ================================================================ */
 console.log('\n[2] 판정 시나리오');

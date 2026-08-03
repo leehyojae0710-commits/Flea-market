@@ -12,8 +12,17 @@
 
 // ---------- API 호출 ----------
 
-async function deleteMarket(marketId) {
-  return callApi(`/markets/closed/${marketId}`, { method: 'PATCH' });
+async function deleteMarket(marketId, confirmRefund = false) {
+  // [마켓 취소] 결제 건이 있으면 confirmRefund 없이는 서버가 409 로 거부합니다.
+  return callApi(`/markets/closed/${marketId}`, {
+    method: 'PATCH',
+    body: { confirmRefund },
+  });
+}
+
+// [마켓 취소] 취소 버튼을 누르기 전에 "얼마가 환불되는지" 미리 계산해 옵니다. DB 는 안 바뀝니다.
+async function getCancelPreview(marketId) {
+  return callApi(`/markets/${marketId}/cancel-preview`);
 }
 
 async function getMyMarkets(sort = '') {
@@ -583,15 +592,33 @@ async function handleDeleteClick(marketId) {
   hideAlert();
   if (!marketId) return;
 
-  const confirmed = window.confirm(
-    '정말 이 마켓을 취소하시겠습니까? 취소 후에는 되돌릴 수 없어요.',
-  );
+  // 1) 먼저 환불 예상 내역을 받아옵니다. (돈이 나가는 동작이라 금액을 보여주고 물어봅니다)
+  let preview = null;
+  try {
+    const res = await getCancelPreview(marketId);
+    if (res && res.success) preview = res.data;
+  } catch (err) {
+    // 미리보기를 못 받아도 취소 자체는 막지 않습니다. 서버가 다시 확인합니다.
+    console.error('취소 미리보기 실패:', err);
+  }
+
+  // 2) 확인 창 — 신청자가 없으면 예전처럼 간단히, 있으면 종류별 내역을 보여줍니다.
+  const confirmed = await showCancelConfirm(preview);
   if (!confirmed) return;
 
   try {
-    const res = await deleteMarket(marketId);
+    const res = await deleteMarket(marketId, true);
     if (res && res.success) {
-      renderAlert('마켓이 취소되었습니다.', 'success');
+      const d = res.data || {};
+      const msg = d.refundedCount
+        ? `마켓이 취소되었습니다. ${d.refundedCount}건 ${Number(d.refundedTotal || 0).toLocaleString()}원을 환불하고 신청자 ${d.notifiedCount}명에게 알렸어요.`
+        : '마켓이 취소되었습니다.';
+      renderAlert(
+        d.failed && d.failed.length > 0
+          ? `${msg} 다만 ${d.failed.length}건의 환불이 실패했어요. 결제 내역에서 개별 환불로 다시 시도해주세요.`
+          : msg,
+        d.failed && d.failed.length > 0 ? 'error' : 'success',
+      );
       if (String(expandedId) === String(marketId)) expandedId = null;
       await loadMyMarkets();
     } else {
@@ -600,6 +627,86 @@ async function handleDeleteClick(marketId) {
   } catch (err) {
     renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
   }
+}
+
+/* ---------------------- [마켓 취소] 확인 창 ---------------------- */
+//
+// window.confirm 은 줄바꿈과 표를 제대로 못 보여줘서, 금액이 여러 줄일 때 읽기 어렵습니다.
+// 종류별 내역을 표로 보여주는 전용 모달을 씁니다. Promise 로 예/아니오를 돌려줍니다.
+
+function showCancelConfirm(preview) {
+  return new Promise((resolve) => {
+    const hasSellers = preview && preview.sellerCount > 0;
+    const refundTotal = Number(preview?.refundTotal || 0);
+
+    const rows = hasSellers
+      ? preview.byBoothType.map((g) => `
+          <tr>
+            <td><span class="booth-type-chip">${g.boothTypeName}</span></td>
+            <td class="num">${g.paidCount}건</td>
+            <td class="num strong">${Number(g.refundTotal).toLocaleString()}원</td>
+            <td class="num muted">${g.unpaidCount}건</td>
+          </tr>`).join('')
+      : '';
+
+    const body = hasSellers
+      ? `
+        <p class="cancel-lead">
+          이 마켓에 신청한 판매자가 <strong>${preview.sellerCount}명</strong> 있어요.
+          취소하면 결제한 금액을 <strong>전액 환불</strong>하고 전원에게 알림이 갑니다.
+        </p>
+        <table class="cancel-table">
+          <thead>
+            <tr><th>부스</th><th class="num">결제</th><th class="num">환불 금액</th><th class="num">결제 전</th></tr>
+          </thead>
+          <tbody>${rows}</tbody>
+          <tfoot>
+            <tr>
+              <td>합계</td>
+              <td class="num">${preview.refundCount}건</td>
+              <td class="num total">${refundTotal.toLocaleString()}원</td>
+              <td class="num muted">${preview.unpaidCount}건</td>
+            </tr>
+          </tfoot>
+        </table>
+        ${refundTotal > 0
+          ? `<p class="cancel-warn">환불 예상 총액 <strong>${refundTotal.toLocaleString()}원</strong>이 결제 취소로 빠져나갑니다. 되돌릴 수 없어요.</p>`
+          : `<p class="cancel-note">결제된 건이 없어 환불할 금액은 없어요. 신청 ${preview.unpaidCount}건은 함께 취소됩니다.</p>`}
+      `
+      : `<p class="cancel-lead">이 마켓에는 아직 신청자가 없어요. 바로 취소할 수 있습니다.</p>
+         <p class="cancel-warn">취소 후에는 되돌릴 수 없어요.</p>`;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'cancel-modal-overlay';
+    overlay.innerHTML = `
+      <div class="cancel-modal" role="dialog" aria-modal="true" aria-labelledby="cancel-modal-title">
+        <h3 id="cancel-modal-title">마켓을 취소할까요?</h3>
+        ${body}
+        <div class="cancel-modal-actions">
+          <button type="button" class="btn btn-outline" data-answer="no">아니오</button>
+          <button type="button" class="btn btn-danger" data-answer="yes">
+            ${refundTotal > 0 ? `예, 환불하고 취소합니다` : '예, 취소합니다'}
+          </button>
+        </div>
+      </div>`;
+
+    const close = (answer) => {
+      document.removeEventListener('keydown', onKey);
+      overlay.remove();
+      resolve(answer);
+    };
+    const onKey = (e) => { if (e.key === 'Escape') close(false); };
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) return close(false); // 바깥 클릭 = 취소
+      const btn = e.target.closest('[data-answer]');
+      if (btn) close(btn.dataset.answer === 'yes');
+    });
+    document.addEventListener('keydown', onKey);
+
+    document.body.appendChild(overlay);
+    overlay.querySelector('[data-answer="no"]')?.focus();
+  });
 }
 
 // ---------- 필터 ----------
@@ -682,5 +789,21 @@ document.addEventListener('DOMContentLoaded', () => {
     .getElementById('sort-filter')
     ?.addEventListener('change', handleSortChange);
   handlePaginationClick();
-  loadMyMarkets();
+
+  // [추가] 마켓 상세의 「마켓 취소하기」에서 넘어오면 해당 마켓을 펼치고 그 위치로 이동합니다.
+  //   취소는 환불 확인 창이 필요한 동작이라 그 흐름을 이 화면 하나에만 두고,
+  //   상세 화면에서는 여기로 보냅니다. (같은 흐름을 두 곳에 만들면 금액 계산이 갈립니다)
+  const highlightId = new URLSearchParams(window.location.search).get('highlight');
+  if (highlightId) expandedId = highlightId;
+
+  loadMyMarkets().then(() => {
+    if (!highlightId) return;
+    const target = document.querySelector(`[data-market-id="${highlightId}"]`);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.classList.add('market-highlight');
+      // 강조는 잠깐만 — 계속 남아 있으면 어느 게 선택된 건지 헷갈립니다.
+      setTimeout(() => target.classList.remove('market-highlight'), 2400);
+    }
+  });
 });

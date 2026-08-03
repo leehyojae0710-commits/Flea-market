@@ -122,6 +122,12 @@ let sellerReviewDraftRating = 0;
 let selectedApplicationIds = new Set();
 // [중복 부스 신청] 「중복 신청만 보기」 체크 여부. 서버가 내려준 sellerDuplicateCount 로 판단합니다.
 let showDuplicateOnly = false;
+// [부스 종류] 선택된 종류 필터. '' 이면 전체, 그 외에는 'A' / 'B' / 'C' / '기본'
+let boothTypeFilter = '';
+// [부스 종류] 서버가 내려준 종류별 집계와 정원 현황
+let boothTypeSummary = [];
+let marketCapacity = 0;
+let occupiedCount = 0;
 
 // ---------- 신청자 목록: 상태 필터 / 정렬 / 페이지네이션 ----------
 
@@ -168,12 +174,28 @@ function applyApplicationStatusFilter() {
     ? byStatus.filter((a) => Number(a.sellerDuplicateCount) >= 2)
     : byStatus;
 
-  filteredApplications = [...byDuplicate].sort(
+  // [부스 종류] A/B/C 중 하나만 골라 보기. 종류를 안 쓰는 마켓의 건은 '기본'으로 묶입니다.
+  const byBoothType = boothTypeFilter
+    ? byDuplicate.filter((a) => (a.boothTypeName || '기본') === boothTypeFilter)
+    : byDuplicate;
+
+  filteredApplications = [...byBoothType].sort(
     (a, b) => getApplicationSortRank(a.status || 'Pending') - getApplicationSortRank(b.status || 'Pending'),
   );
 
   applicationCurrentPage = 1;
   renderApplicationList();
+}
+
+// [부스 종류] 종류 필터 드롭다운 변경
+function handleBoothTypeFilterChange() {
+  const el = document.getElementById('application-booth-type-filter');
+  if (!el) return;
+  el.addEventListener('change', () => {
+    boothTypeFilter = el.value || '';
+    selectedApplicationIds.clear();
+    applyApplicationStatusFilter();
+  });
 }
 
 function handleApplicationStatusFilterChange() {
@@ -194,6 +216,134 @@ function handleDuplicateOnlyToggle() {
   if (!box) return;
   box.addEventListener('change', () => {
     showDuplicateOnly = box.checked;
+    selectedApplicationIds.clear();
+    applyApplicationStatusFilter();
+  });
+}
+
+/* ---------------- [부스 종류] 신청자 목록에서 A/B/C 구분 ----------------
+ *
+ * 주최자가 승인 버튼을 누를 때, 이 신청이 어느 종류의 부스이고 얼마짜리인지
+ * 알 수 있어야 합니다. 예전에는 부스 번호만 보여서 A인지 C인지 알 수 없었습니다.
+ * 금액(boothPrice)은 서버가 「승인 확정가 → 종류 가격 → 마켓 기본가」 순으로 계산해 내려줍니다.
+ */
+
+// 카드 제목 옆 「A 45,000원」 배지. 종류를 안 쓰는 마켓이면 금액만 표시합니다.
+function renderBoothTypeBadge(a) {
+  const name = a.boothTypeName;
+  const price = Number(a.boothPrice);
+  const priceText = Number.isFinite(price) && price > 0
+    ? `${price.toLocaleString()}원`
+    : (Number.isFinite(price) ? '무료' : '');
+
+  if (!name) {
+    return priceText ? `<span class="booth-type-badge plain">${priceText}</span>` : '';
+  }
+  return `<span class="booth-type-badge type-${name}" title="부스 종류 ${name}">`
+    + `<b>${name}</b>${priceText ? ` ${priceText}` : ''}</span>`;
+}
+
+// 칩의 숫자 표기. 수량이 정해져 있으면 "3 / 5칸", 아니면 "3칸".
+function renderChipCount(g) {
+  const cap = Number(g.capacity) || 0;
+  const occ = Number(g.occupied) || 0;
+  return cap > 0 ? `${occ} / ${cap}칸` : `${occ}칸`;
+}
+
+// 칩마다 붙는 게이지. 수량을 안 정한 종류는 막대를 그리지 않습니다.
+//   분모가 없는데 막대를 그리면 다 찬 것처럼 보여 오해하게 됩니다.
+function renderChipGauge(g) {
+  const cap = Number(g.capacity) || 0;
+  const occ = Number(g.occupied) || 0;
+
+  if (cap <= 0) {
+    return '<span class="bts-chip-gauge none" aria-hidden="true"></span>';
+  }
+
+  const pct = Math.round((occ / cap) * 100);
+  const width = Math.min(pct, 100);   // 막대는 100%에서 멈추고 초과분은 숫자로
+  const level = occ > cap ? 'over' : (occ >= cap ? 'full' : (pct >= 70 ? 'high' : 'normal'));
+
+  return `
+    <span class="bts-chip-gauge">
+      <span class="bts-chip-gauge-fill ${level}" style="width:${width}%"></span>
+    </span>`;
+}
+
+// 목록 위 「부스 종류별 현황」 줄. 종류를 안 쓰는 마켓에서는 정원 현황만 보여줍니다.
+function renderBoothTypeSummary() {
+  const box = document.getElementById('application-booth-type-summary');
+  const select = document.getElementById('application-booth-type-filter');
+  if (!box) return;
+
+  const usesTypes = boothTypeSummary.some((g) => g.boothTypeName !== '기본');
+
+  // 필터 드롭다운 채우기 — 실제로 신청이 들어온 종류만 나옵니다.
+  if (select) {
+    const prev = select.value;
+    const opts = ['<option value="">부스 전체</option>']
+      .concat(boothTypeSummary.map((g) =>
+        `<option value="${g.boothTypeName}">부스 ${g.boothTypeName} (${g.total}건)</option>`));
+    select.innerHTML = opts.join('');
+    // 목록을 다시 그려도 고른 필터가 유지되게 합니다.
+    select.value = boothTypeSummary.some((g) => g.boothTypeName === prev) ? prev : '';
+    boothTypeFilter = select.value;
+    select.parentElement.hidden = !usesTypes;
+  }
+
+  // 정원 현황 — 자리를 점유한 건(대기/승인/결제완료)만 셉니다.
+  const capText = marketCapacity > 0
+    ? `<span class="bts-capacity${occupiedCount > marketCapacity ? ' over' : ''}">`
+      + `신청 ${occupiedCount} / 정원 ${marketCapacity}칸`
+      + `${occupiedCount > marketCapacity ? ` <em>초과 ${occupiedCount - marketCapacity}칸</em>` : ''}</span>`
+    : `<span class="bts-capacity">신청 ${occupiedCount}칸 (정원 제한 없음)</span>`;
+
+  if (!usesTypes) {
+    box.innerHTML = `<div class="bts-row">${capText}</div>`;
+    box.hidden = false;
+    return;
+  }
+
+  const chips = boothTypeSummary.map((g) => `
+    <button type="button" class="bts-chip${boothTypeFilter === g.boothTypeName ? ' active' : ''}${g.isActive === false ? ' stopped' : ''}"
+            data-booth-type="${g.boothTypeName}">
+      <span class="bts-chip-head">
+        <span class="bts-chip-name">${g.boothTypeName}${g.isActive === false ? ' <em>중단</em>' : ''}</span>
+        <span class="bts-chip-count">${renderChipCount(g)}</span>
+      </span>
+      ${renderChipGauge(g)}
+      <span class="bts-chip-detail">대기 ${g.pending} · 승인 ${g.approved} · 결제 ${g.paid}</span>
+    </button>`).join('');
+
+  box.innerHTML = `
+    <div class="bts-row">
+      <strong class="bts-title">부스 종류별 현황</strong>
+      ${capText}
+    </div>
+    <div class="bts-chips">
+      <button type="button" class="bts-chip${boothTypeFilter === '' ? ' active' : ''}" data-booth-type="">
+        <span class="bts-chip-head">
+          <span class="bts-chip-name">전체</span>
+          <span class="bts-chip-count">${renderChipCount({ occupied: occupiedCount, capacity: marketCapacity })}</span>
+        </span>
+        ${renderChipGauge({ occupied: occupiedCount, capacity: marketCapacity })}
+        <span class="bts-chip-detail">모든 종류</span>
+      </button>
+      ${chips}
+    </div>`;
+  box.hidden = false;
+}
+
+// 현황 칩을 눌러도 필터가 걸리게 합니다. (드롭다운과 같은 동작)
+function handleBoothTypeChipClick() {
+  const box = document.getElementById('application-booth-type-summary');
+  if (!box) return;
+  box.addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-booth-type]');
+    if (!chip) return;
+    boothTypeFilter = chip.dataset.boothType || '';
+    const select = document.getElementById('application-booth-type-filter');
+    if (select) select.value = boothTypeFilter;
     selectedApplicationIds.clear();
     applyApplicationStatusFilter();
   });
@@ -365,6 +515,12 @@ function handleMarketCreateSubmit() {
       renderAlert('허용 가능한 최대 부스 수는 0 이상의 정수로 입력해주세요.');
       return;
     }
+    // [부스 종류] 가격 형식 검사
+    const boothTypeError = window.BoothTypes?.validate?.();
+    if (boothTypeError) {
+      renderAlert(boothTypeError);
+      return;
+    }
 
     // ---- 3) 검증 통과 후에만 이미지 업로드 진행 ----
     await uploadMarketImage();
@@ -382,7 +538,13 @@ function handleMarketCreateSubmit() {
       latitude: document.getElementById('latitude').value || null,
       longitude: document.getElementById('longitude').value || null,
       maxparticipants: maxParticipantsNum,
+      // [추가] 부스 신청 옵션 2종. 수정 화면(marketcorrection.js)과 같은 키/기본값을 씁니다.
+      //   - 초과 신청 허용: 기본 꺼짐(false)
+      //   - 중복 신청 허용: 기본 켜짐(true) — 1인 다부스 허용 정책
+      allowOvercapacity: document.getElementById('allow-overcapacity')?.checked ?? false,
       allowDuplicateApplication: document.getElementById('allow-duplicate-application')?.checked ?? true,
+      // [부스 종류] A/B/C 최대 3개. 가격을 안 채운 칸은 BoothTypes 가 알아서 빼고 보냅니다.
+      boothTypes: window.BoothTypes ? (window.BoothTypes.getTypes() || []) : [],
       marketImage: document.getElementById('uploadedImagePath').value || null,
     };
 
@@ -392,6 +554,17 @@ function handleMarketCreateSubmit() {
     try {
       const res = await createMarket(payload);
       if (res && res.success) {
+        // [추가] DB에 옵션 컬럼이 아직 없으면 서버가 optionsSkipped 를 돌려줍니다.
+        //        조용히 무시되면 주최자가 "켰는데 왜 안 되지" 하게 되므로 화면에 알려줍니다.
+        // [수정] 부스 수량 미저장 안내도 함께 봅니다. (예전에는 옵션만 확인하고 버렸습니다)
+        const skipped = res.data?.optionsSkipped || [];
+        const capacitySkipped = res.data?.boothTypes?.capacitySkipped === true;
+        if (skipped.length > 0 || capacitySkipped) {
+          renderAlert(res.message || '마켓은 등록됐지만 일부 항목이 저장되지 않았어요.');
+          setButtonLoading(submitBtn, false, '등록 중...', '등록하기');
+          setTimeout(() => { window.location.href = '../../index.html'; }, 3500);
+          return;
+        }
         renderAlert('마켓이 등록됐어요!', 'success');
         setTimeout(() => {
           window.location.href = '../../index.html';
@@ -482,6 +655,9 @@ function renderMarketDetail(market) {
     hostEl.innerHTML = '주최자 ' + ProfileLink.html(market.hostId, market.hostNickname);
     hostEl.style.display = '';
   }
+
+  // [추가] 마감·취소된 마켓에서는 수정/취소 버튼을 감춥니다.
+  applyHostActionState(market);
 }
 
 async function loadMarketDetail() {
@@ -529,6 +705,8 @@ function renderApplicationList() {
 
   // [중복 부스 신청] 목록 위 요약 줄은 필터와 무관하게 항상 전체 기준으로 갱신합니다.
   renderApplicationDuplicateSummary();
+  // [부스 종류] 선택된 칩 강조가 필터 변경마다 따라오도록 함께 다시 그립니다.
+  renderBoothTypeSummary();
 
   if (filteredApplications.length === 0) {
     wrap.innerHTML =
@@ -561,7 +739,7 @@ function renderApplicationList() {
             ${selectedApplicationIds.has(String(id)) ? 'checked' : ''} style="margin-top:3px;" />
         ` : '<span style="width:16px; display:inline-block;"></span>'}
         <div>
-          <div class="item-card-title">${a.itemName || '이름 미입력'} · ${a.boothNumber}번 부스${a.title ? ` · ${a.title}` : ''} ${renderDuplicateBadge(a)}</div>
+          <div class="item-card-title">${a.itemName || '이름 미입력'} · ${a.boothNumber}번 부스${a.title ? ` · ${a.title}` : ''} ${renderBoothTypeBadge(a)}${renderDuplicateBadge(a)}</div>
           <div class="item-card-meta">신청자: ${ProfileLink.html(a.sellerId, a.sellerNickname)}</div>
         </div>
       </div>
@@ -994,16 +1172,91 @@ async function loadApplicationList() {
     const res = await getApplicationList(marketId);
     if (res && res.success) {
       currentApplications = res.data || [];
+      // [부스 종류] 서버가 함께 내려주는 종류별 집계와 정원 현황.
+      //   구버전 서버(필드 없음)에서도 화면이 깨지지 않게 기본값을 둡니다.
+      boothTypeSummary = res.boothTypeSummary || [];
+      marketCapacity = Number(res.capacity) || 0;
+      occupiedCount = Number(res.occupiedCount) || 0;
+      renderBoothTypeSummary();
       applyApplicationStatusFilter();
     } else {
       currentApplications = [];
       filteredApplications = [];
+      boothTypeSummary = []; marketCapacity = 0; occupiedCount = 0;
       wrap.innerHTML = '<p class="list-empty">신청 목록을 불러오지 못했어요.</p>';
     }
   } catch (err) {
     currentApplications = [];
     filteredApplications = [];
     wrap.innerHTML = '<p class="list-empty">서버에 연결할 수 없어요.</p>';
+  }
+}
+
+/* ---------------- [추가] 마켓 상세의 주최자 관리 버튼 ----------------
+ *
+ * 신청자 목록을 보다가 바로 마켓을 고치거나 취소할 수 있어야 합니다.
+ * 예전에는 「내 마켓 관리」 화면으로 되돌아가야만 수정에 들어갈 수 있었습니다.
+ *
+ * 마감·취소된 마켓에서는 수정·취소가 의미가 없으므로 버튼을 감추고 이유를 적어둡니다.
+ * (마켓 취소는 결제 건 환불이 따르는 동작이라 「내 마켓 관리」의 확인 창을 그대로 씁니다)
+ */
+function handleMarketEditClick() {
+  const btn = document.getElementById('edit-market-btn');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    const marketId = getMarketIdFromUrl();
+    if (!marketId) {
+      renderAlert('마켓 정보를 찾을 수 없어요.');
+      return;
+    }
+    window.location.href = `correctionMarket?marketId=${marketId}`;
+  });
+}
+
+function handleMarketCancelClick() {
+  const btn = document.getElementById('cancel-market-btn');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    const marketId = getMarketIdFromUrl();
+    if (!marketId) return;
+    // 환불 예상 내역을 보여주는 확인 창은 「내 마켓 관리」 화면에 있습니다.
+    //   같은 흐름을 두 곳에 만들면 금액 계산이 갈리므로 그쪽으로 보냅니다.
+    window.location.href = `mymarketpage?highlight=${marketId}`;
+  });
+}
+
+/**
+ * 마켓 상태에 따라 관리 버튼을 켜고 끕니다.
+ * @param market 마켓 상세 응답 (isExpired: 0 진행중 / 1 마감 / 2 취소)
+ */
+function applyHostActionState(market) {
+  const editBtn = document.getElementById('edit-market-btn');
+  const closeBtn = document.getElementById('close-market-btn');
+  const cancelBtn = document.getElementById('cancel-market-btn');
+  const hint = document.getElementById('host-actions-hint');
+  if (!editBtn) return;
+
+  const state = Number(market?.isExpired) || 0;
+
+  if (state === 2) {
+    editBtn.hidden = true; cancelBtn.hidden = true;
+    if (closeBtn) closeBtn.hidden = true;
+    if (hint) hint.textContent = '취소된 마켓이라 더 이상 수정할 수 없어요.';
+    return;
+  }
+  if (state === 1) {
+    editBtn.hidden = true; cancelBtn.hidden = true;
+    if (closeBtn) closeBtn.hidden = true;
+    if (hint) hint.textContent = '마감된 마켓이라 더 이상 수정할 수 없어요.';
+    return;
+  }
+
+  editBtn.hidden = false;
+  cancelBtn.hidden = false;
+  if (closeBtn) closeBtn.hidden = false;
+  if (hint) {
+    hint.textContent = '마감 처리하면 목록에서 내려가고 신청을 더 받지 않아요. '
+      + '취소는 결제한 판매자에게 전액 환불이 나갑니다.';
   }
 }
 
@@ -1049,6 +1302,9 @@ function prefillBoothApplyForm() {
 
   // [추가] 어떤 주최자의 마켓에 신청하는지 닉네임으로 보여주고, 클릭하면 프로필로 이동합니다.
   renderBoothApplyHost(marketIdInput.value);
+
+  // [부스 종류] 주최자가 A/B/C 로 나눠 올렸으면 고르게 합니다. 안 나눴으면 이 영역은 숨겨진 채로 둡니다.
+  loadBoothTypeChoices(marketIdInput.value);
 
   // [중복 부스 신청] 이 마켓에 이미 신청한 건이 있으면 화면 위에 알려줍니다. (막지는 않음)
   renderSameMarketDuplicateNotice(marketIdInput.value);
@@ -1109,6 +1365,59 @@ async function uploadItemImage() {
   }
 }
 
+// [부스 종류] 이 마켓의 종류 목록을 받아 select 를 채웁니다.
+//   종류가 없으면 영역을 숨긴 채로 둬서 기존 신청 흐름 그대로 동작합니다.
+async function loadBoothTypeChoices(marketId) {
+  const field = document.getElementById('booth-type-field');
+  const select = document.getElementById('booth-type');
+  const hint = document.getElementById('booth-type-hint');
+  if (!field || !select || !marketId) return;
+
+  try {
+    const res = await callApi(`/markets/${marketId}`);
+    const types = res?.data?.boothTypes || [];
+    // 상세 응답에는 「신규 신청 중단」된 종류도 들어 있습니다. renderOptions 가 걸러 주므로
+    // 결과가 비면(종류를 안 쓰거나 전부 중단) 이 영역은 숨긴 채로 둡니다.
+    const optionsHtml = window.BoothTypes.renderOptions(types);
+    if (!optionsHtml) return;
+
+    select.innerHTML = optionsHtml;
+    field.hidden = false;
+
+    // [종류별 정원] 마감된 종류는 disabled 라 고를 수 없습니다.
+    //   브라우저는 첫 option 을 자동 선택하는데 그게 마감된 종류면
+    //   "선택은 돼 있는데 신청은 거부되는" 상태가 됩니다. 첫 번째 남은 자리로 옮깁니다.
+    const firstOpen = [...select.options].find((o) => !o.disabled);
+    if (firstOpen) {
+      select.value = firstOpen.value;
+    } else {
+      // 전부 마감이면 신청 자체가 불가능합니다.
+      select.disabled = true;
+      const submitBtn = document.getElementById('booth-apply-submit-btn');
+      if (submitBtn) submitBtn.disabled = true;
+      if (hint) hint.textContent = '모든 부스 종류가 마감되었어요. 다른 마켓을 찾아보세요.';
+      return;
+    }
+
+    const showPrice = () => {
+      const opt = select.selectedOptions[0];
+      const price = Number(opt?.dataset.price) || 0;
+      if (hint) {
+        // [승인 시 금액 고정] 지금 보이는 금액은 "예상"입니다.
+        //   실제로 낼 금액은 주최자가 승인하는 순간의 금액으로 확정되고, 그 뒤로는 안 바뀝니다.
+        hint.textContent = price === 0
+          ? '이 종류는 참가비가 무료예요. 승인되면 바로 확정됩니다.'
+          : `현재 ${price.toLocaleString()}원이에요. 주최자가 승인하는 시점의 금액으로 확정되며, 확정 후에는 바뀌지 않아요.`;
+      }
+    };
+    select.addEventListener('change', showPrice);
+    showPrice();
+  } catch (err) {
+    // 목록을 못 불러와도 신청 자체는 막지 않습니다. 서버가 다시 검증합니다.
+    console.error('부스 종류 조회 실패:', err);
+  }
+}
+
 function handleBoothApplySubmit() {
   const form = document.getElementById('booth-apply-form');
   if (!form) return;
@@ -1118,13 +1427,24 @@ function handleBoothApplySubmit() {
     e.preventDefault();
     hideAlert();
 
+    const boothTypeField = document.getElementById('booth-type-field');
+    const boothTypeSelect = document.getElementById('booth-type');
+    const usesBoothTypes = boothTypeField && !boothTypeField.hidden;
+
     const payload = {
       marketId: document.getElementById('market-id').value,
       boothNumber: document.getElementById('booth-number').value.trim(),
       title: document.getElementById('booth-title').value.trim(),
       itemName: document.getElementById('item-name').value.trim(),
       productDesc: document.getElementById('product-desc').value.trim(),
+      // [부스 종류] 종류를 쓰는 마켓에서만 보냅니다. 서버가 소속·활성 여부를 다시 확인합니다.
+      boothTypeId: usesBoothTypes ? Number(boothTypeSelect.value) || null : null,
     };
+
+    if (usesBoothTypes && !payload.boothTypeId) {
+      renderAlert('부스 종류를 선택해주세요.');
+      return;
+    }
 
     if (!payload.boothNumber) {
       renderAlert('부스 번호를 입력해주세요.');
@@ -1642,6 +1962,9 @@ document.addEventListener('DOMContentLoaded', () => {
   handleMarketCreateSubmit();
   wireCreateMarketImageRemove(); // [추가] 마켓 등록 화면 이미지 삭제 버튼
   loadMarketDetail();
+  // [추가] 마켓 상세의 주최자 관리 버튼 (수정하기 / 취소하기)
+  handleMarketEditClick();
+  handleMarketCancelClick();
   handleBoothSelectClick();
   loadApplicationList();
   document
@@ -1649,6 +1972,9 @@ document.addEventListener('DOMContentLoaded', () => {
     ?.addEventListener('change', handleApplicationStatusFilterChange);
   handleApplicationPaginationClick();
   handleDuplicateOnlyToggle();
+  // [부스 종류] 신청자 목록의 종류 필터(드롭다운 + 현황 칩)
+  handleBoothTypeFilterChange();
+  handleBoothTypeChipClick();
   handleCloseMarketClick();
   loadCommentList();
   handleCommentSubmit();
@@ -1658,6 +1984,14 @@ document.addEventListener('DOMContentLoaded', () => {
   prefillBoothApplyForm();
   handleProductImagePreview();
   handleBoothApplySubmit();
+  // [부스 종류] 마켓 등록 화면의 「부스 추가」 UI. 다른 화면에서는 컨테이너가 없어 조용히 무시됩니다.
+  window.BoothTypes?.mount?.({
+    rootId: 'booth-type-rows',
+    addBtnId: 'booth-type-add-btn',
+    countId: 'booth-type-count',
+    priceInputId: 'booth-price',
+    priceHintId: 'booth-price-hint',
+  });
 });
 
 /* ---------------------- [추가] 마켓 등록 화면: 이미지 삭제 ---------------------- */
