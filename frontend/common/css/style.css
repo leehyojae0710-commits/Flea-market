@@ -508,3 +508,93 @@ body {
 @media (max-width: 640px) {
   .booth-type-summary .bts-chips { grid-template-columns: 1fr; }
 }
+
+/* ============================================================
+   [중복 부스 신청] 마켓별로 골라 보기
+   - 「중복 N」 배지를 누르면 그 마켓의 중복 신청만
+   - 「중복 신청만 보기」를 켜면 중복 마켓 목록이 펼쳐짐
+   ============================================================ */
+.dup-badge-btn {
+  border: 1px solid transparent;
+  cursor: pointer;
+  font: inherit;
+  transition: box-shadow .15s, border-color .15s;
+}
+.dup-badge-btn:hover { border-color: #d97706; }
+.dup-badge-btn.active {
+  border-color: #b45309;
+  box-shadow: 0 0 0 2px rgba(180, 83, 9, .25);
+}
+
+.dup-market-list {
+  list-style: none;
+  margin: 8px 0 6px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.dup-market-item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 4px 8px;
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  transition: border-color .15s, box-shadow .15s;
+}
+.dup-market-item:hover { border-color: #fcd34d; }
+.dup-market-item.active {
+  border-color: #d97706;
+  box-shadow: 0 0 0 2px rgba(217, 119, 6, .2);
+  background: #fffbeb;
+}
+.dup-market-item .dmi-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1f2937;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dup-market-item .dmi-count {
+  font-size: 13px;
+  font-weight: 800;
+  color: #b45309;
+  white-space: nowrap;
+}
+.dup-market-item .dmi-booths {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  color: #6b7280;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dup-picked {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  font-size: 13px;
+  color: #92400e;
+}
+
+@media (max-width: 640px) {
+  .dup-market-list { grid-template-columns: 1fr; max-height: 220px; }
+}

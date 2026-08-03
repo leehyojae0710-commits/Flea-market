@@ -77,6 +77,9 @@ let reviewDraftRating = 0; // 별점 입력창에서 아직 제출 전인 값 (0
 let searchKeyword = '';
 // [중복 부스 신청] 「중복 신청만 보기」 체크 여부. 서버가 내려준 marketDuplicateCount 로 판단합니다.
 let duplicateOnly = false;
+// [중복 부스] 특정 마켓의 중복 건만 볼 때 그 마켓 id. null 이면 마켓 제한 없음.
+//   ①「중복 N」 배지를 누르거나 ② 중복 마켓 목록에서 한 곳을 고르면 설정됩니다.
+let duplicateMarketId = null;
 
 // ---------- 페이지네이션 ----------
 const PAGE_SIZE = 20;
@@ -102,12 +105,18 @@ function renderBoothList() {
     wrap.innerHTML = '';
     if (emptyState) {
       emptyState.hidden = false;
+      // [중복 부스] 마켓·상태 조건이 겹쳐 결과가 0건일 때, 무엇 때문에 비었는지 알려줍니다.
+      //   그냥 "신청이 없어요" 라고만 하면 필터가 걸린 줄 모르고 사라진 줄 압니다.
       emptyState.textContent =
         allApplications.length === 0
           ? '아직 신청한 부스가 없어요.'
           : searchKeyword
             ? `'${searchKeyword}'에 대한 검색 결과가 없어요.`
-            : '해당 상태의 신청이 없어요.';
+            : duplicateMarketId
+              ? '고른 마켓에 해당 상태의 중복 신청이 없어요. 위 「전체 보기」를 누르거나 상태를 바꿔보세요.'
+              : duplicateOnly
+                ? '해당 상태의 중복 신청이 없어요.'
+                : '해당 상태의 신청이 없어요.';
     }
     renderPagination(0);
     return;
@@ -267,22 +276,36 @@ function renderBoothRecruitGauge(a) {
  * 세는 기준은 서버(utills/duplicateApplication.js)와 같고 반려·환불완료 건은 빠집니다.
  */
 
+// [중복 부스] 배지를 누르면 그 마켓의 중복 신청만 걸러 봅니다.
+//   카드 제목 영역은 상세 펼치기(toggle)라, 배지 클릭이 그쪽으로 새지 않도록
+//   아래 위임 핸들러에서 stopPropagation 합니다.
 function renderMyDuplicateBadge(a) {
   const count = Number(a.marketDuplicateCount) || 0;
   if (count < 2) return '';
   const booths = Array.isArray(a.marketDuplicateBooths) ? a.marketDuplicateBooths : [];
   const boothText = booths.length > 0 ? ` (${booths.slice(0, 5).join(', ')}번${booths.length > 5 ? ' 외' : ''})` : '';
-  return `<span class="dup-badge" title="이 마켓에 부스 ${count}칸을 신청 중이에요.${boothText}">중복 ${count}</span>`;
+  const selected = String(duplicateMarketId) === String(a.marketId);
+  return `<button type="button" class="dup-badge dup-badge-btn${selected ? ' active' : ''}"
+            data-action="dup-market" data-market-id="${a.marketId}"
+            title="${selected ? '누르면 전체 목록으로 돌아가요.' : `이 마켓에 신청한 ${count}칸만 모아 봐요.`}${boothText}">중복 ${count}</button>`;
 }
 
 function renderMyDuplicateSummary() {
   const box = document.getElementById('booth-duplicate-summary');
   if (!box) return;
 
+  // 마켓별로 묶습니다. (같은 마켓의 여러 신청이 같은 marketDuplicateCount 를 들고 옵니다)
   const map = new Map();
   allApplications.forEach((a) => {
     const count = Number(a.marketDuplicateCount) || 0;
-    if (count >= 2) map.set(String(a.marketId), { count, title: a.marketTitle || `마켓 ${a.marketId}` });
+    if (count >= 2) {
+      map.set(String(a.marketId), {
+        marketId: a.marketId,
+        count,
+        title: a.marketTitle || `마켓 ${a.marketId}`,
+        booths: Array.isArray(a.marketDuplicateBooths) ? a.marketDuplicateBooths : [],
+      });
+    }
   });
 
   if (map.size === 0) {
@@ -291,17 +314,96 @@ function renderMyDuplicateSummary() {
     return;
   }
 
-  const rows = [];
-  let booths = 0;
-  map.forEach((v) => { booths += v.count; rows.push(`${v.title} ${v.count}칸`); });
-
   const escape = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+  let booths = 0;
+  map.forEach((v) => { booths += v.count; });
+
+  // [수정] 예전에는 마켓 이름을 글자로만 나열해서, 어느 마켓의 중복인지 보려면
+  //   눈으로 찾아 스크롤해야 했습니다. 이제 목록으로 그리고 누르면 그 마켓만 걸러 봅니다.
+  //   목록은 「중복 신청만 보기」를 켰을 때만 펼칩니다. (평소엔 요약 한 줄)
+  const items = [...map.values()]
+    .sort((a, b) => b.count - a.count)
+    .map((v) => {
+      const selected = String(duplicateMarketId) === String(v.marketId);
+      const boothText = v.booths.length > 0
+        ? `${v.booths.slice(0, 6).join(', ')}번${v.booths.length > 6 ? ' 외' : ''}`
+        : '';
+      return `
+        <li>
+          <button type="button" class="dup-market-item${selected ? ' active' : ''}"
+                  data-action="dup-market" data-market-id="${v.marketId}">
+            <span class="dmi-title">${escape(v.title)}</span>
+            <span class="dmi-count">${v.count}칸</span>
+            ${boothText ? `<span class="dmi-booths">${escape(boothText)}</span>` : ''}
+          </button>
+        </li>`;
+    }).join('');
+
+  const listBlock = duplicateOnly
+    ? `<ul class="dup-market-list">${items}</ul>
+       <span class="dup-summary-hint">마켓을 누르면 그 마켓에 신청한 부스만 모아서 볼 수 있어요.</span>`
+    : `<span class="dup-summary-names">${[...map.values()].slice(0, 5)
+        .map((v) => escape(`${v.title} ${v.count}칸`)).join(' / ')}${map.size > 5 ? ` 외 ${map.size - 5}곳` : ''}</span>
+       <span class="dup-summary-hint">위 「중복 신청만 보기」를 켜면 마켓별로 골라 볼 수 있어요.</span>`;
+
+  // 마켓을 하나 고른 상태면 무엇을 보고 있는지와 해제 버튼을 위에 답니다.
+  const picked = duplicateMarketId ? map.get(String(duplicateMarketId)) : null;
+  const pickedBar = picked
+    ? `<div class="dup-picked">
+         <span><strong>${escape(picked.title)}</strong>의 중복 신청 ${picked.count}칸만 보고 있어요.</span>
+         <button type="button" class="btn btn-outline btn-sm" data-action="dup-clear">전체 보기</button>
+       </div>`
+    : '';
+
   box.innerHTML = `
+    ${pickedBar}
     <strong>중복 신청한 마켓 ${map.size}곳 · 총 ${booths}칸</strong>
-    <span class="dup-summary-names">${rows.slice(0, 5).map(escape).join(' / ')}${rows.length > 5 ? ` 외 ${rows.length - 5}곳` : ''}</span>
-    <span class="dup-summary-hint">한 마켓에 여러 칸 신청하는 건 가능해요. 실수로 넣은 신청이 있다면 대기중일 때 취소할 수 있어요.</span>`;
+    ${listBlock}`;
   box.hidden = false;
+}
+
+/* [중복 부스] 배지·마켓 목록 클릭 처리 (한 곳에서 위임)
+ *   목록은 다시 그려지므로 개별 버튼에 붙이지 않고 상위에서 받습니다. */
+function handleDuplicateMarketClick() {
+  document.addEventListener('click', (e) => {
+    const clear = e.target.closest('[data-action="dup-clear"]');
+    if (clear) {
+      e.preventDefault();
+      duplicateMarketId = null;
+      expandedId = null;
+      currentPage = 1;
+      applyStatusFilter();
+      return;
+    }
+
+    const btn = e.target.closest('[data-action="dup-market"]');
+    if (!btn) return;
+
+    // 카드 제목을 누르면 상세가 펼쳐지므로, 배지 클릭이 그쪽으로 새지 않게 막습니다.
+    e.preventDefault();
+    e.stopPropagation();
+
+    const id = btn.dataset.marketId;
+    // 이미 고른 마켓을 다시 누르면 해제 (토글)
+    duplicateMarketId = String(duplicateMarketId) === String(id) ? null : id;
+
+    // 마켓을 고르면 「중복 신청만 보기」도 함께 켭니다.
+    //   안 켜면 그 마켓의 중복 아닌 건까지 섞여 나와 무엇을 보고 있는지 헷갈립니다.
+    if (duplicateMarketId) {
+      duplicateOnly = true;
+      const box = document.getElementById('booth-duplicate-only');
+      if (box) box.checked = true;
+    }
+
+    expandedId = null;
+    currentPage = 1;
+    applyStatusFilter();
+
+    // 목록 위쪽으로 올려 결과가 바로 보이게 합니다.
+    document.getElementById('booth-duplicate-summary')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
 }
 
 function renderBoothCard(a) {
@@ -708,7 +810,15 @@ function applyStatusFilter() {
   const byDuplicate = duplicateOnly
     ? byStatus.filter((a) => Number(a.marketDuplicateCount) >= 2)
     : byStatus;
-  myApplications = byDuplicate.filter(matchesSearchKeyword);
+
+  // [중복 부스] 특정 마켓을 고른 상태면 그 마켓의 중복 건만 남깁니다.
+  //   마켓을 고른 것 자체가 "중복만 보겠다"는 뜻이므로 중복 조건도 함께 겁니다.
+  const byMarket = duplicateMarketId
+    ? byDuplicate.filter((a) => String(a.marketId) === String(duplicateMarketId)
+        && Number(a.marketDuplicateCount) >= 2)
+    : byDuplicate;
+
+  myApplications = byMarket.filter(matchesSearchKeyword);
   renderBoothList();
 }
 
@@ -717,6 +827,8 @@ function handleDuplicateOnlyToggle() {
   if (!box) return;
   box.addEventListener('change', () => {
     duplicateOnly = box.checked;
+    // 체크를 끄면 마켓 선택도 함께 풀립니다. (켜면 마켓 목록부터 다시 고르게)
+    duplicateMarketId = null;
     expandedId = null;
     currentPage = 1;
     applyStatusFilter();
@@ -776,5 +888,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ?.addEventListener('change', handleFilterChange);
   handlePaginationClick();
   handleDuplicateOnlyToggle();
+  // [중복 부스] 배지 / 마켓 목록 클릭으로 그 마켓의 중복 건만 보기
+  handleDuplicateMarketClick();
   loadMyBoothList();
 });
