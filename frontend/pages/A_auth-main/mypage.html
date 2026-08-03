@@ -15,11 +15,12 @@
     <link rel="stylesheet" href="../B_host-seller/css/host-seller.css?v=2" />
     <link rel="stylesheet" href="css/auth.css" />
     <link rel="stylesheet" href="css/profile.css?v=5" />
+    <link rel="stylesheet" href="css/payment-history.css?v=3" />
     <!-- [C-01/C-02] 역할별 화면 분기 · 주최자 역할 전환 버튼 -->
     <script src="../../common/js/role-routing.js?v=3"></script>
-  <!-- [공통] 상단 고정 네비게이션 바 (모든 화면 공통) -->
-  <link rel="stylesheet" href="../../common/css/global-nav.css?v=2" />
-  <script src="../../common/js/global-nav.js?v=2" defer></script>
+    <!-- [공통] 상단 고정 네비게이션 바 (모든 화면 공통) -->
+    <link rel="stylesheet" href="../../common/css/global-nav.css?v=2" />
+    <script src="../../common/js/global-nav.js?v=2" defer></script>
 </head>
 
 <body class="profile-body">
@@ -37,13 +38,13 @@
             <!-- [UI] profile-edit.html 과 동일한 좌측 목록(.edit-tabs) 레이아웃을 그대로 사용합니다. -->
             <div class="edit-layout">
                 <div class="edit-tabs">
-                    <a href="mypage.html" class="edit-tab-btn active" aria-current="page">내 프로필</a>
+                    <button type="button" class="edit-tab-btn" onclick="changePageProfile()">내 프로필</button>
                     <a href="profile-edit.html" class="edit-tab-btn">내 정보수정</a>
                     <!-- [UI 전용] 화면만 만든 항목입니다. 동작은 연결하지 않았습니다. -->
-                    <button type="button" class="edit-tab-btn is-soon" aria-disabled="true">결제내역 확인</button>
+                    <button type="button" class="edit-tab-btn" onclick="changePagePayment()">결제내역 확인</button>
                 </div>
 
-                <div class="edit-panels">
+                <div class="edit-panels" id="profile-panel">
 
                     <div class="profile-top">
                         <div id="profile-avatar" class="profile-avatar">프로필<br />사진란</div>
@@ -171,6 +172,7 @@
                     </div>
 
                 </div>
+                <div class="edit-panels payment-history-panel" id="payment-list" hidden></div>
             </div>
         </div>
 
@@ -179,6 +181,7 @@
 
     <script src="../../common/js/api.js?v=4"></script>
     <script src="js/mypage.js?v=6"></script>
+    <script src="../B_host-seller/js/payment.js"></script>
 </body>
 
 </html>
