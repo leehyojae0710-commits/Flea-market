@@ -25,22 +25,16 @@ async function historys() {
     method: 'POST',
   })
 }
-async function changePage() {
+async function changePagePayment() {
   const page = document.getElementById('profile-panel');
   const ui = document.getElementById('payment-list');
   if (!page)
     return;
   if (!ui)
     return;
-  if (page.hidden) {
-    page.hidden = false;
-    ui.hidden = true;
-  }
-  else {
-    page.hidden = true;
-    ui.hidden = false;
-    payment_history();
-  }
+  page.hidden = true;
+  ui.hidden = false;
+  payment_history();
 }
 async function payment_history() {
   const ui = document.getElementById('payment-list');
