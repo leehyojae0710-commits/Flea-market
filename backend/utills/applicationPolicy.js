@@ -33,15 +33,7 @@ const ACTIVE_LIST = ACTIVE_APPLICATION_STATUSES.map(() => '?').join(', ');
 
 // 팀마다 마이그레이션 적용 시점이 달라, 없는 컬럼을 SELECT 하면 신청 자체가 500 으로 죽습니다.
 // 한 번만 조회해서 캐시하고, 없는 컬럼에 걸린 검사는 조용히 건너뜁니다.
-//
-// [중요] information_schema 조회 결과는 컬럼명을 "정의된 그대로" 돌려줍니다.
-//   MySQL 은 SQL 안에서는 컬럼명 대소문자를 안 가리지만, 이 목록과 대조할 때는 가립니다.
-//   실제로 markets 의 정원 컬럼은 `maxParticipants`(대문자 P)로 만들어져 있는데
-//   여기서 'maxparticipants'(소문자)로 찾는 바람에 "그런 컬럼 없음"으로 판정됐고,
-//   그래서 정원 값을 아예 SELECT 하지 않아 → undefined → NaN → **정원 검사가 통째로 건너뛰어졌습니다.**
-//   (초과 신청 허용을 꺼도 계속 초과 신청이 되던 원인)
-//   이제 소문자로 정규화해서 비교하고, SELECT 에는 DB 에 있는 실제 표기를 씁니다.
-let marketColumnCache = null;   // Map<소문자 이름, 실제 이름>
+let marketColumnCache = null;
 
 async function getMarketColumns(db) {
   if (marketColumnCache) return marketColumnCache;
@@ -50,16 +42,11 @@ async function getMarketColumns(db) {
       `SELECT COLUMN_NAME AS c FROM information_schema.columns
         WHERE table_schema = DATABASE() AND table_name = 'markets'`
     );
-    marketColumnCache = new Map(rows.map((r) => [String(r.c).toLowerCase(), r.c]));
+    marketColumnCache = new Set(rows.map((r) => r.c));
   } catch (error) {
-    marketColumnCache = new Map();
+    marketColumnCache = new Set();
   }
   return marketColumnCache;
-}
-
-/** 테스트나 스키마 변경 직후에 캐시를 비웁니다. */
-export function resetMarketColumnCache() {
-  marketColumnCache = null;
 }
 
 /** DATE 컬럼을 시간대 영향 없이 'YYYY-MM-DD' 로 만듭니다. (toISOString 은 하루 밀릴 수 있음) */
@@ -105,15 +92,11 @@ export async function checkBoothApplyEligibility(db, {
   lock = false,
 } = {}) {
   const columns = await getMarketColumns(db);
-  // 컬럼 유무는 대소문자를 무시하고 판단합니다. (maxParticipants vs maxparticipants)
-  const has = (c) => columns.size === 0 || columns.has(String(c).toLowerCase());
-  // SELECT 에 쓸 실제 표기. 조회에 실패해 캐시가 비어 있으면 넘어온 이름을 그대로 씁니다.
-  const realName = (c) => columns.get(String(c).toLowerCase()) || c;
+  const has = (c) => columns.size === 0 || columns.has(c);
 
   const selectCols = ['marketId', 'hostId', 'isExpired', 'title'];
   for (const c of ['maxparticipants', 'allowOvercapacity', 'allowDuplicateApplication', 'eventDate_min', 'eventDate_max', 'recruitmentDate_min', 'recruitmentDate_max']) {
-    // 별칭을 소문자로 고정해, 아래 코드가 market.maxparticipants 처럼 한 가지 표기로만 읽게 합니다.
-    if (has(c)) selectCols.push(`${realName(c)} AS ${c}`);
+    if (has(c)) selectCols.push(c);
   }
 
   const [marketRows] = await db.query(

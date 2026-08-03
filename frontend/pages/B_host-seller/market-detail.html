@@ -62,13 +62,6 @@
             <option value="Rejected">반려</option>
           </select>
         </label>
-        <!-- [추가] 부스 종류(A/B/C)로 걸러 보기. 종류를 안 쓰는 마켓에서는 숨겨집니다. -->
-        <label class="filter-field" hidden>
-          부스 종류
-          <select id="application-booth-type-filter">
-            <option value="">부스 전체</option>
-          </select>
-        </label>
         <!-- [추가] 중복 부스 신청(같은 판매자가 이 마켓에 여러 칸)만 골라 보기 -->
         <label class="filter-field filter-check">
           <input type="checkbox" id="application-duplicate-only" />
@@ -76,9 +69,6 @@
         </label>
         <span id="application-result-count" class="result-count"></span>
       </div>
-
-      <!-- [추가] 부스 종류별 현황 + 정원 대비 신청 수 (market.js 가 채웁니다) -->
-      <div id="application-booth-type-summary" class="booth-type-summary" hidden></div>
 
       <!-- [추가] 중복 부스 신청 요약 (market.js 가 채웁니다) -->
       <div id="application-duplicate-summary" class="dup-summary" hidden></div>
@@ -89,15 +79,7 @@
       </div>
       <nav id="application-pagination" class="pagination" aria-label="신청자 목록 페이지네이션"></nav>
       <hr class="section-divider" />
-      <!-- [추가] 주최자 관리 버튼. 신청자 목록을 보다가 바로 마켓을 고칠 수 있어야 합니다.
-           예전에는 「내 마켓 관리」 화면으로 되돌아가야만 수정에 들어갈 수 있었습니다.
-           마감·취소된 마켓에서는 market.js 가 수정/취소 버튼을 숨깁니다. -->
-      <div class="host-actions">
-        <button type="button" id="edit-market-btn" class="btn btn-primary btn-sm">마켓 정보 수정하기</button>
-        <button type="button" id="close-market-btn" class="btn btn-outline btn-sm">이 마켓 마감 처리하기</button>
-        <button type="button" id="cancel-market-btn" class="btn btn-danger btn-sm">마켓 취소하기</button>
-      </div>
-      <p class="form-hint" id="host-actions-hint" style="margin-top:8px;"></p>
+      <button type="button" id="close-market-btn" class="btn btn-outline btn-sm">이 마켓 마감 처리하기</button>
     </div>
 
     <div class="panel">
@@ -118,7 +100,7 @@
 
   <script src="../../common/js/api.js?v=4"></script>
   <script src="../../common/js/profile-link.js?v=1"></script>
-  <script src="js/market.js?v=18"></script>
+  <script src="js/market.js?v=14"></script>
   <script src="js/market-detail-extra.js?v=2"></script>
   <script src="js/market-role-view.js?v=2"></script>
 </body>

@@ -2,11 +2,6 @@ import pool from '../config/db.js';
 import { verifyPayment, cencelPayment } from '../services/paymentService.js';
 import { calculateRefundRate } from '../utills/refundPolicy.js'
 import { createNotification } from '../services/notificationService.js';
-// [부스 종류] 결제 금액은 "판매자가 고른 종류의 가격"으로 계산합니다.
-//   getMyApplications 와 똑같은 SQL 조각을 써야 화면 금액과 실제 결제 금액이 어긋나지 않습니다.
-import { boothTypePriceSql } from '../utills/boothTypes.js';
-// [환불 공통 코어] 건별 환불 / 일괄 결제취소 / 마켓 취소 전액환불이 같은 절차를 쓰도록 모았습니다.
-import { refundOneApplication, loadRefundTarget, REFUND_MODE } from '../utills/refundCore.js';
 
 // POST /api/payments/confirm
 // PortOne 결제 완료 후 호출
@@ -27,15 +22,10 @@ export async function confirmPayment(req, res) {
 
   try {
     // 신청 정보 조회
-    const bt = await boothTypePriceSql(pool, { app: 'a', market: 'm', type: 'bt' });
     const [rows] = await pool.query(
-      `SELECT a.applicationId, a.sellerId, a.status, a.boothNumber, a.itemName, a.marketId,
-              ${bt.priceExpr} AS boothPrice,
-              ${bt.nameExpr} AS boothTypeName,
-              m.hostId, m.title AS marketTitle
+      `SELECT a.applicationId, a.sellerId, a.status, a.boothNumber, a.itemName, a.marketId, m.boothPrice, m.hostId, m.title AS marketTitle
        FROM applications a
        JOIN markets m ON m.marketId = a.marketId
-       ${bt.join}
        WHERE a.applicationId = ?`,
       [applicationId]
     );
@@ -138,7 +128,7 @@ export async function confirmPayment(req, res) {
       audience: 'host',
       type: 'payment_completed',
       title: '부스 결제 완료',
-      message: `"${application.marketTitle}" 마켓 ${application.boothNumber}번 부스${application.boothTypeName ? `(${application.boothTypeName} 종류)` : ''}(${application.itemName}) 결제가 완료되었습니다. (${boothPrice.toLocaleString()}원)`,
+      message: `"${application.marketTitle}" 마켓 ${application.boothNumber}번 부스(${application.itemName}) 결제가 완료되었습니다. (${boothPrice.toLocaleString()}원)`,
       marketId: application.marketId,
       applicationId: application.applicationId,
     });
@@ -173,45 +163,66 @@ export async function refundPayment(req, res) {
   }
 
   try {
-    // [정리] 결제 조회와 환불 절차를 utills/refundCore.js 로 옮겼습니다.
-    //        마켓 취소 시 전액 환불이 같은 절차를 따로 구현하고 있어 동작이 갈렸기 때문입니다.
-    //        이 API 의 동작(Paid=전액 / RefundRequested=부분)은 그대로입니다.
-    const payment = await loadRefundTarget(pool, applicationId);
+    const [rows] = await pool.query(
+      /*sql*/
+      `SELECT p.paymentId, p.paymentKey, p.status, p.amount, p.refundAmount, m.hostId,
+              a.sellerId, a.boothNumber, a.itemName, a.marketId, m.title AS marketTitle
+       FROM payments p
+       JOIN applications a ON a.applicationId = p.applicationId
+       JOIN markets m ON m.marketId = a.marketId
+       WHERE p.applicationId = ?`,
+      [applicationId]
+    );
 
-    if (!payment) {
+    if (rows.length === 0) {
       return res.status(404).json({ success: false, message: "결제 내역을 찾을 수 없습니다" });
     }
+
+    const payment = rows[0];
 
     if (Number(payment.hostId) !== Number(userId)) {
       return res.status(403).json({ success: false, message: "결제 완료된 건만 환불할 수 있습니다." });
     }
 
-    const result = await refundOneApplication(pool, {
-      applicationId,
-      reason,
-      mode: REFUND_MODE.AUTO,
-      payment,
-    });
-
-    if (!result.ok) {
-      // 이미 환불된 건을 다시 누른 경우 등. 일괄 결제취소에서 같은 건이 두 번 걸릴 수 있습니다.
-      return res.status(409).json({ success: false, code: result.code, message: result.message });
+    if (payment.status == 'Paid') {
+      console.log('여기 실행됨: Paid 분기, reason =', reason);
+      const cancelResult = await cencelPayment(
+        payment.paymentKey,
+        reason || '주최자 요청에 의한 환불'
+      )
     }
 
-    // [유지] 환불 완료 -> 판매자에게 알림
+    if (payment.status == 'RefundRequested') {
+      console.log('여기 실행됨: RefundRequested 분기, refundAmount =', payment.refundAmount);
+      // 📌 미리 계산해둔 refundAmount로 부분 환불 실행
+      await cencelPayment(payment.paymentKey, '환불 승인 처리', payment.refundAmount);
+    }
+
+    await pool.query(
+      /*sql*/ `UPDATE payments SET status = 'Refunded', refundReason = ? WHERE applicationId = ?`,
+      [reason, applicationId]);
+    await pool.query(
+      /*sql*/
+      `UPDATE applications 
+      SET status = 'Refunded' 
+      WHERE applicationId = ?`,
+      [applicationId]);
+
+    // [추가] 환불 완료 -> 판매자에게 알림
+    const refundedAmount = payment.status === 'RefundRequested' ? payment.refundAmount : payment.amount;
     await createNotification({
       userId: payment.sellerId,
       audience: 'seller',
       type: 'refund_completed',
       title: '환불 완료',
-      message: `"${payment.marketTitle}" 마켓 ${payment.boothNumber}번 부스(${payment.itemName}) 환불이 완료되었습니다. (${Number(result.refundedAmount || 0).toLocaleString()}원)`,
+      message: `"${payment.marketTitle}" 마켓 ${payment.boothNumber}번 부스(${payment.itemName}) 환불이 완료되었습니다. (${Number(refundedAmount || 0).toLocaleString()}원)`,
       marketId: payment.marketId,
       applicationId: Number(applicationId),
     });
 
     return res.status(200).json({
       success: true,
-      data: { applicationId, status: 'Refunded', refundedAmount: result.refundedAmount },
+      data: { applicationId, status: 'Refunded' },
       message: '환불이 완료되었습니다.',
     });
   }

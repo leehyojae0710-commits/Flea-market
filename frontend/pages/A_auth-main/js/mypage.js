@@ -405,21 +405,6 @@ async function syncCurrentUser() {
     // 실패해도 화면은 기존 sessionStorage 값으로 계속 보여줍니다.
   }
 }
-async function changePageProfile() {
-  const page = document.getElementById('profile-panel');
-  const ui = document.getElementById('payment-list');
-  if (!page)
-    return;
-  if (!ui)
-    return;
-  page.hidden = false;
-  ui.hidden = true;
-  await syncCurrentUser();
-  loadProfile();
-  loadStats();
-  loadActivity();
-  loadReviewSummary();
-}
 
 document.addEventListener('DOMContentLoaded', async () => {
   await syncCurrentUser();

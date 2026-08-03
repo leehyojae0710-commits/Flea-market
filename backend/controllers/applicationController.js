@@ -12,13 +12,11 @@ import {
   formatBoothList,
 } from '../utills/duplicateApplication.js';
 import { createNotification } from '../services/notificationService.js';
-// [부스 종류] 판매자가 고른 부스 종류(A/B/C)를 검증하고, 결제 금액을 계산합니다.
-import { resolveBoothTypeForApply, boothTypePriceSql, lockApprovedPrice } from '../utills/boothTypes.js';
 
 // POST /api/applications (로그인 필요, 판매자)
 export async function applyForBooth(req, res) {
   const { userId } = req.user;
-  const { marketId, boothNumber, title, itemName, productDesc, itemImage, boothTypeId } = req.body;
+  const { marketId, boothNumber, title, itemName, productDesc, itemImage } = req.body;
 
   if (!marketId || !boothNumber || !itemName) {
     return res.status(400).json({ success: false, data: null, message: '마켓, 부스 번호, 물품명은 필수입니다.' });
@@ -49,34 +47,10 @@ export async function applyForBooth(req, res) {
       });
     }
 
-    // [부스 종류] 이 마켓이 A/B/C 종류를 쓰면 반드시 하나를 골라야 하고,
-    //   고른 종류가 이 마켓의 활성 종류인지 서버에서 다시 확인합니다.
-    //   (화면 select 만 믿으면 API 직접 호출로 남의 마켓 종류를 붙일 수 있습니다.)
-    // [종류별 정원] 「초과 신청 허용」이 켜진 마켓에서는 종류별 정원도 함께 풀립니다.
-    //   checkBoothApplyEligibility 가 이미 읽어둔 마켓 행을 그대로 씁니다. (재조회 없음)
-    const eventStart = check.market?.eventDate_min ? toDateKey(check.market.eventDate_min) : null;
-    const beforeEvent = eventStart ? todayKey() < eventStart : true;
-    const overcapacityOn = Number(check.market?.allowOvercapacity) === 1 && beforeEvent;
-
-    const typeCheck = await resolveBoothTypeForApply(conn, {
-      marketId, boothTypeId, allowOvercapacity: overcapacityOn,
-    });
-    if (!typeCheck.ok) {
-      await conn.rollback();
-      return res.status(typeCheck.status).json({
-        success: false, data: null, code: typeCheck.code, message: typeCheck.message,
-      });
-    }
-    const pickedType = typeCheck.boothType;
-
-    const typeCols = pickedType ? ', boothTypeId' : '';
-    const typeVals = pickedType ? ', ?' : '';
-    const typeParams = pickedType ? [pickedType.boothTypeId] : [];
-
     const [result] = await conn.query(
-      `INSERT INTO applications (marketId, sellerId, boothNumber, title, itemName, productDesc, itemImage, status${typeCols})
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending'${typeVals})`,
-      [marketId, userId, boothNumber, title || null, itemName, productDesc || null, itemImage || null, ...typeParams]
+      `INSERT INTO applications (marketId, sellerId, boothNumber, title, itemName, productDesc, itemImage, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending')`,
+      [marketId, userId, boothNumber, title || null, itemName, productDesc || null, itemImage || null]
     );
 
     // [추가] 알림에 필요한 마켓 정보(주최자, 마켓명) 조회 — 같은 트랜잭션 안에서 조회
@@ -169,21 +143,11 @@ export async function getMyApplications(req, res) {
   const { userId } = req.user;
 
   try {
-    // [부스 종류] 화면에 보이는 금액과 실제 결제 금액이 어긋나지 않도록,
-    //   "종류를 골랐으면 그 가격, 아니면 마켓 기본 부스료" 를 boothPrice 라는 같은 이름으로 내려줍니다.
-    //   기존 화면(mybooth.js 결제 링크 등)은 그대로 두고도 올바른 금액을 쓰게 됩니다.
-    const bt = await boothTypePriceSql(pool, { app: 'a', market: 'm', type: 'bt' });
-
     const [rows] = await pool.query(
       `SELECT
          a.applicationId, a.marketId, a.boothNumber, a.title, a.itemName,
          a.productDesc, a.itemImage, a.status,a.paymentDueAt,
-         m.title AS marketTitle, m.eventDate_min, m.eventDate_max, m.locationName,
-         ${bt.priceExpr} AS boothPrice,
-         m.boothPrice AS marketBoothPrice,
-         ${bt.nameExpr} AS boothTypeName,
-         ${bt.idExpr} AS boothTypeId,
-         ${bt.lockReady ? 'a.approvedPrice' : 'NULL'} AS approvedPrice,
+         m.title AS marketTitle, m.eventDate_min, m.eventDate_max, m.locationName,m.boothPrice,
          m.hostId, hu.nickname AS hostNickname,
          m.maxparticipants,
          (SELECT COUNT(*) FROM applications a2
@@ -198,7 +162,6 @@ export async function getMyApplications(req, res) {
           pay.refundAmount AS refundAmount
        FROM applications a
        JOIN markets m ON m.marketId = a.marketId
-       ${bt.join}
        LEFT JOIN users hu ON hu.userId = m.hostId
        LEFT JOIN market_reviews r ON r.applicationId = a.applicationId
        LEFT JOIN payments pay ON pay.applicationId = a.applicationId
@@ -471,36 +434,22 @@ export async function approveSellerApplication(req, res) {
       [ applicationId]
     );
 
-    // [승인 시 금액 고정] 승인되는 이 순간의 부스 금액을 신청에 박아둡니다.
-    //   이후 주최자가 부스 종류 가격을 올리거나 내려도 이 판매자가 낼 금액은 안 바뀝니다.
-    //   (승인 = 자리 확정이므로, 확정 뒤 금액 변경은 판매자가 동의한 적 없는 조건이 됩니다.)
-    //   컬럼이 없는 DB에서는 조용히 건너뛰고 예전처럼 현재가를 씁니다.
-    const priceLock = await lockApprovedPrice(pool, applicationId);
-
     const [updatedRows] = await pool.query('SELECT paymentDueAt FROM applications WHERE applicationId = ?', [applicationId]);
 
     // [추가] 승인 -> 판매자에게 알림
-    const amountText = priceLock.locked
-      ? ` 결제 금액은 ${Number(priceLock.price).toLocaleString()}원으로 확정되었습니다.`
-      : '';
     await createNotification({
       userId: application.sellerId,
       audience: 'seller',
       type: 'application_approved',
       title: '부스 신청 승인',
-      message: `"${application.marketTitle}" 마켓 ${application.boothNumber}번 부스 신청이 승인되었습니다.${amountText} 기한 내에 결제를 완료해 주세요. (${application.itemName})`,
+      message: `"${application.marketTitle}" 마켓 ${application.boothNumber}번 부스 신청이 승인되었습니다. 기한 내에 결제를 완료해 주세요. (${application.itemName})`,
       marketId: application.marketId,
       applicationId: application.applicationId,
     });
 
     return res.status(200).json({
       success: true,
-      data: {
-        applicationId: Number(applicationId),
-        status: 'Approved',
-        paymentDueAt: updatedRows[0].paymentDueAt,
-        approvedPrice: priceLock.locked ? priceLock.price : null,
-      },
+      data: { applicationId: Number(applicationId), status: 'Approved', paymentDueAt: updatedRows[0].paymentDueAt },
       message: '신청을 승인했습니다.',
     });
   } catch (error) {

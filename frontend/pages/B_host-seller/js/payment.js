@@ -18,37 +18,24 @@ async function confirmPayment(applicationId, paymentId) {
 
 // 결제 내역
 let paymentGroups = [];
-let expandedMarketIds  = new Set();
+let expandedMarketId = null;
 
 async function historys() {
   return callApi('/payments/history', {
     method: 'POST',
   })
 }
-async function changePagePayment() {
-  const page = document.getElementById('profile-panel');
-  const ui = document.getElementById('payment-list');
-  if (!page)
-    return;
-  if (!ui)
-    return;
-  page.hidden = true;
-  ui.hidden = false;
-  payment_history();
-}
 async function payment_history() {
-  const ui = document.getElementById('payment-list');
-  if (!ui) return;
   try {
     const data = await historys();
     if (data && data.success) {
       paymentGroups = groupByMarket(data.data);
+      console.log(data.data[0]);
       renderPaymentGroups();
     } else {
       document.getElementById('payment-list').innerHTML = '<p class="list-empty">내역을 불러오지 못했습니다.</p>';
     }
   } catch (error) {
-    console.error('payment_history 오류:', error);
     renderAlert("오류");
   }
 }
@@ -67,10 +54,11 @@ function groupByMarket(items) {
       });
     }
     const group = groups.get(key);
+    console.log(item.status);
     if (item.status === 'Paid')
       group.totalAmount += Number(item.amount) || 0;
-    else if (item.status === 'Refunded')
-      group.totalAmount += Number(item.amount - item.refundAmount) || 0;
+    else if(item.status === 'Refunded')
+      group.totalAmount += Number(item.amount-item.refundAmount) || 0;
     group.items.push(item);
   });
   return Array.from(groups.values());
@@ -78,29 +66,25 @@ function groupByMarket(items) {
 
 function renderPaymentGroups() {
   const ui = document.getElementById('payment-list');
-  if (!ui) return;
   if (paymentGroups.length === 0) {
     ui.innerHTML = '<p class="list-empty">결제/환불 내역이 없습니다.</p>';
     return;
   }
 
-  ui.innerHTML = paymentGroups.map((group) => {
-    const isExpanded = expandedMarketIds.has(String(group.marketId));
-    return `
+  ui.innerHTML = paymentGroups.map((group) => `
     <div class="item-card">
       <div class="item-card-top">
         <span class="item-card-title">${group.marketTitle}</span>
         <span class="item-card-meta">총 ${group.totalAmount.toLocaleString()}원</span>
       </div>
-      <button type="button" class="btn btn-outline btn-sm" data-action="toggle-detail" data-market-id="${group.marketId}">
-        ${isExpanded ? '접기' : '자세히 보기'}
+      <button type="button" class="btn btn-outline btn-sm" data-action="toggle-detail" data-market-id="${group.marketId}" data-group='${group}'>
+        자세히 보기
       </button>
-      <div id="detail-${group.marketId}" class="detail-wrap ${isExpanded ? 'open' : ''}">
-        ${isExpanded ? renderGroupDetail(group) : ''}
+      <div id="detail-${group.marketId}">
+        ${expandedMarketId === String(group.marketId) ? renderGroupDetail(group) : ''}
       </div>
     </div>
-  `;
-  }).join('');
+  `).join('');
   ui.querySelectorAll('[data-action="toggle-detail"]').forEach((btn) => {
     btn.addEventListener('click', () => handleToggleDetail(btn.dataset.marketId));
   });
@@ -108,36 +92,20 @@ function renderPaymentGroups() {
 function renderGroupDetail(group) {
   return `
     <div class="item-card-detail">
-      <table class="detail-table">
-        <thead>
-          <tr>
-            <th>판매자</th>
-            <th>원금</th>
-            <th>환불 금액</th>
-            <th>결제 금액</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${group.items.map((item) => `
-            <tr>
-              <td>${item.sellerNickname}</td>
-              <td>${Number(item.amount).toLocaleString()}원</td>
-              <td>${Number(item.refundAmount).toLocaleString()}원</td>
-              <td>${Number(item.amount - item.refundAmount).toLocaleString()}원</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
+      ${group.items.map((item) => `
+        <div class="item-card-meta">
+          판매자: ${item.sellerNickname}
+          원금 ${Number(item.amount).toLocaleString()}원
+          환불 금액 ${Number(item.refundAmount).toLocaleString()}원
+          결제 금액 ${Number(item.amount - item.refundAmount).toLocaleString()}원
+        </div>
+      `).join('')}
     </div>`;
 }
-function handleToggleDetail(marketId) {
-  const key = String(marketId);
-  if (expandedMarketIds.has(key)) {
-    expandedMarketIds.delete(key);
-  } else {
-    expandedMarketIds.add(key);
-  }
-  renderPaymentGroups();
+function handleToggleDetail(marketId,group) {
+  const isCollapsing = String(expandedMarketId) === String(marketId);
+  expandedMarketId = isCollapsing ? null : marketId;
+  renderPaymentGroups(); // 그룹 개수가 보통 많지 않을 테니, 전체 다시 그려도 부담 적음
 }
 
 // ============================================
@@ -303,4 +271,5 @@ document.addEventListener('DOMContentLoaded', () => {
   const { amount } = getPaymentParamsFromUrl();
   prefillPaymentAmount(amount);
   handlePaymentClick();
+  payment_history();
 });

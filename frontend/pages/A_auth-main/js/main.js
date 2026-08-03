@@ -167,53 +167,6 @@ function getPriceChange(m) {
   return { original, current, diff, direction, pct, fromFree };
 }
 
-/* ============================================================
-   [부스 종류] 주최자가 A/B/C 로 나눠 올린 부스별 가격
-   - 기존 「기존 금액 → 변경 금액」 표시를 종류마다 똑같이 적용합니다.
-   - 원가 기억 키는 "마켓ID:종류ID" 라서, 마켓 기본 부스료 추적과 섞이지 않습니다.
-   ============================================================ */
-function boothTypeKey(marketId, boothTypeId) {
-  return `${marketId}:t${boothTypeId}`;
-}
-
-// 종류 하나의 원가를 반환. 처음 보는 종류면 지금 가격을 원가로 기억합니다.
-function getOriginalTypePrice(marketId, type) {
-  const key = boothTypeKey(marketId, type.boothTypeId);
-  const current = Number(type.price) || 0;
-  const map = loadOriginalPrices();
-  if (map[key] === undefined || map[key] === null) {
-    map[key] = current;
-    saveOriginalPrices(map);
-    return current;
-  }
-  return Number(map[key]) || 0;
-}
-
-// 종류별 변동 정보를 BoothTypes.renderList 가 쓰는 형태로 만듭니다.
-function getBoothTypeChanges(m) {
-  const changes = {};
-  for (const t of m.boothTypes || []) {
-    const original = getOriginalTypePrice(m.marketId, t);
-    const current = Number(t.price) || 0;
-    const diff = current - original;
-    const fromFree = original === 0 && diff > 0;
-    changes[t.boothTypeId] = {
-      original,
-      direction: diff < 0 ? "down" : diff > 0 ? "up" : "same",
-      pct: fromFree ? null : (original > 0 ? Math.round(Math.abs(diff) / original * 100) : 0),
-    };
-  }
-  return changes;
-}
-
-// 카드에 붙일 부스 종류 블록. 종류가 없으면 빈 문자열이라 기존 카드 모양 그대로입니다.
-function renderBoothTypeBlock(m) {
-  const types = m.boothTypes || [];
-  if (types.length === 0) return "";
-  if (!window.BoothTypes) return "";
-  return window.BoothTypes.renderList(types, { changes: getBoothTypeChanges(m) });
-}
-
 // [참가비 블록] 시안 스타일: 기존 금액 → 변경 금액 + 변동률 배지 + 안내문
 function renderPriceBlock(m) {
   const { original, current, direction, pct, fromFree } = getPriceChange(m);
@@ -527,8 +480,6 @@ function renderMarketList(pageMarkets, totalCount) {
           ${renderBoothGauge(m)}
 
           ${renderPriceBlock(m)}
-
-          ${renderBoothTypeBlock(m)}
 
           <div class="card-footer">
             <span class="card-arrow">상세보기 →</span>

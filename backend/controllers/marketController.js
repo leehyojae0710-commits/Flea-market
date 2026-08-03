@@ -4,14 +4,6 @@
 import pool from '../config/db.js';
 // [중복 부스 신청 안내] 신청자 목록에 "이 판매자가 이 마켓에 몇 칸"을 붙입니다.
 import { attachDuplicateToMarketApplications, summarizeDuplicates } from '../utills/duplicateApplication.js';
-// [주최자 마켓 옵션] 초과 신청 허용 / 중복 신청 허용 두 옵션의 해석·저장을 한 곳에서 처리합니다.
-import { buildInsertOptions, buildUpdateOptions, describeSkippedOptions } from '../utills/marketOptions.js';
-// [부스 종류] 마켓별 부스 종류(최대 3개)의 저장·조회를 한 곳에서 처리합니다.
-import {
-  normalizeBoothTypes, saveBoothTypes, attachBoothTypes, describeBoothTypeSave, boothTypePriceSql,
-  getBoothTypes,
-  validateCapacitySum,
-} from '../utills/boothTypes.js';
 import { createNotification, createNotifications } from '../services/notificationService.js';
 
 // GET /api/markets?region=&sort=latest|eventDate|priceLow&includeExpired=
@@ -50,8 +42,6 @@ export async function getMarketList(req, res) {
     }
 
     const [rows] = await pool.query(sql, values);
-    // [부스 종류] 메인 화면 카드에 종류별 가격을 보여주기 위해 한 번의 IN 쿼리로 붙입니다.
-    await attachBoothTypes(pool, rows);
     return res.status(200).json({ success: true, data: rows, message: '마켓 목록을 조회했습니다.' });
   } catch (error) {
     console.error('마켓 목록 조회 오류:', error.message);
@@ -76,10 +66,6 @@ export async function getMarketDetail(req, res) {
     if (rows.length === 0) {
       return res.status(404).json({ success: false, data: null, message: '해당 마켓을 찾을 수 없습니다.' });
     }
-    // [부스 종류] 상세·수정·신청 화면이 모두 이 응답을 씁니다.
-    //   「신규 신청 중단」된 종류까지 내려보냅니다. 주최자가 수정 화면에서 다시 켤 수 있어야 하고,
-    //   판매자 화면(select)과 메인 카드는 isActive 로 걸러서 그립니다.
-    await attachBoothTypes(pool, rows, { includeInactive: true });
     return res.status(200).json({ success: true, data: rows[0], message: '마켓 상세 정보를 조회했습니다.' });
   } catch (error) {
     console.error('마켓 상세 조회 오류:', error.message);
@@ -90,9 +76,7 @@ export async function getMarketDetail(req, res) {
 // POST /api/markets (로그인 필요, 주최자)
 export async function createMarket(req, res) {
   const { userId } = req.user;
-  // [수정] allowOvercapacity / allowDuplicateApplication 은 개별 변수로 받지 않고
-  //        utills/marketOptions.js 가 req.body 에서 통째로 해석합니다. (수정 화면과 동일한 규칙)
-  const { title, description, marketImage, locationName, region, latitude, longitude, eventDate_min, eventDate_max, boothPrice, isExpired, maxparticipants, recruitmentDate_min, recruitmentDate_max } = req.body;
+  const { title, description, marketImage, locationName, region, latitude, longitude, eventDate_min, eventDate_max, boothPrice, isExpired, maxparticipants, recruitmentDate_min, recruitmentDate_max, allowDuplicateApplication } = req.body;
   //console.log(req.body);
 
   if (!title || !eventDate_min || !eventDate_max || !locationName) {
@@ -112,80 +96,22 @@ export async function createMarket(req, res) {
     return res.status(400).json({ success: false, data: null, message: '최대 부스 수는 0 이상의 정수여야 합니다.' });
   }
 
-  // [부스 종류] INSERT 전에 먼저 검사합니다. 마켓만 만들어지고 종류 저장이 실패하면
-  //            주최자 입장에서 "등록은 됐는데 가격은 없는" 어정쩡한 마켓이 남기 때문입니다.
-  const boothTypes = normalizeBoothTypes(req.body.boothTypes);
-  if (!boothTypes.ok) {
-    return res.status(400).json({ success: false, data: null, message: boothTypes.message });
-  }
-
-  // [종류별 수량] 합계가 총 정원을 넘으면 등록을 막습니다.
-  //   화면에도 같은 검사가 있지만 API 직접 호출로 뚫리므로 서버에서 다시 확인합니다.
-  {
-    const capCheck = await validateCapacitySum(pool, {
-      marketId: null,
-      list: boothTypes.list,
-      requestedMax: maxparticipants,
-    });
-    if (!capCheck.ok) {
-      return res.status(capCheck.status).json({
-        success: false, data: null, code: capCheck.code, message: capCheck.message,
-      });
-    }
-  }
-
   try {
-    // [추가] 부스 신청 옵션 두 가지를 등록 시점부터 반영합니다.
-    //   - allowOvercapacity         : 예전에는 INSERT 에서 아예 빠져 있어, 새 마켓은 항상 0(불가)이었고
-    //                                 수정 화면에 다시 들어가야만 켤 수 있었습니다.
-    //   - allowDuplicateApplication : 값이 안 오면 기존 동작과 동일하게 허용(1).
-    // 컬럼이 아직 없는 DB에서는 해당 컬럼만 빼고 INSERT 하므로 마켓 등록이 500 으로 죽지 않습니다.
-    const options = await buildInsertOptions(pool, req.body);
-
-    const baseColumns = [
-      'hostId', 'title', 'description', 'marketImage', 'locationName', 'region',
-      'latitude', 'longitude', 'eventDate_min', 'eventDate_max', 'boothPrice',
-      'isExpired', 'maxparticipants', 'recruitmentDate_min', 'recruitmentDate_max',
-    ];
-    const baseValues = [
-      userId, title, description || '', marketImage || null, locationName, region || null,
-      latitude || 0, longitude || 0, eventDate_min, eventDate_max, boothPrice || 0,
-      isExpired || 0, maxparticipants || 1, recruitmentDate_min, recruitmentDate_max,
-    ];
-
-    const columns = [...baseColumns, ...options.columns];
-    const values = [...baseValues, ...options.values];
-    const placeholders = columns.map(() => '?').join(', ');
+    // [추가] 판매자 중복 신청 허용 여부. 값이 안 오면 기존 동작과 동일하게 허용(1)합니다.
+    const allowDuplicateApplicationVal = allowDuplicateApplication === undefined ? 1 : (allowDuplicateApplication ? 1 : 0);
 
     const [result] = await pool.query(
-      `INSERT INTO markets (${columns.join(', ')}) VALUES (${placeholders})`,
-      values
+      `INSERT INTO markets (hostId, title, description, marketImage, locationName, region, latitude, longitude, eventDate_min, eventDate_max, boothPrice, isExpired, maxparticipants,recruitmentDate_min,recruitmentDate_max,allowDuplicateApplication)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?)`,
+      [userId, title, description || '', marketImage || null, locationName, region || null, latitude || 0, longitude || 0, eventDate_min, eventDate_max, boothPrice || 0, isExpired || 0, maxparticipants || 1, recruitmentDate_min, recruitmentDate_max, allowDuplicateApplicationVal]
     );
 
-    const notice = describeSkippedOptions(options.skipped);
-
-    // [부스 종류] 등록 화면에서 「부스 추가」로 만든 종류를 저장합니다. (최대 3개)
-    //   종류를 하나도 안 만들면 기존과 똑같은 단일가 마켓이 됩니다.
-    let boothTypeNotice = '';
-    let boothTypeResult = null;
-    if (boothTypes.list && boothTypes.list.length > 0) {
-      boothTypeResult = await saveBoothTypes(pool, result.insertId, boothTypes.list);
-      // [수정] 예전에는 테이블이 통째로 없을 때(skipped)만 안내했습니다.
-      //   수량 컬럼만 없는 경우(capacitySkipped)는 조용히 넘어가서,
-      //   주최자가 수량을 입력해도 왜 0으로 남는지 알 수 없었습니다.
-      boothTypeNotice = describeBoothTypeSave(boothTypeResult);
-    }
+    //console.log('req.body 전체:', req.body);
 
     return res.status(201).json({
       success: true,
-      data: {
-        marketId: result.insertId,
-        options: options.applied,
-        optionsSkipped: options.skipped,
-        boothTypeCount: boothTypes.list ? boothTypes.list.length : 0,
-        boothTypes: boothTypeResult,
-      },
-      message: `마켓이 등록되었습니다.${notice ? ' ' + notice : ''}${boothTypeNotice ? ' ' + boothTypeNotice : ''}`,
+      data: { marketId: result.insertId },
+      message: '마켓이 등록되었습니다.',
     });
   } catch (error) {
     console.error('마켓 등록 오류:', error.message);
@@ -203,9 +129,8 @@ export async function updateMarketStatus(req, res) {
     recruitmentDate_min, recruitmentDate_max,
     boothPrice, locationName, region,
     latitude, longitude, maxParticipants,
-    marketImage
+    marketImage, allowOvercapacity, allowDuplicateApplication
   } = req.body;
-  // allowOvercapacity / allowDuplicateApplication 은 marketOptions 가 req.body 에서 직접 읽습니다.
 
   try {
     const [rows] = await pool.query('SELECT hostId FROM markets WHERE marketId = ?', [marketId]);
@@ -232,87 +157,21 @@ export async function updateMarketStatus(req, res) {
     if (latitude !== undefined) { fields.push('latitude = ?'); values.push(latitude); }
     if (longitude !== undefined) { fields.push('longitude = ?'); values.push(longitude); }
     if (maxParticipants !== undefined) { fields.push('maxParticipants = ?'); values.push(maxParticipants); }
-    // [수정] 부스 신청 옵션 두 가지(초과 신청 허용 / 중복 신청 허용)는 marketOptions 가 처리합니다.
-    //   - 컬럼이 없는 DB에서는 그 옵션만 건너뛰고 나머지 수정은 정상 저장합니다.
-    //     (예전에는 UPDATE 문에 컬럼명이 그대로 들어가 마켓 수정 전체가 500 으로 실패했습니다.)
-    //   - 체크 해제(false)도 "보낸 값"이므로 0 으로 저장됩니다.
-    const options = await buildUpdateOptions(pool, req.body);
-    fields.push(...options.fields);
-    values.push(...options.values);
-
-    // [부스 종류] 수정 화면에서 보낸 목록과 DB 를 똑같이 맞춥니다.
-    //   boothTypes 를 아예 안 보내면(다른 화면에서 온 PATCH) 기존 종류를 건드리지 않습니다.
-    const boothTypes = normalizeBoothTypes(req.body.boothTypes);
-    if (!boothTypes.ok) {
-      return res.status(400).json({ success: false, data: null, message: boothTypes.message });
-    }
-    let boothTypeResult = null;
-    if (boothTypes.list !== null) {
-      // [종류별 수량] 합계가 총 정원을 넘으면 저장 자체를 막습니다.
-      //   정원을 함께 수정 중이면 그 값과, 아니면 DB 의 현재 값과 비교합니다.
-      const capCheck = await validateCapacitySum(pool, {
-        marketId,
-        list: boothTypes.list,
-        requestedMax: maxParticipants,
-      });
-      if (!capCheck.ok) {
-        return res.status(capCheck.status).json({
-          success: false, data: null, code: capCheck.code, message: capCheck.message,
-        });
-      }
-
-      boothTypeResult = await saveBoothTypes(pool, marketId, boothTypes.list);
-
-      // [삭제 차단] 신청자가 있는 종류를 지우려 한 경우 — 마켓의 다른 항목도 저장하지 않고 되돌립니다.
-      //   일부만 저장되면 주최자가 "뭐가 반영됐는지" 알 수 없게 됩니다.
-      if (boothTypeResult.ok === false) {
-        return res.status(boothTypeResult.status || 409).json({
-          success: false,
-          data: null,
-          code: boothTypeResult.code,
-          message: boothTypeResult.message,
-        });
-      }
-    }
-    const boothTypeNotice = boothTypeResult ? describeBoothTypeSave(boothTypeResult) : '';
+    // [추가] 정원이 차도 행사 시작 전까지는 초과 신청/결제를 받을지 여부 (주최자가 직접 관리)
+    if (allowOvercapacity !== undefined) { fields.push('allowOvercapacity = ?'); values.push(allowOvercapacity ? 1 : 0); }
+    // [추가] 같은 판매자가 이 마켓에 부스를 중복(같은 상품이든 다른 상품이든) 신청하는 것을 허용할지 여부
+    if (allowDuplicateApplication !== undefined) { fields.push('allowDuplicateApplication = ?'); values.push(allowDuplicateApplication ? 1 : 0); }
     // [수정] 예전에는 `if (marketImage)` 라서 null/'' 이 무시됐고, 이미지 삭제가 불가능했습니다.
     if (marketImage !== undefined) { fields.push('marketImage = ?'); values.push(marketImage || null); }
 
     if (fields.length === 0) {
-      // 부스 종류만 바꾸는 저장도 정상 케이스입니다. (제목·날짜는 그대로 두고 가격표만 손보는 경우)
-      if (boothTypeResult) {
-        return res.status(200).json({
-          success: true,
-          data: {
-            options: options.applied,
-            optionsSkipped: options.skipped,
-            boothTypes: boothTypeResult,
-          },
-          message: `부스 종류가 저장되었습니다.${boothTypeNotice ? ' ' + boothTypeNotice : ''}`,
-        });
-      }
-      const notice0 = describeSkippedOptions(options.skipped);
-      return res.status(400).json({
-        success: false,
-        data: { optionsSkipped: options.skipped },
-        message: notice0 || '수정할 내용이 없습니다.',
-      });
+      return res.status(400).json({ success: false, data: null, message: '수정할 내용이 없습니다.' });
     }
 
     values.push(marketId);
     await pool.query(`UPDATE markets SET ${fields.join(', ')} WHERE marketId = ?`, values);
 
-    const notice = describeSkippedOptions(options.skipped);
-
-    return res.status(200).json({
-      success: true,
-      data: {
-        options: options.applied,
-        optionsSkipped: options.skipped,
-        boothTypes: boothTypeResult,
-      },
-      message: `마켓 정보가 수정되었습니다.${notice ? ' ' + notice : ''}${boothTypeNotice ? ' ' + boothTypeNotice : ''}`,
-    });
+    return res.status(200).json({ success: true, data: null, message: '마켓 정보가 수정되었습니다.' });
   } catch (error) {
     console.error('마켓 상태 수정 오류:', error.message);
     return res.status(500).json({ success: false, data: null, message: '서버 오류로 마켓 수정에 실패했습니다.' });
@@ -370,16 +229,11 @@ export async function getApplicationsByMarket(req, res) {
       }
 
       // 수정 — 평가하기 버튼 표시에 필요한 정보(행사 시작 여부/결제여부/이미 평가했는지) 같이 내려줌
-      // [부스 종류] 주최자가 신청자별로 어떤 종류(A/B/C)를 골랐고 얼마를 받게 되는지 봐야 합니다.
-      const bt = await boothTypePriceSql(pool, { app: 'a', market: 'm', type: 'bt' });
-
       const [rows] = await pool.query(
         // [닉네임] 신청자 목록에 sellerId(숫자)만 내려가서 화면에 "신청자: 12"처럼 보였습니다.
         //          users 를 조인해 sellerNickname 을 같이 내려줍니다.
         `SELECT a.*,
           su.nickname AS sellerNickname,
-          ${bt.nameExpr} AS boothTypeName,
-          ${bt.priceExpr} AS boothPrice,
           (m.eventDate_min <= CURDATE()) AS eventStarted,
           EXISTS(
             SELECT 1 FROM payments p WHERE p.applicationId = a.applicationId AND p.status = 'Paid'
@@ -387,7 +241,6 @@ export async function getApplicationsByMarket(req, res) {
           sr.rating AS mySellerRating
         FROM applications a
         JOIN markets m ON m.marketId = a.marketId
-        ${bt.join}
         LEFT JOIN users su ON su.userId = a.sellerId
         LEFT JOIN seller_reviews sr ON sr.applicationId = a.applicationId
         WHERE a.marketId = ?
@@ -401,75 +254,10 @@ export async function getApplicationsByMarket(req, res) {
       const withDuplicate = attachDuplicateToMarketApplications(rows);
       const duplicateSummary = summarizeDuplicates(withDuplicate);
 
-      // [부스 종류 현황] 주최자가 "A는 몇 명, B는 몇 명"을 한눈에 보게 집계합니다.
-      //   목록을 이미 들고 있으므로 추가 쿼리 없이 배열에서 셉니다.
-      //   정원 대비 현황은 "자리를 점유한" 상태(대기/승인/결제완료)만 셉니다.
-      //   반려·환불·취소 건까지 세면 실제 남은 자리를 잘못 알려주게 됩니다.
-      const OCCUPYING = ['Pending', 'Approved', 'Paid'];
-      const typeMap = new Map();
-      let occupiedTotal = 0;
-
-      // [수정] 예전에는 "신청이 들어온 종류"만 집계해서, 아직 신청이 0건인 종류(C 등)가
-      //   현황에서 통째로 빠졌습니다. 주최자는 C를 만들어 뒀는데 화면에 없으니
-      //   저장이 안 된 줄 알게 됩니다. 마켓에 등록된 종류를 먼저 전부 깔아둡니다.
-      const marketTypes = await getBoothTypes(pool, marketId, { includeInactive: true });
-      for (const t of marketTypes) {
-        typeMap.set(t.name, {
-          boothTypeName: t.name, total: 0, occupied: 0,
-          pending: 0, approved: 0, paid: 0, rejected: 0,
-          amount: 0,
-          // 게이지 분모. 0 이면 이 종류는 수량 제한 없음.
-          capacity: Number(t.capacity) || 0,
-          isActive: t.isActive !== false,
-        });
-      }
-
-      for (const r of withDuplicate) {
-        const occupying = OCCUPYING.includes(r.status);
-        if (occupying) occupiedTotal += 1;
-
-        // 종류를 안 쓰는 마켓이거나 종류 지정 전 신청은 '기본'으로 묶습니다.
-        const key = r.boothTypeName || '기본';
-        if (!typeMap.has(key)) {
-          // 종류를 안 고른 신청('기본')이나, 지워진 종류로 남은 신청이 여기로 옵니다.
-          typeMap.set(key, {
-            boothTypeName: key, total: 0, occupied: 0,
-            pending: 0, approved: 0, paid: 0, rejected: 0,
-            amount: 0, capacity: 0, isActive: true,
-          });
-        }
-        const g = typeMap.get(key);
-        g.total += 1;
-        if (occupying) {
-          g.occupied += 1;
-          g.amount += Number(r.boothPrice) || 0;
-        }
-        if (r.status === 'Pending') g.pending += 1;
-        else if (r.status === 'Approved') g.approved += 1;
-        else if (r.status === 'Paid') g.paid += 1;
-        else if (r.status === 'Rejected') g.rejected += 1;
-      }
-
-      // A → B → C → 기본 순으로 정렬 (화면 표기 순서와 맞춥니다)
-      const order = { A: 0, B: 1, C: 2 };
-      const boothTypeSummary = [...typeMap.values()].sort(
-        (x, y) => (order[x.boothTypeName] ?? 9) - (order[y.boothTypeName] ?? 9)
-      );
-
-      // 정원은 대소문자 표기가 환경마다 달라 두 가지를 모두 받습니다.
-      const [capRows] = await pool.query(
-        'SELECT * FROM markets WHERE marketId = ?', [marketId]
-      );
-      const capRow = capRows[0] || {};
-      const capacity = Number(capRow.maxParticipants ?? capRow.maxparticipants ?? 0);
-
       return res.status(200).json({
         success: true,
         data: withDuplicate,
         duplicateSummary,
-        boothTypeSummary,
-        capacity: Number.isFinite(capacity) ? capacity : 0,
-        occupiedCount: occupiedTotal,
         message: '신청 목록을 조회했습니다.',
       });
     }
@@ -883,9 +671,6 @@ export async function getMyMarket(req, res) {
        ORDER BY ${orderClause}`,
       [userId]
     );
-
-    // [부스 종류] 주최자 마켓 목록 카드에도 종류별 가격을 보여줍니다.
-    await attachBoothTypes(pool, rows);
     // 밑에 코드는 참여자 수 까지 가져오는 코드지만 아직 applications db가 완성 되지 않아 보류
     // const [rows] = await pool.query(
     //   `select 
