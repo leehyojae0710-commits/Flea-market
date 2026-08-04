@@ -52,30 +52,36 @@
 // 배포 시에는 3번이 그대로 동작하거나, 백엔드가 정적 파일까지 서빙하면
 // 같은 오리진의 /api 를 자동으로 씁니다. 고칠 곳은 이 함수 하나뿐입니다.
 function resolveApiBaseUrl() {
-  if (typeof window === 'undefined') return 'http://localhost:5000/api';
+  const host = window.location.hostname;
+  if (host === 'localhost' || host === '127.0.0.1') {
+    if (typeof window === 'undefined') return 'http://localhost:5000/api';
 
-  if (window.__API_BASE_URL__) {
-    return String(window.__API_BASE_URL__).replace(/\/+$/, '');
+    if (window.__API_BASE_URL__) {
+      return String(window.__API_BASE_URL__).replace(/\/+$/, '');
+    }
+
+    var meta = document.querySelector('meta[name="api-base-url"]');
+    if (meta && meta.content) {
+      return meta.content.replace(/\/+$/, '');
+    }
+
+    var loc = window.location;
+    // 파일을 더블클릭해서 연 경우(file://) 에는 호스트가 없습니다.
+    if (loc.protocol === 'file:' || !loc.hostname) {
+      return 'http://localhost:5000/api';
+    }
+
+    // 백엔드가 프론트까지 서빙하는 배포 형태면 같은 오리진을 씁니다.
+    if (loc.port === '5000' || loc.port === '') {
+      return loc.origin + '/api';
+    }
+
+    // Live Server(5500 등)로 열었을 때: 같은 호스트의 5000 포트가 백엔드입니다.
+    return loc.protocol + '//' + loc.hostname + ':5000/api';
   }
-
-  var meta = document.querySelector('meta[name="api-base-url"]');
-  if (meta && meta.content) {
-    return meta.content.replace(/\/+$/, '');
+  else {
+    return 'http://3.106.226.93:5000/api';
   }
-
-  var loc = window.location;
-  // 파일을 더블클릭해서 연 경우(file://) 에는 호스트가 없습니다.
-  if (loc.protocol === 'file:' || !loc.hostname) {
-    return 'http://localhost:5000/api';
-  }
-
-  // 백엔드가 프론트까지 서빙하는 배포 형태면 같은 오리진을 씁니다.
-  if (loc.port === '5000' || loc.port === '') {
-    return loc.origin + '/api';
-  }
-
-  // Live Server(5500 등)로 열었을 때: 같은 호스트의 5000 포트가 백엔드입니다.
-  return loc.protocol + '//' + loc.hostname + ':5000/api';
 }
 
 const API_BASE_URL = resolveApiBaseUrl();
@@ -464,13 +470,13 @@ function describeDevice(userAgent) {
   if (!ua) return '알 수 없는 기기';
   const os = /Windows/i.test(ua) ? 'Windows'
     : /Android/i.test(ua) ? 'Android'
-    : /iPhone|iPad/i.test(ua) ? 'iOS'
-    : /Mac OS X/i.test(ua) ? 'macOS'
-    : /Linux/i.test(ua) ? 'Linux' : '기타 OS';
+      : /iPhone|iPad/i.test(ua) ? 'iOS'
+        : /Mac OS X/i.test(ua) ? 'macOS'
+          : /Linux/i.test(ua) ? 'Linux' : '기타 OS';
   const browser = /Edg\//i.test(ua) ? 'Edge'
     : /Chrome\//i.test(ua) ? 'Chrome'
-    : /Safari\//i.test(ua) ? 'Safari'
-    : /Firefox\//i.test(ua) ? 'Firefox' : '기타 브라우저';
+      : /Safari\//i.test(ua) ? 'Safari'
+        : /Firefox\//i.test(ua) ? 'Firefox' : '기타 브라우저';
   return `${os} · ${browser}`;
 }
 
