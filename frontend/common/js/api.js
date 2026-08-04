@@ -81,7 +81,7 @@ function resolveApiBaseUrl() {
     return loc.protocol + '//' + loc.hostname + ':5000/api';
   }
   else {
-    return 'http://3.106.226.93:5000/api';
+    return '/api';
   }
 }
 
