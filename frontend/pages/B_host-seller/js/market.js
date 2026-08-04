@@ -156,11 +156,11 @@ function applyApplicationStatusFilter() {
   const groupedStatuses = APPLICATION_STATUS_FILTER_MAP[applicationStatusFilter];
   const byStatus = applicationStatusFilter
     ? currentApplications.filter((a) => {
-        const status = a.status || 'Pending';
-        return groupedStatuses
-          ? groupedStatuses.includes(status)
-          : status === applicationStatusFilter;
-      })
+      const status = a.status || 'Pending';
+      return groupedStatuses
+        ? groupedStatuses.includes(status)
+        : status === applicationStatusFilter;
+    })
     : currentApplications;
 
   // [중복 부스 신청] 「중복 신청만 보기」가 켜져 있으면 2칸 이상 잡은 판매자의 건만 남깁니다.
@@ -591,6 +591,10 @@ function renderApplicationList() {
             환불 승인
           </button>
          </div>
+         <p class="refund-reason-note">
+          <span class="refund-reason-label">환불 사유</span>
+          <span class="refund-reason-text">${a.refundReason || '사유 없음'}</span>
+         </p>
           `: ''}
         ${canShowReview ? renderSellerReviewTrigger(a) : ''}
         ${canShowReview && sellerReviewOpenId === String(id) ? renderSellerReviewForm(id) : ''}
@@ -992,6 +996,7 @@ async function loadApplicationList() {
   const marketId = getMarketIdFromUrl();
   try {
     const res = await getApplicationList(marketId);
+    console.log('loadApplicationList response:', res);
     if (res && res.success) {
       currentApplications = res.data || [];
       applyApplicationStatusFilter();
@@ -1336,8 +1341,8 @@ function renderCommentNode(c, isReply) {
       <div class="comment-item-top">
         <!-- [추가] 댓글 작성자 닉네임을 눌러 프로필로 이동 (주최자 문의 답변 확인용) -->
         <div class="comment-nickname">${isMasked
-          ? ProfileLink.escapeHtml(c.nickname || '알 수 없음')
-          : ProfileLink.html(c.userId, c.nickname)}</div>
+      ? ProfileLink.escapeHtml(c.nickname || '알 수 없음')
+      : ProfileLink.html(c.userId, c.nickname)}</div>
         ${isMine ? `
           <div class="comment-item-actions">
             <button type="button" class="comment-edit-btn" data-comment-id="${c.commentId}">수정</button>
@@ -1617,8 +1622,10 @@ async function refundPayment_(a) {
   }
   try {
     const res = await refundPayment(a, memotxt);
-    if (res.success)
+    if (res.success) {
       renderAlert('환불 처리 완료');
+      await loadApplicationList();
+    }
   }
   catch (error) {
     renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
@@ -1628,8 +1635,10 @@ async function refundPayment_(a) {
 async function refundPayment_seller(a) {
   try {
     const res = await refundPayment(a);
-    if (res.success)
+    if (res.success) {
       renderAlert('환불 처리 완료');
+      await loadApplicationList();
+    }
   }
   catch (error) {
     renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
@@ -1780,6 +1789,7 @@ async function renderSameMarketDuplicateNotice(marketId) {
 
   try {
     const res = await getDuplicateCheck(marketId);
+    console.log('renderSameMarketDuplicateNotice', res);
     if (!res || !res.success || !res.data) return;
 
     const { count, booths } = res.data;
@@ -1801,6 +1811,7 @@ async function confirmDuplicateBeforeApply(marketId) {
 
   try {
     const res = await getDuplicateCheck(marketId);
+    console.log('confirmDuplicateBeforeApply', res);
     if (!res || !res.success || !res.data) return true;
 
     const { count, booths, marketTitle } = res.data;

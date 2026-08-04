@@ -647,7 +647,7 @@ async function requestRefund_(a_id, a_status) {
   if (a_status != 'Paid')
     return;
   try {
-    const data = await requestRefund(a_id, '환불 요청')
+    const data = await requestRefund(a_id, inputContainer.querySelector('#userInput').value);
     if (data && data.success) {
       renderAlert('환불 요청이 접수 되었습니다.', 'success')
       await loadMyBoothList();

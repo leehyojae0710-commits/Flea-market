@@ -86,6 +86,7 @@ function resolveApiBaseUrl() {
 }
 
 const API_BASE_URL = resolveApiBaseUrl();
+console.log('API_BASE_URL:', API_BASE_URL);
 
 /**
  * API·업로드 파일의 전체 주소를 만듭니다.

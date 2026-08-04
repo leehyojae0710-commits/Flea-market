@@ -1396,3 +1396,29 @@ a.btn {
   white-space: nowrap;
 }
 .filter-strip .filter-check input[type="checkbox"] { margin: 0; cursor: pointer; }
+
+.refund-reason-note {
+  margin-top: 8px;
+  padding: 9px 12px;
+  background: var(--coral-bg);
+  border-left: 3px solid var(--coral);
+  border-radius: 4px;
+  font-family: "Inter", sans-serif;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--coral-text);
+}
+
+.refund-reason-label {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-right: 8px;
+  opacity: 0.75;
+}
+
+.refund-reason-text {
+  font-weight: 500;
+}

@@ -238,11 +238,13 @@ export async function getApplicationsByMarket(req, res) {
           EXISTS(
             SELECT 1 FROM payments p WHERE p.applicationId = a.applicationId AND p.status = 'Paid'
           ) AS isPaid,
-          sr.rating AS mySellerRating
+          sr.rating AS mySellerRating,
+          pay.refundReason AS refundReason
         FROM applications a
         JOIN markets m ON m.marketId = a.marketId
         LEFT JOIN users su ON su.userId = a.sellerId
         LEFT JOIN seller_reviews sr ON sr.applicationId = a.applicationId
+        LEFT JOIN payments pay ON pay.applicationId = a.applicationId
         WHERE a.marketId = ?
         ORDER BY a.applicationId DESC`,
         [marketId]
