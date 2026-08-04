@@ -53,6 +53,7 @@
 // 같은 오리진의 /api 를 자동으로 씁니다. 고칠 곳은 이 함수 하나뿐입니다.
 function resolveApiBaseUrl() {
   const host = window.location.hostname;
+  console.log('resolveApiBaseUrl() 호출, 호스트:', host);
   if (host === 'localhost' || host === '127.0.0.1') {
     if (typeof window === 'undefined') return 'http://localhost:5000/api';
 
