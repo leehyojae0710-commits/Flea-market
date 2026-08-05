@@ -842,6 +842,12 @@ a.btn {
   cursor: pointer;
 }
 
+/* [추가] 중복 신청만 보기에서 상태 필터를 비활성화할 때 */
+.filter-field select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .result-count {
   font-family: "IBM Plex Mono", monospace;
   font-size: 12px;
@@ -1385,7 +1391,69 @@ a.btn {
 
 .dup-summary strong { color: #a65a12; font-size: 13.5px; }
 .dup-summary .dup-summary-names { color: #7a5a34; font-size: 12.5px; }
-.dup-summary .dup-summary-hint { color: #967a56; font-size: 12px; }
+
+/* [추가] 마켓별 중복 부스 그룹 묶음
+ * 같은 마켓에 중복 신청한 카드끼리 인접 배치하고, 그룹 상단 헤더(마켓명 + 부스번호)를 클릭하면
+ * 펼치고 접을 수 있게 합니다. hover 툴팁 없이도(모바일 포함) 어떤 마켓·부스와 겹치는지 바로 보입니다.
+ */
+.dup-group {
+  border: 1.5px dashed #d98324;
+  border-radius: 10px;
+  padding: 4px 6px 0;
+  margin-bottom: 10px;
+  background: #fffaf2;
+}
+.dup-group .item-card {
+  border-color: #ecd9b8;
+}
+
+.dup-group-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+  margin: 0 0 8px;
+  padding: 8px 6px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.dup-group-header:hover,
+.dup-group-header:focus-visible {
+  background: #fdf1df;
+}
+.dup-group-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: #d98324;
+  color: #fff;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.dup-group-title {
+  font-family: "Inter", sans-serif;
+  font-weight: 700;
+  font-size: 13.5px;
+  color: #6b4a24;
+}
+.dup-group-booths {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11.5px;
+  color: #a65a12;
+}
+.dup-group-caret {
+  margin-left: auto;
+  color: #a65a12;
+  font-size: 11px;
+}
 
 /* 필터 줄에 들어가는 체크박스형 필터 */
 .filter-strip .filter-check {
