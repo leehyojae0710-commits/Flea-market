@@ -758,6 +758,7 @@ body {
 .kr-region-list-item.is-active .krl-count { color: var(--mustard-text); }
 .krl-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--mustard); flex: 0 0 auto; }
 .kr-region-list-item.is-active .krl-dot { background: var(--mustard-text); }
+.kr-region-list-item-all { font-weight: 600; margin-bottom: 4px; padding-bottom: 10px; border-bottom: 1px solid var(--board-line); }
 .krl-name { flex: 1; }
 .krl-count { font-variant-numeric: tabular-nums; color: var(--ink-faint); font-weight: 600; }
 
