@@ -29,7 +29,11 @@ export async function deleteMarket(req, res) {
     const [applications] = await pool.query('SELECT * FROM applications WHERE marketId = ?', [marketId]);
 
     for (const application of applications) {
-      if (application.status !== 'Paid') continue;
+      if (application.status !== 'Paid')
+        {
+          application.status = 'Canceled';
+          continue;
+        }
 
       try {
         const [paymentRows] = await pool.query(
@@ -41,11 +45,11 @@ export async function deleteMarket(req, res) {
           console.error(`applicationId ${application.applicationId}: 결제 정보를 찾을 수 없습니다.`);
           continue;
         }
-        
+
         await cencelPayment(paymentRows[0].paymentKey, '마켓 취소로 인한 결제 취소');
 
-        await pool.query(`UPDATE payments SET status = 'Refunded', refundReason = '마켓 취소로 인한 결제 취소' WHERE applicationId = ?`, [application.applicationId]);
-        await pool.query(`UPDATE applications SET status = 'Refunded' WHERE applicationId = ?`, [application.applicationId]);
+        await pool.query(`UPDATE payments SET status = 'Canceled', refundReason = '마켓 취소로 인한 결제 취소' WHERE applicationId = ?`, [application.applicationId]);
+        await pool.query(`UPDATE applications SET status = 'Canceled' WHERE applicationId = ?`, [application.applicationId]);
       } catch (error) {
         console.error(`applicationId ${application.applicationId} 환불 처리 실패:`, error.message);
       }
