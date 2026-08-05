@@ -133,16 +133,15 @@ function renderBoothList() {
   }
   if (emptyState) emptyState.hidden = true;
 
-  // [중복 부스 신청] 같은 마켓끼리 인접 배치되도록 재정렬 후 페이지네이션합니다.
-  // (재정렬은 순서만 바꿀 뿐 항목 수는 그대로라 페이지 수 계산은 기존과 동일합니다.)
-  const grouped = buildGroupedApplications(myApplications);
-  const totalPages = Math.max(1, Math.ceil(grouped.items.length / PAGE_SIZE));
+  // [수정] 「중복 신청만 보기」를 껐을 때는 원래 신청 목록 그대로(그룹핑 없이) 보여줍니다.
+  // 마켓별 그룹 묶음은 중복 신청만 보기 모드(renderDuplicateOnlyList)에서만 씁니다.
+  const totalPages = Math.max(1, Math.ceil(myApplications.length / PAGE_SIZE));
   if (currentPage > totalPages) currentPage = totalPages;
   if (currentPage < 1) currentPage = 1;
   const start = (currentPage - 1) * PAGE_SIZE;
-  const pageItems = grouped.items.slice(start, start + PAGE_SIZE);
+  const pageItems = myApplications.slice(start, start + PAGE_SIZE);
 
-  wrap.innerHTML = renderGroupedBoothCards(pageItems, grouped.groupMeta);
+  wrap.innerHTML = pageItems.map((a) => renderBoothCard(a)).join('');
   renderPagination(totalPages);
   bindBoothListEvents(wrap);
 }
@@ -395,43 +394,6 @@ function renderMyDuplicateSummary() {
     <strong>중복 신청한 마켓 ${map.size}곳 · 총 ${booths}칸</strong>
     <span class="dup-summary-names">${namesText}</span>`;
   box.hidden = false;
-}
-
-// [추가] 중복 신청된 항목을 마켓 단위로 묶어 "인접 배치"하기 위한 재정렬.
-// - 원래 순서(myApplications)를 최대한 유지하되, 같은 마켓(marketDuplicateCount >= 2)의
-//   신청 건들은 처음 등장하는 위치로 모아서 서로 붙여 놓습니다.
-// - groupMeta: applicationId -> { groupKey(marketId), groupItems(그 마켓의 전체 신청 목록) }
-//   렌더링 시 그룹의 첫 카드 앞에 헤더(마켓명 + 부스번호 목록)를 붙이는 데 사용합니다.
-function buildGroupedApplications(items) {
-  const byMarket = new Map();
-  items.forEach((a) => {
-    if ((Number(a.marketDuplicateCount) || 0) < 2) return;
-    const key = String(a.marketId);
-    if (!byMarket.has(key)) byMarket.set(key, []);
-    byMarket.get(key).push(a);
-  });
-
-  const output = [];
-  const groupMeta = new Map();
-  const emittedGroups = new Set();
-
-  items.forEach((a) => {
-    const count = Number(a.marketDuplicateCount) || 0;
-    const key = String(a.marketId);
-    if (count < 2) {
-      output.push(a);
-      return;
-    }
-    if (emittedGroups.has(key)) return; // 이미 그룹으로 출력됨
-    emittedGroups.add(key);
-    const groupItems = byMarket.get(key);
-    groupItems.forEach((item) => {
-      output.push(item);
-      groupMeta.set(String(item.applicationId), { groupKey: key, groupItems });
-    });
-  });
-
-  return { items: output, groupMeta };
 }
 
 // [추가] 클릭해서 펼친 마켓 그룹(marketId)의 모음. 기본은 접혀 있고, 헤더를 클릭하면 펼쳐집니다.
