@@ -1,27 +1,55 @@
-import {dbdelete}  from '../utills/DBdelete.js';
+import { dbdelete } from '../utills/DBdelete.js';
 import pool from '../config/db.js';
+import { cencelPayment } from '../services/paymentService.js';
 
 //마켓
 // [변경] 실제로 행을 DELETE 하지 않고 isExpired 을 2(삭제됨)로 바꾸는 소프트 삭제 방식으로 변경했습니다.
 // isExpired: 0 = 모집중, 1 = 마감, 2 = 주최자가 삭제함
 // 이렇게 하면 이 마켓에 신청했던 판매자들의 신청 내역(applications)이나 마이페이지 "행사 현황" 집계가
 // 마켓이 통째로 사라져서 깨지는 일 없이, "삭제된 마켓"이라는 상태로 계속 남아있을 수 있습니다.
+
+// 마켓 삭제 시 자동 환불
 export async function deleteMarket(req, res) {
   const { marketId } = req.params;
   const { userId } = req.user;
 
   try {
-    const [rows] = await pool.query('SELECT hostId FROM markets WHERE marketId = ?', [marketId]);
+    const [marketRows] = await pool.query('SELECT hostId FROM markets WHERE marketId = ?', [marketId]);
 
-    if (rows.length === 0) {
+    if (marketRows.length === 0) {
       return res.status(404).json({ success: false, message: '존재하지 않는 마켓입니다.' });
     }
-    if (rows[0].hostId !== userId) {
+    if (Number(marketRows[0].hostId) !== Number(userId)) {
       return res.status(403).json({ success: false, message: '본인이 등록한 마켓만 삭제할 수 있습니다.' });
     }
 
     await pool.query('UPDATE markets SET isExpired = 2 WHERE marketId = ?', [marketId]);
 
+    const [applications] = await pool.query('SELECT * FROM applications WHERE marketId = ?', [marketId]);
+
+    for (const application of applications) {
+      if (application.status !== 'Paid') continue;
+
+      try {
+        const [paymentRows] = await pool.query(
+          `SELECT p.paymentKey FROM payments p WHERE p.applicationId = ?`,
+          [application.applicationId]
+        );
+
+        if (paymentRows.length === 0) {
+          console.error(`applicationId ${application.applicationId}: 결제 정보를 찾을 수 없습니다.`);
+          continue;
+        }
+
+        await cencelPayment(paymentRows[0].paymentKey, '마켓 취소로 인한 결제 취소');
+
+        await pool.query(`UPDATE payments SET status = 'Refunded' WHERE applicationId = ?`, [application.applicationId]);
+        await pool.query(`UPDATE applications SET status = 'Refunded' WHERE applicationId = ?`, [application.applicationId]);
+      } catch (error) {
+        console.error(`applicationId ${application.applicationId} 환불 처리 실패:`, error.message);
+      }
+    }
+    
     return res.status(200).json({ success: true, message: '마켓이 삭제되었습니다.' });
   } catch (error) {
     console.error('마켓 삭제 오류:', error.message);

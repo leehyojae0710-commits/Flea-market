@@ -14,7 +14,7 @@
 //   activeRole 은 UI 분기 / 통계 분기 / 감사 로그 용도로만 씁니다.
 //   -> 판매자 모드로 전환했다고 해서 주최자 API가 갑자기 403이 되지는 않습니다.
 
-export const USER_TYPE = { SELLER: 0, HOST: 1 };
+export const USER_TYPE = { SELLER: 0, HOST: 1, ADMIN: 2 };
 export const ROLE = { HOST: 'host', SELLER: 'seller' };
 
 /** userType 값이 주최자인지 판정 (문자열로 들어와도 안전) */
