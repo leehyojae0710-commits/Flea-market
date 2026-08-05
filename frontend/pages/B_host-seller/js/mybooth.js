@@ -63,6 +63,16 @@ const STATUS_CLASS = {
   RefundRequested: 'RefundRequested'
 };
 
+// 여러 곳(중복 요약/그룹 헤더 등)에서 공통으로 쓰는 HTML 이스케이프
+function escapeHtml(value) {
+  return String(value === null || value === undefined ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // ---------- 상태 ----------
 
 let allApplications = [];
@@ -77,9 +87,13 @@ let reviewDraftRating = 0; // 별점 입력창에서 아직 제출 전인 값 (0
 let searchKeyword = '';
 // [중복 부스 신청] 「중복 신청만 보기」 체크 여부. 서버가 내려준 marketDuplicateCount 로 판단합니다.
 let duplicateOnly = false;
+// [추가] 중복 신청만 보기에서 쓰는 정렬 순서: 'desc'(중복 많은순, 기본) / 'asc'(중복 적은순 = 역순)
+let dupSortOrder = 'desc';
 
 // ---------- 페이지네이션 ----------
 const PAGE_SIZE = 20;
+// [추가] 중복 신청만 보기에서는 신청 건수가 아니라 "마켓" 단위로 페이징합니다 (한 페이지 5개 마켓).
+const MARKET_PAGE_SIZE = 5;
 let currentPage = 1;
 
 // ---------- 렌더링 ----------
@@ -90,13 +104,18 @@ function renderBoothList() {
   const countEl = document.getElementById('result-count');
   if (!wrap) return;
 
+  // [중복 부스 신청] 요약 줄은 필터와 무관하게 전체 목록 기준으로 갱신합니다.
+  renderMyDuplicateSummary();
+
+  if (duplicateOnly) {
+    renderDuplicateOnlyList(wrap, emptyState, countEl);
+    return;
+  }
+
   if (countEl) {
     countEl.textContent =
       allApplications.length === 0 ? '' : `${myApplications.length}건`;
   }
-
-  // [중복 부스 신청] 요약 줄은 필터와 무관하게 전체 목록 기준으로 갱신합니다.
-  renderMyDuplicateSummary();
 
   if (!myApplications || myApplications.length === 0) {
     wrap.innerHTML = '';
@@ -114,17 +133,88 @@ function renderBoothList() {
   }
   if (emptyState) emptyState.hidden = true;
 
-  const totalPages = Math.max(1, Math.ceil(myApplications.length / PAGE_SIZE));
+  // [중복 부스 신청] 같은 마켓끼리 인접 배치되도록 재정렬 후 페이지네이션합니다.
+  // (재정렬은 순서만 바꿀 뿐 항목 수는 그대로라 페이지 수 계산은 기존과 동일합니다.)
+  const grouped = buildGroupedApplications(myApplications);
+  const totalPages = Math.max(1, Math.ceil(grouped.items.length / PAGE_SIZE));
   if (currentPage > totalPages) currentPage = totalPages;
   if (currentPage < 1) currentPage = 1;
   const start = (currentPage - 1) * PAGE_SIZE;
-  const pageItems = myApplications.slice(start, start + PAGE_SIZE);
+  const pageItems = grouped.items.slice(start, start + PAGE_SIZE);
 
-  wrap.innerHTML = pageItems.map((a) => renderBoothCard(a)).join('');
+  wrap.innerHTML = renderGroupedBoothCards(pageItems, grouped.groupMeta);
   renderPagination(totalPages);
+  bindBoothListEvents(wrap);
+}
 
+// [추가] 「중복 신청만 보기」 전용 렌더링: 신청 건이 아니라 마켓 단위로 페이징합니다 (5개/페이지).
+// myApplications 는 이미 marketDuplicateCount >= 2 인 신청만 담고 있습니다(applyStatusFilter).
+function renderDuplicateOnlyList(wrap, emptyState, countEl) {
+  if (!myApplications || myApplications.length === 0) {
+    wrap.innerHTML = '';
+    if (countEl) countEl.textContent = '';
+    if (emptyState) {
+      emptyState.hidden = false;
+      emptyState.textContent = searchKeyword
+        ? `'${searchKeyword}'에 대한 검색 결과가 없어요.`
+        : '중복 신청한 마켓이 없어요.';
+    }
+    renderPagination(0);
+    return;
+  }
+  if (emptyState) emptyState.hidden = true;
+
+  const groups = buildMarketGroups(myApplications);
+  sortMarketGroups(groups);
+
+  if (countEl) countEl.textContent = `${groups.length}개 마켓 · ${myApplications.length}건`;
+
+  const totalPages = Math.max(1, Math.ceil(groups.length / MARKET_PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+  if (currentPage < 1) currentPage = 1;
+  const start = (currentPage - 1) * MARKET_PAGE_SIZE;
+  const pageGroups = groups.slice(start, start + MARKET_PAGE_SIZE);
+
+  const pageItems = [];
+  const groupMeta = new Map();
+  pageGroups.forEach((g) => {
+    g.groupItems.forEach((item) => {
+      pageItems.push(item);
+      groupMeta.set(String(item.applicationId), { groupKey: g.key, groupItems: g.groupItems });
+    });
+  });
+
+  wrap.innerHTML = renderGroupedBoothCards(pageItems, groupMeta);
+  renderPagination(totalPages);
+  bindBoothListEvents(wrap);
+}
+
+// 마켓(marketId) 단위로 신청 건을 묶음
+function buildMarketGroups(items) {
+  const map = new Map();
+  items.forEach((a) => {
+    const key = String(a.marketId);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(a);
+  });
+  return Array.from(map.entries()).map(([key, groupItems]) => ({ key, groupItems }));
+}
+
+// dupSortOrder 에 따라 마켓 그룹을 중복 칸수 기준으로 정렬 (제자리 정렬)
+function sortMarketGroups(groups) {
+  groups.sort((x, y) => {
+    const diff = y.groupItems.length - x.groupItems.length;
+    return dupSortOrder === 'asc' ? -diff : diff;
+  });
+}
+
+// 부스 목록에 걸리는 이벤트 위임 바인딩 (일반 모드/중복 모드 공통)
+function bindBoothListEvents(wrap) {
   wrap.querySelectorAll('[data-action="toggle"]').forEach((el) => {
     el.addEventListener('click', () => handleToggleDetail(el.dataset.id));
+  });
+  wrap.querySelectorAll('[data-action="group-toggle"]').forEach((btn) => {
+    btn.addEventListener('click', () => handleGroupToggle(btn.dataset.key));
   });
   wrap.querySelectorAll('[data-action="delete"]').forEach((btn) => {
     btn.addEventListener('click', () => handleDeleteClick(btn.dataset.id));
@@ -291,17 +381,112 @@ function renderMyDuplicateSummary() {
     return;
   }
 
-  const rows = [];
+  // [수정] 중복이 많은 마켓 순으로 정렬해서 상위 3곳만 보여주고, 나머지는 "외 N곳"으로 요약
+  const entries = Array.from(map.values()).sort((x, y) => y.count - x.count);
   let booths = 0;
-  map.forEach((v) => { booths += v.count; rows.push(`${v.title} ${v.count}칸`); });
+  entries.forEach((v) => { booths += v.count; });
 
-  const escape = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const TOP_N = 3;
+  const topRows = entries.slice(0, TOP_N).map((v) => `${escapeHtml(v.title)} ${v.count}칸`);
+  const restCount = entries.length - TOP_N;
+  const namesText = topRows.join(' / ') + (restCount > 0 ? ` 외 ${restCount}곳` : '');
 
   box.innerHTML = `
     <strong>중복 신청한 마켓 ${map.size}곳 · 총 ${booths}칸</strong>
-    <span class="dup-summary-names">${rows.slice(0, 5).map(escape).join(' / ')}${rows.length > 5 ? ` 외 ${rows.length - 5}곳` : ''}</span>
-    <span class="dup-summary-hint">한 마켓에 여러 칸 신청하는 건 가능해요. 실수로 넣은 신청이 있다면 대기중일 때 취소할 수 있어요.</span>`;
+    <span class="dup-summary-names">${namesText}</span>`;
   box.hidden = false;
+}
+
+// [추가] 중복 신청된 항목을 마켓 단위로 묶어 "인접 배치"하기 위한 재정렬.
+// - 원래 순서(myApplications)를 최대한 유지하되, 같은 마켓(marketDuplicateCount >= 2)의
+//   신청 건들은 처음 등장하는 위치로 모아서 서로 붙여 놓습니다.
+// - groupMeta: applicationId -> { groupKey(marketId), groupItems(그 마켓의 전체 신청 목록) }
+//   렌더링 시 그룹의 첫 카드 앞에 헤더(마켓명 + 부스번호 목록)를 붙이는 데 사용합니다.
+function buildGroupedApplications(items) {
+  const byMarket = new Map();
+  items.forEach((a) => {
+    if ((Number(a.marketDuplicateCount) || 0) < 2) return;
+    const key = String(a.marketId);
+    if (!byMarket.has(key)) byMarket.set(key, []);
+    byMarket.get(key).push(a);
+  });
+
+  const output = [];
+  const groupMeta = new Map();
+  const emittedGroups = new Set();
+
+  items.forEach((a) => {
+    const count = Number(a.marketDuplicateCount) || 0;
+    const key = String(a.marketId);
+    if (count < 2) {
+      output.push(a);
+      return;
+    }
+    if (emittedGroups.has(key)) return; // 이미 그룹으로 출력됨
+    emittedGroups.add(key);
+    const groupItems = byMarket.get(key);
+    groupItems.forEach((item) => {
+      output.push(item);
+      groupMeta.set(String(item.applicationId), { groupKey: key, groupItems });
+    });
+  });
+
+  return { items: output, groupMeta };
+}
+
+// [추가] 클릭해서 펼친 마켓 그룹(marketId)의 모음. 기본은 접혀 있고, 헤더를 클릭하면 펼쳐집니다.
+let expandedGroupKeys = new Set();
+
+// 그룹 상단 헤더: 어떤 마켓과 몇 칸이 중복인지, 부스 번호가 뭔지 hover 없이 바로 보이고
+// 클릭하면 그 마켓의 부스 카드들을 펼치거나 접습니다.
+function renderDupGroupHeader(groupKey, groupItems, isOpen) {
+  const first = groupItems[0];
+  const marketTitle = escapeHtml(first.marketTitle || `마켓 ${first.marketId}`);
+  const booths = groupItems
+    .map((a) => a.boothNumber)
+    .filter((v) => v !== undefined && v !== null);
+  const boothText = booths.length ? `${booths.join(', ')}번 신청` : '';
+  return `
+    <button type="button" class="dup-group-header" data-action="group-toggle"
+      data-key="${escapeHtml(groupKey)}" aria-expanded="${isOpen ? 'true' : 'false'}">
+      <span class="dup-group-badge">중복 ${groupItems.length}칸</span>
+      <span class="dup-group-title">${marketTitle}</span>
+      ${boothText ? `<span class="dup-group-booths">${escapeHtml(boothText)}</span>` : ''}
+      <span class="dup-group-caret" aria-hidden="true">${isOpen ? '▲' : '▼'}</span>
+    </button>`;
+}
+
+// 페이지에 보여줄 항목들을 그룹 래퍼(.dup-group)로 감싸며 카드 HTML을 만듦.
+// 그룹이 펼쳐진 상태(expandedGroupKeys)일 때만 그 마켓의 카드들을 실제로 렌더링합니다.
+function renderGroupedBoothCards(pageItems, groupMeta) {
+  let html = '';
+  let openKey = null;
+  let isCurrentGroupExpanded = false;
+  pageItems.forEach((a) => {
+    const meta = groupMeta.get(String(a.applicationId));
+    const key = meta ? meta.groupKey : null;
+    if (key !== openKey) {
+      if (openKey) html += '</div>';
+      if (key) {
+        isCurrentGroupExpanded = expandedGroupKeys.has(key);
+        html += '<div class="dup-group">';
+        html += renderDupGroupHeader(key, meta.groupItems, isCurrentGroupExpanded);
+      }
+      openKey = key;
+    }
+    if (!key || isCurrentGroupExpanded) {
+      html += renderBoothCard(a);
+    }
+  });
+  if (openKey) html += '</div>';
+  return html;
+}
+
+function handleGroupToggle(key) {
+  if (!key) return;
+  if (expandedGroupKeys.has(key)) expandedGroupKeys.delete(key);
+  else expandedGroupKeys.add(key);
+  renderBoothList();
 }
 
 function renderBoothCard(a) {
@@ -684,8 +869,10 @@ const STATUS_FILTER_MAP = {
 };
 
 function applyStatusFilter() {
+  // [수정] 중복 신청만 보기에서는 상태 필터(select)를 비활성화하고 무시합니다
+  //        (여러 상태가 섞인 신청을 마켓 단위로 한눈에 봐야 하는 화면이라서).
   const groupedStatuses = STATUS_FILTER_MAP[statusFilter];
-  const byStatus = statusFilter
+  const byStatus = !duplicateOnly && statusFilter
     ? allApplications.filter((a) => {
         const status = a.status || 'Pending';
         return groupedStatuses
@@ -702,12 +889,28 @@ function applyStatusFilter() {
 
 function handleDuplicateOnlyToggle() {
   const box = document.getElementById('booth-duplicate-only');
+  const statusFilterEl = document.getElementById('status-filter');
+  const dupSortField = document.getElementById('dup-sort-field');
   if (!box) return;
   box.addEventListener('change', () => {
     duplicateOnly = box.checked;
     expandedId = null;
     currentPage = 1;
+    // [추가] 중복 신청만 보기: 상태 필터는 비활성화하고, 대신 중복순/역순 정렬을 보여줍니다.
+    if (statusFilterEl) statusFilterEl.disabled = duplicateOnly;
+    if (dupSortField) dupSortField.hidden = !duplicateOnly;
     applyStatusFilter();
+  });
+}
+
+// [추가] 중복 신청만 보기에서 쓰는 "중복 많은순 / 중복 적은순(역순)" 선택
+function handleDupSortChange() {
+  const select = document.getElementById('dup-sort-order');
+  if (!select) return;
+  select.addEventListener('change', () => {
+    dupSortOrder = select.value === 'asc' ? 'asc' : 'desc';
+    currentPage = 1;
+    renderBoothList();
   });
 }
 
@@ -764,5 +967,6 @@ document.addEventListener('DOMContentLoaded', () => {
     ?.addEventListener('change', handleFilterChange);
   handlePaginationClick();
   handleDuplicateOnlyToggle();
+  handleDupSortChange();
   loadMyBoothList();
 });
