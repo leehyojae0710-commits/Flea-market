@@ -192,11 +192,28 @@
     const order = data ? Object.keys(data.paths) : Object.keys(counts);
     const wrap = document.createElement("ul");
     wrap.className = "kr-region-list";
-    let total = 0;
+    const total = order.reduce((sum, region) => sum + (counts[region] || 0), 0);
+
+    // [추가] 목록 맨 위 "전체" 항목 — 다른 지역과 달리 토글이 아니라, 누르면 항상
+    // 지역 필터를 해제하고 전국 행사를 모두 보여줍니다.
+    const allLi = document.createElement("li");
+    allLi.className = "kr-region-list-item kr-region-list-item-all";
+    allLi.dataset.region = "";
+    allLi.setAttribute("role", "button");
+    allLi.setAttribute("tabindex", "0");
+    allLi.innerHTML =
+      `<span class="krl-dot"></span>` +
+      `<span class="krl-name">전체</span>` +
+      `<span class="krl-count">${total}</span>`;
+    const selectAll = () => selectRegion("");
+    allLi.addEventListener("click", selectAll);
+    allLi.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectAll(); }
+    });
+    wrap.appendChild(allLi);
 
     order.forEach((region) => {
       const cnt = counts[region] || 0;
-      total += cnt;
       const li = document.createElement("li");
       li.className = "kr-region-list-item";
       li.dataset.region = region;
