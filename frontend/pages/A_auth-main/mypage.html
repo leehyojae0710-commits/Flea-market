@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="../../common/css/style.css" />
     <!-- 페이지 폭이 넓은 .page-wrap/.nav/.panel 레이아웃은 B_host-seller 쪽에 이미 있어 그대로 가져다 씁니다. -->
     <link rel="stylesheet" href="../B_host-seller/css/host-seller.css?v=2" />
-    <link rel="stylesheet" href="css/auth.css" />
+    <link rel="stylesheet" href="css/auth.css?v=3" />
     <link rel="stylesheet" href="css/profile.css?v=5" />
     <link rel="stylesheet" href="css/payment-history.css?v=3" />
     <!-- [C-01/C-02] 역할별 화면 분기 · 주최자 역할 전환 버튼 -->
@@ -38,10 +38,10 @@
             <!-- [UI] profile-edit.html 과 동일한 좌측 목록(.edit-tabs) 레이아웃을 그대로 사용합니다. -->
             <div class="edit-layout">
                 <div class="edit-tabs">
-                    <button type="button" class="edit-tab-btn" onclick="changePageProfile()">내 프로필</button>
-                    <a href="profile-edit.html" class="edit-tab-btn">내 정보수정</a>
-                    <!-- [UI 전용] 화면만 만든 항목입니다. 동작은 연결하지 않았습니다. -->
-                    <button type="button" class="edit-tab-btn" onclick="changePagePayment()">결제내역 확인</button>
+                    <button type="button" class="mypage-tab-btn active" data-tab="profile" onclick="changePageProfile()">내 프로필</button>
+                    <!-- [UI 통일] profile-edit.html로 이동하던 링크를 같은 화면 안에서 edit-panel을 보여주는 버튼으로 바꿨습니다. -->
+                    <button type="button" class="mypage-tab-btn" data-tab="edit" onclick="changePageEdit()">내 정보수정</button>
+                    <button type="button" class="mypage-tab-btn" data-tab="payment" onclick="changePagePayment()">결제내역 확인</button>
                 </div>
 
                 <div class="edit-panels" id="profile-panel">
@@ -173,6 +173,116 @@
 
                 </div>
                 <div class="edit-panels payment-history-panel" id="payment-list" hidden></div>
+
+                <!-- [UI 통일] profile-edit.html 로 이동하던 화면을 그대로 여기로 옮겨왔습니다.
+                     내부는 프로필 설정 / 소개 관리 / 내 정보 수정 3개 하위 탭으로 구성됩니다. -->
+                <div class="edit-panels" id="edit-panel" hidden>
+                    <div id="edit-alert-box" class="alert alert-error" role="alert"></div>
+
+                    <div class="edit-layout">
+                        <div class="edit-tabs" role="tablist">
+                            <button type="button" class="edit-tab-btn active" data-panel="panel-basic">프로필 설정</button>
+                            <button type="button" class="edit-tab-btn" data-panel="panel-bio">소개 관리</button>
+                            <button type="button" class="edit-tab-btn" data-panel="panel-account">내 정보 수정</button>
+                        </div>
+
+                        <div class="edit-panels">
+                            <div id="panel-basic" class="edit-panel active">
+                                <div class="section-title">프로필 설정</div>
+                                <form id="profile-basic-form" novalidate>
+                                    <div class="form-field">
+                                        <label for="nickname">닉네임</label>
+                                        <div class="form-inline">
+                                            <input type="text" id="nickname" class="form-input" placeholder="2~12자로 입력해주세요" maxlength="12" />
+                                            <button type="button" id="check-nickname-btn" class="btn btn-secondary">중복 확인</button>
+                                        </div>
+                                        <p id="nickname-check-msg" class="field-msg"></p>
+                                    </div>
+                                    <div class="form-field">
+                                        <label for="intro-text">프로필 한 줄 소개</label>
+                                        <input type="text" id="intro-text" class="form-input" placeholder="예: 제주에서 소품을 만들어요." maxlength="150" />
+                                    </div>
+                                    <div class="form-field">
+                                        <label for="profile-image">프로필 사진</label>
+                                        <input type="file" id="profile-image" accept=".jpg,.jpeg,.png" />
+                                        <p class="form-hint">jpg, jpeg, png / 5MB 이하만 올릴 수 있어요. 바꾸지 않으면 기존 사진이 그대로 유지돼요.</p>
+                                        <div id="profile-image-status"></div>
+                                        <div class="image-actions">
+                                            <button type="button" id="remove-profile-image-btn" class="btn btn-outline btn-sm" hidden>사진 삭제</button>
+                                            <span id="profile-image-removed-msg" class="image-removed-msg" hidden>저장을 누르면 사진이 삭제돼요.</span>
+                                        </div>
+                                        <input type="hidden" id="uploaded-profile-image-path" />
+                                    </div>
+                                    <button type="submit" id="profile-basic-submit-btn" class="btn btn-primary btn-block">프로필 저장</button>
+                                </form>
+                            </div>
+
+                            <div id="panel-bio" class="edit-panel">
+                                <div class="section-title">소개 관리</div>
+                                <form id="profile-bio-form" novalidate>
+                                    <div class="form-field">
+                                        <label for="bio-text">소개글</label>
+                                        <textarea id="bio-text" class="form-input form-textarea" rows="4" placeholder="마이페이지 소개글에 표시될 내용을 입력해주세요." maxlength="1000"></textarea>
+                                    </div>
+                                    <div class="form-field">
+                                        <label for="bio-image">소개 이미지</label>
+                                        <input type="file" id="bio-image" accept=".jpg,.jpeg,.png" />
+                                        <p class="form-hint">jpg, jpeg, png / 5MB 이하만 올릴 수 있어요. 바꾸지 않으면 기존 이미지가 그대로 유지돼요.</p>
+                                        <div id="bio-image-status"></div>
+                                        <div class="image-actions">
+                                            <button type="button" id="remove-bio-image-btn" class="btn btn-outline btn-sm" hidden>이미지 삭제</button>
+                                            <span id="bio-image-removed-msg" class="image-removed-msg" hidden>저장을 누르면 이미지가 삭제돼요.</span>
+                                        </div>
+                                        <input type="hidden" id="uploaded-bio-image-path" />
+                                    </div>
+                                    <button type="submit" id="profile-bio-submit-btn" class="btn btn-primary btn-block">소개 저장</button>
+                                </form>
+                            </div>
+
+                            <div id="panel-account" class="edit-panel">
+                                <div class="section-title">내 정보 수정</div>
+                                <form id="profile-form" novalidate>
+                                    <div class="form-field">
+                                        <label for="phone">전화번호</label>
+                                        <input type="text" id="phone" class="form-input" placeholder="010-1234-5678" autocomplete="tel" pattern="01[0-9]-[0-9]{3,4}-[0-9]{4}" title="010-0000-0000 형식으로 입력해주세요" />
+                                    </div>
+                                    <div class="form-field">
+                                        <label for="region">거주 지역</label>
+                                        <input type="text" id="region" class="form-input" placeholder="예: 서울 마포구" />
+                                    </div>
+                                    <button type="submit" id="profile-submit-btn" class="btn btn-primary btn-block">정보 수정</button>
+                                </form>
+
+                                <hr class="section-divider" />
+
+                                <div class="section-title">비밀번호 변경</div>
+                                <form id="password-form" novalidate>
+                                    <div class="form-field">
+                                        <label for="current-password">현재 비밀번호</label>
+                                        <input type="password" id="current-password" class="form-input" placeholder="현재 비밀번호" autocomplete="current-password" />
+                                    </div>
+                                    <div class="form-field">
+                                        <label for="new-password">새 비밀번호</label>
+                                        <input type="password" id="new-password" class="form-input" placeholder="8자 이상" autocomplete="new-password" minlength="8" />
+                                    </div>
+                                    <div class="form-field">
+                                        <label for="new-password-confirm">새 비밀번호 확인</label>
+                                        <input type="password" id="new-password-confirm" class="form-input" placeholder="새 비밀번호 다시 입력" autocomplete="new-password" minlength="8" />
+                                    </div>
+                                    <button type="submit" id="password-submit-btn" class="btn btn-primary btn-block">비밀번호 변경</button>
+                                </form>
+
+                                <hr class="section-divider" />
+
+                                <div class="section-title">계정 관리</div>
+                                <div class="mypage-actions">
+                                    <button type="button" id="logout-btn" class="btn btn-outline">로그아웃</button>
+                                    <button type="button" id="delete-account-btn" class="btn btn-danger">회원 탈퇴</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -180,8 +290,11 @@
     </div>
 
     <script src="../../common/js/api.js?v=4"></script>
+    <script src="../../common/js/validators.js?v=2"></script>
     <script src="js/mypage.js?v=6"></script>
     <script src="../B_host-seller/js/payment.js"></script>
+    <!-- [UI 통일] 내 정보 수정(profile-edit.html) 로직을 같은 화면에 내장했습니다. -->
+    <script src="js/profile-edit.js?v=5"></script>
 </body>
 
 </html>

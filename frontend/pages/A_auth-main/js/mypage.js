@@ -405,20 +405,44 @@ async function syncCurrentUser() {
     // 실패해도 화면은 기존 sessionStorage 값으로 계속 보여줍니다.
   }
 }
+// [UI 통일] 마이페이지 상단 3개 탭(내 프로필 / 내 정보수정 / 결제내역 확인)의
+// active 표시를 한 곳에서 관리합니다. 버튼에는 data-tab="profile|edit|payment" 를 붙여둡니다.
+function setActiveMypageTab(name) {
+  document.querySelectorAll('.mypage-tab-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.tab === name);
+  });
+}
+
 async function changePageProfile() {
   const page = document.getElementById('profile-panel');
-  const ui = document.getElementById('payment-list');
+  const paymentUi = document.getElementById('payment-list');
+  const editUi = document.getElementById('edit-panel');
   if (!page)
     return;
-  if (!ui)
+  if (!paymentUi)
     return;
+  setActiveMypageTab('profile');
   page.hidden = false;
-  ui.hidden = true;
+  paymentUi.hidden = true;
+  if (editUi) editUi.hidden = true;
   await syncCurrentUser();
   loadProfile();
   loadStats();
   loadActivity();
   loadReviewSummary();
+}
+
+// [UI 통일] '내 정보수정'을 누르면 profile-edit.html로 이동하는 대신, 같은 화면 안에서
+// edit-panel(프로필 설정/소개 관리/내 정보 수정 3개 하위 탭)만 보여주도록 전환합니다.
+function changePageEdit() {
+  const page = document.getElementById('profile-panel');
+  const paymentUi = document.getElementById('payment-list');
+  const editUi = document.getElementById('edit-panel');
+  if (!editUi) return;
+  setActiveMypageTab('edit');
+  if (page) page.hidden = true;
+  if (paymentUi) paymentUi.hidden = true;
+  editUi.hidden = false;
 }
 
 document.addEventListener('DOMContentLoaded', async () => {

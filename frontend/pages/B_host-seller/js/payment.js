@@ -28,12 +28,17 @@ async function historys() {
 async function changePagePayment() {
   const page = document.getElementById('profile-panel');
   const ui = document.getElementById('payment-list');
+  const editUi = document.getElementById('edit-panel');
   if (!page)
     return;
   if (!ui)
     return;
+  // [UI 통일] mypage.html 에서만 정의된 헬퍼라서, 이 스크립트를 쓰는 다른 화면
+  // (payment.html 등)에서는 존재하지 않을 수 있어 안전하게 확인 후 호출합니다.
+  if (typeof setActiveMypageTab === 'function') setActiveMypageTab('payment');
   page.hidden = true;
   ui.hidden = false;
+  if (editUi) editUi.hidden = true;
   payment_history();
 }
 async function payment_history() {

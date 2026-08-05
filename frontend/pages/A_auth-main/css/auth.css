@@ -432,7 +432,8 @@ body {
   flex: 0 0 128px;
 }
 
-.edit-tab-btn {
+.edit-tab-btn,
+.mypage-tab-btn {
   text-align: left;
   padding: 11px 12px;
   border: 1px solid #d8cbb5;
@@ -445,11 +446,13 @@ body {
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-.edit-tab-btn:hover {
+.edit-tab-btn:hover,
+.mypage-tab-btn:hover {
   border-color: var(--mustard);
 }
 
-.edit-tab-btn.active {
+.edit-tab-btn.active,
+.mypage-tab-btn.active {
   background: var(--ink);
   border-color: var(--ink);
   color: var(--paper);
@@ -458,14 +461,22 @@ body {
 .edit-panels {
   flex: 1;
   min-width: 0;
+  display: grid;
 }
 
+/* [수정] display:none 을 쓰면 탭을 바꿀 때마다 카드 높이가 그 탭 내용 크기로
+   다시 계산돼서 화면이 출렁였습니다. 세 패널을 같은 그리드 셀에 겹쳐두고
+   visibility 로만 전환하면, 안 보이는 패널도 레이아웃 계산에는 남아있어서
+   카드 높이가 항상 "가장 큰 패널" 기준으로 고정됩니다. */
 .edit-panel {
-  display: none;
+  grid-area: 1 / 1;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .edit-panel.active {
-  display: block;
+  visibility: visible;
+  pointer-events: auto;
 }
 
 @media (max-width: 560px) {
@@ -479,7 +490,8 @@ body {
     width: 100%;
   }
 
-  .edit-tab-btn {
+  .edit-tab-btn,
+  .mypage-tab-btn {
     flex: 1;
     text-align: center;
   }

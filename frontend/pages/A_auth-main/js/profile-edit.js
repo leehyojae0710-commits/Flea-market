@@ -1,9 +1,13 @@
 // A_auth-main/js/profile-edit.js — 내 정보 수정: 프로필 설정 / 전화번호·지역 / 비밀번호 / 탈퇴·로그아웃
 // 기존 mypage.js에 있던 전화번호/지역/비밀번호/로그아웃/탈퇴 로직은 그대로 옮겨왔고,
 // 닉네임/한줄소개/프로필사진/소개글/소개이미지(프로필 설정) 로직을 새로 추가했습니다.
+// [UI 통일] 이제 mypage.html 안에 내장된 탭으로 로드되므로, mypage.js 와 같은 스크립트 스코프를
+// 공유합니다. rawUser/currentUser/showAlert/syncCurrentUser 등 이름이 겹치는 전역 선언이
+// mypage.js 쪽과 충돌하지 않도록 이 파일 전체를 즉시실행함수(IIFE)로 감쌉니다.
+(function () {
 
 function showAlert(message, type = 'error') {
-  const alertBox = document.getElementById('alert-box');
+  const alertBox = document.getElementById('edit-alert-box');
   if (!alertBox) return;
   alertBox.textContent = message;
   alertBox.classList.remove('alert-error', 'alert-success');
@@ -510,7 +514,7 @@ if (profileBioForm) {
 }
 
 function hideAlertBox() {
-  const box = document.getElementById('alert-box');
+  const box = document.getElementById('edit-alert-box');
   if (box) box.classList.remove('show');
 }
 
@@ -550,3 +554,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   fillCurrentInfo(); // 서버에서 받은 최신 phone/region으로 다시 채움
   loadProfileForEdit();
 });
+
+})();

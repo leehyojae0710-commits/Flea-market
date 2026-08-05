@@ -8,31 +8,28 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../../common/css/style.css" />
-  <link rel="stylesheet" href="css/auth.css?v=2" />
+  <!-- [UI 통일] mypage.html과 같은 page-wrap/panel 레이아웃을 쓰도록 host-seller.css, profile.css 를 그대로 가져다 씁니다. -->
+  <link rel="stylesheet" href="../B_host-seller/css/host-seller.css?v=2" />
+  <link rel="stylesheet" href="css/auth.css?v=3" />
+  <link rel="stylesheet" href="css/profile.css?v=5" />
   <!-- [C-01] 역할별 첫 화면 분기 / 주최자 전용 화면 접근 차단 (mypage.html, login.html 과 동일하게 추가) -->
   <script src="../../common/js/role-routing.js?v=3"></script>
   <!-- [공통] 상단 고정 네비게이션 바 (모든 화면 공통) -->
   <link rel="stylesheet" href="../../common/css/global-nav.css?v=2" />
   <script src="../../common/js/global-nav.js?v=2" defer></script>
 </head>
-<body>
-  <!-- [수정] mypage.html 등 로그인 후 화면과 동일하게 <header class="nav"> 를 직접 둬서
-       global-nav.js 가 만드는 상단 고정 바가 항상 같은 마크업/타이밍으로 붙게 합니다. -->
-  <header class="nav">
-    <a href="../../index.html" class="brand"><span class="pin-dot" aria-hidden="true"></span>플리마켓</a>
-  </header>
+<body class="profile-body">
+  <div class="page-wrap">
+    <header class="nav">
+      <a href="../../index.html" class="brand"><span class="pin-dot" aria-hidden="true"></span>플리마켓</a>
+    </header>
 
-  <div class="auth-wrap auth-wrap-wide">
-    <a href="mypage.html" class="auth-brand">
-      <span class="pin-dot" aria-hidden="true"></span>플리마켓
-    </a>
-
-    <div class="auth-card">
+    <div class="panel">
       <span class="pin" aria-hidden="true"></span>
       <h1>내 정보 수정</h1>
-      <p class="auth-sub">프로필과 계정 정보를 관리할 수 있어요.</p>
+      <p class="panel-sub">프로필과 계정 정보를 관리할 수 있어요.</p>
 
-      <div id="alert-box" class="alert alert-error" role="alert"></div>
+      <div id="edit-alert-box" class="alert alert-error" role="alert"></div>
 
       <div class="edit-layout">
         <div class="edit-tabs" role="tablist">
@@ -142,11 +139,11 @@
       </div>
     </div>
 
-    <a href="mypage.html" class="back-home">← 마이페이지로</a>
+    <a href="mypage.html" class="back-link">← 마이페이지로</a>
   </div>
 
   <script src="../../common/js/api.js?v=4"></script>
   <script src="../../common/js/validators.js?v=2"></script>
-  <script src="js/profile-edit.js?v=4"></script>
+  <script src="js/profile-edit.js?v=5"></script>
 </body>
 </html>
