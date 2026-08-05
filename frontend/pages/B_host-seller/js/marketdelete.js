@@ -12,9 +12,9 @@
 
 // ---------- API 호출 ----------
 
-async function deleteMarket(marketId) {
-  return callApi(`/markets/closed/${marketId}`, { method: 'PATCH' });
-}
+// [공통화] 마켓 취소(미리보기 → 확인 모달 → 실행)는 common/js/market-cancel.js 로 옮겼습니다.
+//   마켓 상세 화면에서도 같은 버튼을 누를 수 있게 되면서, 절차가 두 곳에 복사되면
+//   환불 금액 계산이나 확인 문구가 갈라지기 때문입니다. 여기서는 MarketCancel.run() 만 부릅니다.
 
 async function getMyMarkets(sort = '') {
   const query = sort ? `?sort=${encodeURIComponent(sort)}` : '';
@@ -583,22 +583,17 @@ async function handleDeleteClick(marketId) {
   hideAlert();
   if (!marketId) return;
 
-  const confirmed = window.confirm(
-    '정말 이 마켓을 취소하시겠습니까? 취소 후에는 되돌릴 수 없어요.',
-  );
-  if (!confirmed) return;
+  // 미리보기 → 확인 창 → 실행까지 공용 모듈이 처리합니다.
+  const result = await MarketCancel.run(marketId);
 
-  try {
-    const res = await deleteMarket(marketId);
-    if (res && res.success) {
-      renderAlert('마켓이 취소되었습니다.', 'success');
-      if (String(expandedId) === String(marketId)) expandedId = null;
-      await loadMyMarkets();
-    } else {
-      renderAlert(res?.message || '취소에 실패했어요.');
-    }
-  } catch (err) {
-    renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
+  // 사용자가 「아니오」를 눌렀으면 조용히 끝냅니다.
+  if (!result.cancelled && !result.message) return;
+
+  renderAlert(result.message, result.type);
+
+  if (result.cancelled) {
+    if (String(expandedId) === String(marketId)) expandedId = null;
+    await loadMyMarkets();
   }
 }
 
