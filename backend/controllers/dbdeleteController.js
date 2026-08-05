@@ -44,7 +44,7 @@ export async function deleteMarket(req, res) {
         await cencelPayment(paymentRows[0].paymentKey, '마켓 취소로 인한 결제 취소');
 
         await pool.query(`UPDATE payments SET status = 'Refunded' WHERE applicationId = ?`, [application.applicationId]);
-        await pool.query(`UPDATE applications SET status = 'Refunded' WHERE applicationId = ?`, [application.applicationId]);
+        await pool.query(`UPDATE applications SET status = 'Refunded', refundReason = ? WHERE applicationId = ?`, ['마켓 취소로 인한 결제 취소', application.applicationId]);
       } catch (error) {
         console.error(`applicationId ${application.applicationId} 환불 처리 실패:`, error.message);
       }

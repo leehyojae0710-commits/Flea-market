@@ -23,7 +23,7 @@
 // [정리] 환불 1건의 절차(결제사 취소 + payments/applications 갱신)는
 //        utills/refundCore.js 한 곳에 있습니다. 건별 환불·일괄 결제취소와 같은 코드를 씁니다.
 //        예전에는 여기서 따로 구현해서, RefundRequested 건의 처리가 서로 달랐습니다.
-import { refundOneApplication, REFUND_MODE } from './refundCore.js';
+
 
 /** 아직 살아 있는(취소 시 처리해야 하는) 신청 상태 */
 export const LIVE_STATUSES = ['Pending', 'Approved', 'Paid', 'RefundRequested'];
