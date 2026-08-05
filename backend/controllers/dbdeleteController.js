@@ -12,6 +12,7 @@ import { cencelPayment } from '../services/paymentService.js';
 export async function deleteMarket(req, res) {
   const { marketId } = req.params;
   const { userId } = req.user;
+  console.log(`deleteMarket called with marketId: ${marketId}, userId: ${userId}`);
 
   try {
     const [marketRows] = await pool.query('SELECT hostId FROM markets WHERE marketId = ?', [marketId]);
@@ -40,11 +41,11 @@ export async function deleteMarket(req, res) {
           console.error(`applicationId ${application.applicationId}: 결제 정보를 찾을 수 없습니다.`);
           continue;
         }
-
+        
         await cencelPayment(paymentRows[0].paymentKey, '마켓 취소로 인한 결제 취소');
 
-        await pool.query(`UPDATE payments SET status = 'Refunded' WHERE applicationId = ?`, [application.applicationId]);
-        await pool.query(`UPDATE applications SET status = 'Refunded', refundReason = ? WHERE applicationId = ?`, ['마켓 취소로 인한 결제 취소', application.applicationId]);
+        await pool.query(`UPDATE payments SET status = 'Refunded', refundReason = '마켓 취소로 인한 결제 취소' WHERE applicationId = ?`, [application.applicationId]);
+        await pool.query(`UPDATE applications SET status = 'Refunded' WHERE applicationId = ?`, [application.applicationId]);
       } catch (error) {
         console.error(`applicationId ${application.applicationId} 환불 처리 실패:`, error.message);
       }
