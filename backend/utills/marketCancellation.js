@@ -69,11 +69,23 @@ export async function getCancellationSchema(db) {
           AND column_name = 'boothTypeId'`
     );
 
+    // [버그 수정] 예전에는 applications.boothTypeId 컬럼만 보고 부스 종류 기능이 있다고 판단했습니다.
+    //   그런데 컬럼은 남아 있는데 market_booth_types 테이블만 없는 상태가 실제로 생깁니다.
+    //   (부스 종류 기능을 되돌리면서 테이블은 지우고 컬럼은 남겨둔 경우)
+    //   그러면 아래 미리보기 쿼리가 없는 테이블을 JOIN 해서
+    //   "Table 'xxx.market_booth_types' doesn't exist" 로 통째로 실패하고,
+    //   화면에는 신청자가 있는데도 "신청자가 없어요" 로 잘못 뜹니다.
+    //   테이블 존재까지 함께 확인해야 합니다.
+    const [typeTable] = await db.query(
+      `SELECT COUNT(*) AS cnt FROM information_schema.tables
+        WHERE table_schema = DATABASE() AND table_name = 'market_booth_types'`
+    );
+
     state = {
       paymentKey: payNames.has('paymentkey'),
       refundAmount: payNames.has('refundamount'),
       refundReason: payNames.has('refundreason'),
-      boothType: appCols.length > 0,
+      boothType: appCols.length > 0 && Number(typeTable[0].cnt) > 0,
     };
   } catch (error) {
     console.warn('[marketCancellation] 스키마 확인 실패:', error.message);

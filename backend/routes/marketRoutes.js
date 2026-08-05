@@ -17,7 +17,7 @@ import {
   processQueueTimeouts,
   getMyMarket,
 } from '../controllers/marketController.js';
-import { deleteMarket } from '../controllers/dbdeleteController.js';
+import { deleteMarket, getCancelPreview } from '../controllers/dbdeleteController.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 import { requireHost } from '../middleware/hostOnlyMiddleware.js';
 import { validateMarketInput } from '../middleware/marketValidationMiddleware.js';
@@ -253,6 +253,68 @@ router.post(
 router.get('/:marketId', getMarketDetail);
 //router.get('/closed/:marketId', authenticateToken,marketClosed);
 router.patch('/:marketId', authenticateToken, updateMarketStatus);
+/**
+ * @swagger
+ * /markets/{marketId}/cancel-preview:
+ *   get:
+ *     summary: 마켓 취소 미리보기 (주최자 본인)
+ *     description: |
+ *       마켓을 취소하면 누구에게 얼마를 환불해야 하는지 미리 계산합니다. **DB 를 바꾸지 않습니다.**
+ *       화면에서 취소 버튼을 누르면 이 값을 모달로 보여주고, 확인을 받은 뒤에 실제 취소를 요청합니다.
+ *     tags: [Markets]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: marketId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: "refundCount / refundTotal / unpaidCount / sellerCount / byBoothType / items"
+ *       403: { description: 본인 마켓이 아님 }
+ *       404: { description: 존재하지 않는 마켓 }
+ */
+router.get('/:marketId/cancel-preview', authenticateToken, getCancelPreview);
+
+/**
+ * @swagger
+ * /markets/closed/{marketId}:
+ *   patch:
+ *     summary: 마켓 취소 (주최자 본인) — 전액 환불 + 신청자 알림
+ *     description: |
+ *       마켓을 취소 상태(isExpired=2)로 바꾸고, 결제 완료 건을 **전액 환불**한 뒤 신청자 전원에게 알립니다.
+ *       환불 비율은 기간별 정책(refundPolicy)을 적용하지 않고 항상 100% 입니다.
+ *       마켓 취소는 주최자 사정이라 판매자에게 책임이 없기 때문입니다.
+ *
+ *       결제 완료 건이 하나라도 있으면 `confirmRefund: true` 없이는 **409 CANCEL_CONFIRM_REQUIRED** 로 거부하고
+ *       환불 예상 내역을 `data` 에 담아 돌려줍니다.
+ *
+ *       환불에 실패한 건이 있어도 마켓 취소는 진행합니다. (판매자에게 통보는 반드시 가야 하므로)
+ *       실패 목록은 `data.failed` 로 반환되며, 신청자 목록의 「일괄 결제취소」로 재시도할 수 있습니다.
+ *     tags: [Markets]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: marketId
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               confirmRefund:
+ *                 type: boolean
+ *                 description: "환불 금액을 확인했다는 표시. 결제 건이 있으면 필수"
+ *               reason:
+ *                 type: string
+ *                 description: "환불 사유 (기본값: 주최자의 마켓 취소)"
+ *     responses:
+ *       200: { description: "취소 완료 — refundedCount / refundedTotal / failed / notifiedCount" }
+ *       409: { description: "CANCEL_CONFIRM_REQUIRED — 환불 예상 내역을 data 로 반환" }
+ *       403: { description: 본인 마켓이 아님 }
+ */
 router.patch('/closed/:marketId', authenticateToken, deleteMarket);
 /**
  * @swagger

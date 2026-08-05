@@ -12,8 +12,17 @@
 
 // ---------- API 호출 ----------
 
-async function deleteMarket(marketId) {
-  return callApi(`/markets/closed/${marketId}`, { method: 'PATCH' });
+async function deleteMarket(marketId, confirmRefund = false) {
+  // [마켓 취소 전액 환불] 결제 건이 있으면 confirmRefund 없이는 서버가 409 로 거부합니다.
+  return callApi(`/markets/closed/${marketId}`, {
+    method: 'PATCH',
+    body: { confirmRefund },
+  });
+}
+
+// [마켓 취소 전액 환불] 취소 버튼을 누르기 전에 "얼마가 환불되는지" 미리 받아옵니다. DB 는 안 바뀝니다.
+async function getCancelPreview(marketId) {
+  return callApi(`/markets/${marketId}/cancel-preview`);
 }
 
 async function getMyMarkets(sort = '') {
@@ -583,15 +592,38 @@ async function handleDeleteClick(marketId) {
   hideAlert();
   if (!marketId) return;
 
-  const confirmed = window.confirm(
-    '정말 이 마켓을 취소하시겠습니까? 취소 후에는 되돌릴 수 없어요.',
-  );
+  // 1) 환불 예상 내역을 먼저 받아옵니다. (돈이 나가는 동작이라 금액을 보여주고 물어봅니다)
+  let preview = null;
+  let previewFailed = false;
+  try {
+    const res = await getCancelPreview(marketId);
+    if (res && res.success) preview = res.data;
+    else previewFailed = true;
+  } catch (err) {
+    // 미리보기를 못 받아도 취소 자체는 막지 않습니다. 서버가 다시 확인합니다.
+    // 다만 "신청자가 없다"고 단정하면 안 됩니다. 못 불러온 것과 없는 것은 다릅니다.
+    previewFailed = true;
+    console.error('취소 미리보기 실패:', err);
+  }
+
+  // 2) 같은 페이지 안에서 확인 창을 띄웁니다.
+  const confirmed = await showCancelConfirm(preview, previewFailed);
   if (!confirmed) return;
 
   try {
-    const res = await deleteMarket(marketId);
+    const res = await deleteMarket(marketId, true);
     if (res && res.success) {
-      renderAlert('마켓이 취소되었습니다.', 'success');
+      const d = res.data || {};
+      const msg = d.refundedCount
+        ? `마켓이 취소되었습니다. ${d.refundedCount}건 ${Number(d.refundedTotal || 0).toLocaleString()}원을 환불하고 신청자 ${d.notifiedCount}명에게 알렸어요.`
+        : '마켓이 취소되었습니다.';
+      const hasFail = d.failed && d.failed.length > 0;
+      renderAlert(
+        hasFail
+          ? `${msg} 다만 ${d.failed.length}건의 환불이 실패했어요. 신청자 목록에서 「일괄 결제취소」로 다시 시도해주세요.`
+          : msg,
+        hasFail ? 'error' : 'success',
+      );
       if (String(expandedId) === String(marketId)) expandedId = null;
       await loadMyMarkets();
     } else {
@@ -600,6 +632,99 @@ async function handleDeleteClick(marketId) {
   } catch (err) {
     renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
   }
+}
+
+/* ---------------- [마켓 취소 전액 환불] 확인 창 ----------------
+ *
+ * window.confirm 은 줄바꿈과 표를 제대로 못 보여줘서, 금액이 여러 줄일 때 읽기 어렵습니다.
+ * 같은 페이지 안에 표 형태의 모달을 만들어 띄우고, Promise 로 예/아니오를 돌려줍니다.
+ * (별도 HTML 파일을 만들지 않아 mymarketpage.html 은 그대로입니다)
+ */
+function showCancelConfirm(preview, previewFailed = false) {
+  return new Promise((resolve) => {
+    const hasSellers = preview && preview.sellerCount > 0;
+    const refundTotal = Number(preview?.refundTotal || 0);
+    const escape = (t) => String(t ?? '').replace(/[&<>"']/g,
+      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    // 부스 종류별로 나눠 보여줍니다. 종류를 안 쓰는 마켓이면 '기본' 한 줄로 묶입니다.
+    const rows = hasSellers
+      ? (preview.byBoothType || []).map((g) => `
+          <tr>
+            <td>${escape(g.boothTypeName)}</td>
+            <td class="num">${g.paidCount}건</td>
+            <td class="num strong">${Number(g.refundTotal).toLocaleString()}원</td>
+            <td class="num muted">${g.unpaidCount}건</td>
+          </tr>`).join('')
+      : '';
+
+    const body = hasSellers
+      ? `
+        <p class="cancel-lead">
+          이 마켓에 신청한 판매자가 <strong>${preview.sellerCount}명</strong> 있어요.
+          취소하면 결제한 금액을 <strong>전액 환불</strong>하고 전원에게 알림이 갑니다.
+        </p>
+        <table class="cancel-table">
+          <thead>
+            <tr><th>부스</th><th class="num">결제</th><th class="num">환불 금액</th><th class="num">결제 전</th></tr>
+          </thead>
+          <tbody>${rows}</tbody>
+          <tfoot>
+            <tr>
+              <td>합계</td>
+              <td class="num">${preview.refundCount}건</td>
+              <td class="num total">${refundTotal.toLocaleString()}원</td>
+              <td class="num muted">${preview.unpaidCount}건</td>
+            </tr>
+          </tfoot>
+        </table>
+        ${refundTotal > 0
+          ? `<p class="cancel-warn">환불 예상 총액 <strong>${refundTotal.toLocaleString()}원</strong>이 결제 취소로 빠져나갑니다. 되돌릴 수 없어요.</p>`
+          : `<p class="cancel-note">결제된 건이 없어 환불할 금액은 없어요. 신청 ${preview.unpaidCount}건은 함께 취소됩니다.</p>`}
+      `
+      : previewFailed
+        // [수정] 미리보기를 못 불러왔는데 "신청자가 없어요" 라고 하면
+        //   결제한 사람이 있는데도 없는 줄 알고 취소하게 됩니다. 둘을 구분해서 알립니다.
+        ? `<p class="cancel-lead">환불 예상 금액을 불러오지 못했어요.</p>
+           <p class="cancel-warn">
+             신청자와 결제 내역을 확인하지 못한 상태입니다.
+             그대로 진행하면 결제한 판매자가 있을 경우 <strong>전액 환불이 함께 실행</strong>됩니다.
+             먼저 신청자 목록에서 결제 현황을 확인하시길 권합니다.
+           </p>`
+        : `<p class="cancel-lead">이 마켓에는 아직 신청자가 없어요. 바로 취소할 수 있습니다.</p>
+           <p class="cancel-warn">취소 후에는 되돌릴 수 없어요.</p>`;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'cancel-modal-overlay';
+    overlay.innerHTML = `
+      <div class="cancel-modal" role="dialog" aria-modal="true" aria-labelledby="cancel-modal-title">
+        <h3 id="cancel-modal-title">마켓을 취소할까요?</h3>
+        ${body}
+        <div class="cancel-modal-actions">
+          <button type="button" class="btn btn-outline" data-answer="no">아니오</button>
+          <button type="button" class="btn btn-danger" data-answer="yes">
+            ${refundTotal > 0 ? '예, 환불하고 취소합니다' : (previewFailed ? '확인했습니다, 취소합니다' : '예, 취소합니다')}
+          </button>
+        </div>
+      </div>`;
+
+    const close = (answer) => {
+      document.removeEventListener('keydown', onKey);
+      overlay.remove();
+      resolve(answer);
+    };
+    const onKey = (e) => { if (e.key === 'Escape') close(false); };
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) return close(false); // 바깥 클릭 = 취소
+      const btn = e.target.closest('[data-answer]');
+      if (btn) close(btn.dataset.answer === 'yes');
+    });
+    document.addEventListener('keydown', onKey);
+
+    document.body.appendChild(overlay);
+    overlay.querySelector('[data-answer="no"]')?.focus();
+  });
 }
 
 // ---------- 필터 ----------

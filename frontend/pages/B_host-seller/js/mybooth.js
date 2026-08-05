@@ -52,7 +52,10 @@ const STATUS_LABEL = {
   Rejected: '반려됨',
   Paid: '결제됨',
   Refunded: '결제 취소',
-  RefundRequested: '환불 요청'
+  RefundRequested: '환불 요청',
+  // [추가] 주최자가 마켓을 취소하면 결제 전 신청은 Cancelled 로 정리됩니다.
+  //   라벨이 없으면 화면에 빈칸으로 보여서 함께 넣습니다.
+  Cancelled: '마켓 취소됨'
 };
 const STATUS_CLASS = {
   Pending: 'pending',
@@ -60,7 +63,8 @@ const STATUS_CLASS = {
   Rejected: 'rejected',
   Paid: 'paid',
   Refunded: 'refunded',
-  RefundRequested: 'RefundRequested'
+  RefundRequested: 'RefundRequested',
+  Cancelled: 'rejected'
 };
 
 // ---------- 상태 ----------

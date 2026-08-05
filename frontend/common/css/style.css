@@ -76,3 +76,70 @@ body {
 [hidden] {
   display: none !important;
 }
+
+/* ============================================================
+   [마켓 취소 전액 환불] 환불 예상 내역 확인 모달
+   - window.confirm 은 표를 못 보여줘서, 금액이 여러 줄이면 읽기 어렵습니다.
+   - 별도 HTML 파일 없이 marketdelete.js 가 같은 페이지에 만들어 띄웁니다.
+   ============================================================ */
+.cancel-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, .55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 9999;
+}
+.cancel-modal {
+  width: 100%;
+  max-width: 460px;
+  max-height: 88vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 14px;
+  padding: 22px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .25);
+}
+.cancel-modal h3 { margin: 0 0 12px; font-size: 18px; color: #111827; }
+.cancel-lead { margin: 0 0 14px; font-size: 14px; line-height: 1.6; color: #374151; }
+.cancel-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 12px; }
+.cancel-table th,
+.cancel-table td { padding: 8px 6px; border-bottom: 1px solid #e5e7eb; text-align: left; }
+.cancel-table thead th { font-size: 12px; color: #6b7280; font-weight: 600; }
+.cancel-table .num { text-align: right; }
+.cancel-table .strong { font-weight: 700; color: #111827; }
+.cancel-table .muted { color: #9ca3af; }
+.cancel-table tfoot td {
+  border-bottom: none;
+  border-top: 2px solid #d1d5db;
+  font-weight: 700;
+  padding-top: 10px;
+}
+.cancel-table tfoot .total { color: #b91c1c; font-size: 15px; }
+.cancel-warn {
+  margin: 0 0 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.cancel-note {
+  margin: 0 0 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f3f4f6;
+  color: #4b5563;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.cancel-modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+.cancel-modal-actions .btn { min-width: 96px; }
