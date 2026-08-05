@@ -74,3 +74,30 @@ export async function cancelApplication(req, res) {
     return res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
+export async function deleteComment(req, res) {
+  const { commentId } = req.params;
+  const { userId } = req.user; // authenticateToken 미들웨어가 넣어줌
+
+  try {
+    const [rows] = await pool.query('SELECT userId FROM comments WHERE commentId = ?', [commentId]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: '존재하지 않는 댓글입니다.' });
+    }
+    if (rows[0].userId !== userId) {
+      return res.status(403).json({ success: false, message: '본인이 작성한 댓글만 삭제할 수 있습니다.' });
+    }
+
+    // parentId FK가 ON DELETE CASCADE라 이 댓글에 달린 대댓글도 함께 삭제됩니다.
+    const result = await dbdelete('comments', commentId);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: '존재하지 않는 댓글입니다.' });
+    }
+
+    return res.status(200).json({ success: true, message: '댓글이 삭제되었습니다.' });
+  } catch (error) {
+    console.error('댓글 삭제 오류:', error.message);
+    return res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
+  }
+}
