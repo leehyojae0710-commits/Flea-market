@@ -275,6 +275,104 @@ router.patch('/closed/:marketId', authenticateToken, deleteMarket);
  *       403: { description: 본인 마켓이 아님 }
  *       404: { description: 존재하지 않는 마켓 }
  */
+//router.get('/:marketId/cancel-preview', authenticateToken, getCancelPreview);
+
+/**
+ * @swagger
+ * /markets/closed/{marketId}:
+ *   patch:
+ *     summary: 마켓 취소 (주최자 본인) — 전액 환불 + 신청자 알림
+ *     description: |
+ *       마켓을 취소 상태(isExpired=2)로 바꾸고, 결제 완료 건을 **전액 환불**한 뒤 신청자 전원에게 알립니다.
+ *       환불 비율은 기간별 정책(refundPolicy)을 적용하지 않고 항상 100% 입니다.
+ *       마켓 취소는 주최자 사정이라 판매자에게 책임이 없기 때문입니다.
+ *
+ *       결제 완료 건이 하나라도 있으면 `confirmRefund: true` 없이는 **409 CANCEL_CONFIRM_REQUIRED** 로 거부하고
+ *       환불 예상 내역을 `data` 에 담아 돌려줍니다.
+ *
+ *       환불에 실패한 건이 있어도 마켓 취소는 진행합니다. (판매자에게 통보는 반드시 가야 하므로)
+ *       실패 목록은 `data.failed` 로 반환되며, 신청자 목록의 「일괄 결제취소」로 재시도할 수 있습니다.
+ *     tags: [Markets]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: marketId
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               confirmRefund:
+ *                 type: boolean
+ *                 description: "환불 금액을 확인했다는 표시. 결제 건이 있으면 필수"
+ *               reason:
+ *                 type: string
+ *                 description: "환불 사유 (기본값: 주최자의 마켓 취소)"
+ *     responses:
+ *       200: { description: "취소 완료 — refundedCount / refundedTotal / failed / notifiedCount" }
+ *       409: { description: "CANCEL_CONFIRM_REQUIRED — 환불 예상 내역을 data 로 반환" }
+ *       403: { description: 본인 마켓이 아님 }
+ */
+router.patch('/closed/:marketId', authenticateToken, deleteMarket);
+/**
+ * @swagger
+ * /markets/{marketId}/location:
+ *   patch:
+ *     summary: 마켓 지도 좌표 저장 (담당 E)
+ *     tags: [Markets]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: marketId
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [latitude, longitude]
+ *             properties:
+ *               latitude: { type: number }
+ *               longitude: { type: number }
+ *               locationName: { type: string }
+ *     responses:
+ *       200:
+ *         description: 저장 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiEnvelope'
+ *                 - type: object
+ *                   properties:
+ *                     data: { $ref: '#/components/schemas/MarketLocationData' }
+ *       400:
+ *         description: 위도/경도 누락
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       403:
+ *         description: 본인 마켓이 아님
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       404:
+ *         description: 존재하지 않는 마켓
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       500:
+ *         description: 서버 오류
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ */
+router.patch('/:marketId/location', authenticateToken, updateMarketLocation);
 
 /**
  * @swagger
