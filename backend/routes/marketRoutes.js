@@ -274,7 +274,7 @@ router.patch('/:marketId', authenticateToken, updateMarketStatus);
  *       403: { description: 본인 마켓이 아님 }
  *       404: { description: 존재하지 않는 마켓 }
  */
-router.get('/:marketId/cancel-preview', authenticateToken, getCancelPreview);
+//router.get('/:marketId/cancel-preview', authenticateToken, getCancelPreview);
 
 /**
  * @swagger
