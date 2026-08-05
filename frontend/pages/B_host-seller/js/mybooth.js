@@ -458,9 +458,20 @@ function handleGroupToggle(key) {
 function renderBoothCard(a) {
   const id = a.applicationId;
   const status = a.status || 'Pending';
+  // [추가] 주최자가 마켓을 취소하면 그 마켓의 신청은 더 진행되지 않습니다.
+  //   그런데 신청 상태값 자체는 Pending/Approved 로 남아 있어서
+  //   판매자 화면에는 「대기중」으로 보였고, 아직 심사 중인 줄 알고 기다리게 됐습니다.
+  //   결제 완료(Paid)·환불(Refunded) 건은 원래 상태를 그대로 보여줘야 하므로 건드리지 않습니다.
+  const marketCancelled = Number(a.marketIsExpired) === 2;
+  const showAsCancelled = marketCancelled
+    && ['Pending', 'Approved'].includes(status);
   const refundAmount = a.refundAmount;
-  const isPending = status === 'Pending';
-  const isApproved = status === 'Approved' || status === 'Paid';
+  // 취소된 마켓의 신청은 수정·결제 대상이 아닙니다. (삭제는 남겨둬 정리할 수 있게 합니다)
+  const isPending = status === 'Pending' && !marketCancelled;
+  const isApproved = (status === 'Approved' || status === 'Paid') && !marketCancelled;
+  // 삭제(신청 취소)는 마켓이 취소돼도 눌려야 합니다.
+  //   막아두면 판매자가 목록에서 정리할 방법이 없어집니다.
+  const canDelete = status === 'Pending';
   const isExpanded = expandedId === String(id) || expandedId === id;
   return `
     <div class="item-card" data-application-id="${id}">
@@ -471,7 +482,7 @@ function renderBoothCard(a) {
           <!-- [추가] 이 부스를 신청한 마켓의 주최자 -->
           <div class="item-card-meta">주최자: ${ProfileLink.html(a.hostId, a.hostNickname)}</div>
         </div>
-        <span class="status-tag ${STATUS_CLASS[status] || 'pending'}">${STATUS_LABEL[status] || status}</span>
+        <span class="status-tag ${showAsCancelled ? 'rejected' : (STATUS_CLASS[status] || 'pending')}">${showAsCancelled ? '마켓 취소됨' : (STATUS_LABEL[status] || status)}</span>
       </div>
 
       ${renderBoothRecruitGauge(a)}
@@ -479,7 +490,7 @@ function renderBoothCard(a) {
     <div class="item-card-actions">
       <div class="action-group">
         <a class="btn btn-outline btn-sm" href="${isPending ? `booth-edit?applicationId=${id}` : '#'}" ${isPending ? '' : 'aria-disabled="true" tabindex="-1" title="대기중인 신청만 수정할 수 있어요." onclick="return false;"'}>수정</a>
-        <button type="button" class="btn btn-danger btn-sm" data-action="delete" data-id="${id}" ${isPending ? '' : 'disabled title="대기중인 신청만 취소할 수 있어요."'}>삭제</button>
+        <button type="button" class="btn btn-danger btn-sm" data-action="delete" data-id="${id}" ${canDelete ? '' : 'disabled title="대기중인 신청만 취소할 수 있어요."'}>삭제</button>
         ${status === 'Approved'
       ? renderPaymentArea(a)
       : ''

@@ -553,8 +553,16 @@ function renderApplicationList() {
     .map((a) => {
       const status = a.status || 'Pending';
       const id = a.applicationId;
+      // [추가] 마켓이 취소되면 이 신청들은 더 진행되지 않습니다.
+      //   그런데 상태값 자체는 Pending/Approved 로 남아 있어서
+      //   주최자 화면에 「대기중」·「승인됨」으로 보였고, 아직 처리할 게 남은 것처럼 읽혔습니다.
+      //   결제(Paid)·환불(Refunded) 건은 돈이 오간 기록이라 원래 상태를 그대로 둡니다.
+      const marketCancelled = document.body.classList.contains('market-is-cancelled');
+      const showAsCancelled = marketCancelled && (status === 'Pending' || status === 'Approved');
       const canShowReview = status === 'Paid'; // 결제 완료된 건만 평가 대상
-      const canSelect = status === 'Pending' || status === 'Approved' || status === 'Paid'; // 승인/반려/환불 대상만 선택 가능 (반려는 승인됨 상태에서도 가능)
+      // 취소된 마켓에서는 승인·반려를 할 수 없으므로 선택 자체를 막습니다.
+      const canSelect = !marketCancelled
+        && (status === 'Pending' || status === 'Approved' || status === 'Paid'); // 승인/반려/환불 대상만 선택 가능 (반려는 승인됨 상태에서도 가능)
       return `
       <div class="item-card" data-application-id="${id}">
     <div class="item-card-top">
@@ -568,7 +576,7 @@ function renderApplicationList() {
           <div class="item-card-meta">신청자: ${ProfileLink.html(a.sellerId, a.sellerNickname)}</div>
         </div>
       </div>
-      <span class="status-tag ${STATUS_CLASS[status] || 'pending'}">${STATUS_LABEL[status] || status}</span>
+      <span class="status-tag ${showAsCancelled ? 'rejected' : (STATUS_CLASS[status] || 'pending')}">${showAsCancelled ? '마켓 취소됨' : (STATUS_LABEL[status] || status)}</span>
     </div>
         ${status === 'Pending' ? `
         <div class="item-card-actions">
