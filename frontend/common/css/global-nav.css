@@ -68,7 +68,27 @@ header.nav.gnav .gnav-inner {
 }
 
 header.nav.gnav .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--paper);
   text-decoration: none;
+  flex: 0 0 auto;
+}
+
+/* [수정] host-seller.css를 불러오지 않는 화면(로그인/회원가입 등)에서는
+   global-nav.js 가 만든 .brand 안의 .pin-dot 이 스타일 없이 표시됐습니다.
+   이 파일은 모든 화면에서 공통으로 불러오므로, 여기서 자체적으로 스타일을 채웁니다. */
+header.nav.gnav .brand .pin-dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f3c98a, var(--mustard, #e8a33d) 60%, #a86a1c 100%);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.4);
+  display: inline-block;
   flex: 0 0 auto;
 }
 
