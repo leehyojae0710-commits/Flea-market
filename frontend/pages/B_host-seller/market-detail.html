@@ -63,6 +63,9 @@
             <option value="">전체</option>
             <option value="Pending">승인대기</option>
             <option value="Approved">결제대기</option>
+            <!-- [추가] 승인했는데 판매자가 결제 기한을 넘긴 건.
+                 부스를 비우고 다음 신청자를 받을지 판단하려면 따로 봐야 합니다. -->
+            <option value="PaymentOverdue">결제기한 지남</option>
             <option value="Paid">결제완료</option>
             <option value="Refund">환불</option>
             <option value="Rejected">반려</option>
@@ -123,7 +126,7 @@
   <script src="../../common/js/api.js?v=4"></script>
   <script src="../../common/js/profile-link.js?v=1"></script>
   <script src="../../common/js/market-cancel.js?v=1"></script>
-  <script src="js/market.js?v=18"></script>
+  <script src="js/market.js?v=19"></script>
   <script src="js/market-detail-extra.js?v=4"></script>
   <script src="js/market-role-view.js?v=2"></script>
 </body>
