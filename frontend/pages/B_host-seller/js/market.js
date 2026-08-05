@@ -803,95 +803,6 @@ function renderSellerReviewTrigger(a) {
       </span>`;
   }
 
-  const eventStarted = !!a.eventStarted;
-  return `
-    <div class="item-card-actions">
-      <button type="button" class="btn btn-outline btn-sm" data-action="seller-review-toggle" data-id="${id}"
-        ${eventStarted ? '' : `disabled title="행사가 시작된 뒤에 평가할 수 있어요."`}>
-        판매자 평가하기
-      </button>
-    </div>`;
-}
-
-function renderSellerReviewForm(id) {
-  return `
-    <div class="review-form">
-      <div class="star-picker">
-        ${[1, 2, 3, 4, 5]
-      .map((n) => `<button type="button" class="star-btn ${n <= sellerReviewDraftRating ? 'filled' : ''}" data-action="seller-star-pick" data-value="${n}" aria-label="${n}점">★</button>`)
-      .join('')}
-      </div>
-      <div class="review-form-meta">
-        <span>${sellerReviewDraftRating}점</span>
-        <button type="button" class="link-reset" data-action="seller-review-reset">초기화(0점)</button>
-      </div>
-      <textarea id="seller-review-comment-input" class="review-comment-input" maxlength="200"
-        placeholder="한줄평을 남겨주세요 (선택)"></textarea>
-      <div class="review-form-actions">
-        <button type="button" class="btn btn-primary btn-sm" data-action="seller-review-submit" data-id="${id}">평가 등록</button>
-        <button type="button" class="btn btn-outline btn-sm" data-action="seller-review-cancel">취소</button>
-      </div>
-    </div>`;
-}
-
-function handleSellerReviewToggle(id) {
-  sellerReviewOpenId = sellerReviewOpenId === String(id) ? null : String(id);
-  sellerReviewDraftRating = 0;
-  renderApplicationList();
-}
-function handleSellerStarPick(value) {
-  sellerReviewDraftRating = value;
-  renderApplicationList();
-}
-function handleSellerReviewReset() {
-  sellerReviewDraftRating = 0;
-  renderApplicationList();
-}
-function handleSellerReviewCancel() {
-  sellerReviewOpenId = null;
-  sellerReviewDraftRating = 0;
-  renderApplicationList();
-}
-
-async function handleSellerReviewSubmit(id) {
-  hideAlert();
-  const confirmed = window.confirm('평가를 등록하면 변경할 수 없습니다. 등록하시겠어요?');
-  if (!confirmed) return;
-
-  const commentValue = document.getElementById('seller-review-comment-input')?.value.trim() || undefined;
-
-  try {
-    const res = await submitSellerReview(id, sellerReviewDraftRating, commentValue);
-    if (res && res.success) {
-      renderAlert('판매자 평가를 등록했어요.', 'success');
-      sellerReviewOpenId = null;
-      sellerReviewDraftRating = 0;
-      await loadApplicationList();
-    } else {
-      renderAlert(res?.message || '평가 등록에 실패했어요.');
-    }
-  } catch (err) {
-    renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
-  }
-}
-
-function renderStaticStars(rating) {
-  return `<span class="stars-static" aria-label="${rating}점">${'★'.repeat(rating)}${'☆'.repeat(5 - rating)}</span>`;
-}
-
-function renderSellerReviewTrigger(a) {
-  const id = a.applicationId;
-  const hasReview = a.mySellerRating !== null && a.mySellerRating !== undefined;
-
-  if (hasReview) {
-    return `
-      <span class="review-summary">
-        <span class="review-label">내 평가</span>
-        ${renderStaticStars(a.mySellerRating)}
-        <span class="review-score">${a.mySellerRating}점</span>
-      </span>`;
-  }
-
   const isPaid = !!a.isPaid;
   const eventStarted = !!a.eventStarted;
   const canReview = isPaid && eventStarted;
@@ -1818,6 +1729,12 @@ function rangesOverlap(aMin, aMax, bMin, bMax) {
   return aMin <= bMax && aMax >= bMin;
 }
 
+// [추가] 겹치는 마켓 목록 펼침/페이지 상태. 마켓 상세 화면에 새로 들어올 때마다 초기화됩니다.
+const OVERLAP_PAGE_SIZE = 5;
+let dateOverlapExpanded = false;
+let dateOverlapPage = 1;
+let dateOverlapItemsCache = [];
+
 // [추가] 겹치는 날짜의 다른 마켓에 이미 신청(취소/반려 제외)한 게 있으면 안내 배너를 보여줍니다.
 //        신청 자체를 막지는 않습니다 — 판매자가 백업으로 여러 마켓에 신청하는 걸 허용하는 정책이라
 //        "겹칩니다" 라고 알려만 주고 최종 선택은 판매자가 하도록 합니다.
@@ -1826,6 +1743,9 @@ async function renderDateOverlapNotice(marketId, currentEventMin, currentEventMa
   if (!box) return;
   box.classList.remove('show');
   box.innerHTML = '';
+  dateOverlapExpanded = false;
+  dateOverlapPage = 1;
+  dateOverlapItemsCache = [];
 
   const from = toDateOnly(currentEventMin);
   const to = toDateOnly(currentEventMax);
@@ -1844,21 +1764,78 @@ async function renderDateOverlapNotice(marketId, currentEventMin, currentEventMa
 
     if (overlaps.length === 0) return;
 
-    const items = overlaps.map((a) => {
+    dateOverlapItemsCache = overlaps.map((a) => {
       const range = toDateOnly(a.eventDate_min) === toDateOnly(a.eventDate_max)
         ? toDateOnly(a.eventDate_min)
         : `${toDateOnly(a.eventDate_min)} ~ ${toDateOnly(a.eventDate_max)}`;
       return `<li><strong>${ProfileLink.escapeHtml(a.marketTitle || '마켓')}</strong> (${range})</li>`;
-    }).join('');
+    });
 
-    box.innerHTML = `
-      <p style="margin:0 0 6px;">이미 신청한 아래 마켓과 개최일이 겹칩니다. 신청은 계속 진행할 수 있지만, 실제로는 한 곳만 참가할 수 있으니 참고해주세요.</p>
-      <ul style="margin:0; padding-left:18px;">${items}</ul>
-    `;
     box.classList.add('show');
+    paintDateOverlapNotice(box);
   } catch (err) {
     console.error('날짜 겹침 확인 오류:', err);
   }
+}
+
+// [추가] 펼침/페이지 상태에 맞춰 안내 배너 내부를 다시 그립니다.
+function paintDateOverlapNotice(box) {
+  const total = dateOverlapItemsCache.length;
+  const totalPages = Math.max(1, Math.ceil(total / OVERLAP_PAGE_SIZE));
+  if (dateOverlapPage > totalPages) dateOverlapPage = totalPages;
+
+  const toggleLabel = dateOverlapExpanded ? '겹치는 마켓 목록 접기' : `겹치는 마켓 ${total}곳 보기`;
+
+  let listHtml = '';
+  if (dateOverlapExpanded) {
+    const start = (dateOverlapPage - 1) * OVERLAP_PAGE_SIZE;
+    const pageItems = dateOverlapItemsCache.slice(start, start + OVERLAP_PAGE_SIZE).join('');
+
+    let paginationHtml = '';
+    if (totalPages > 1) {
+      const WINDOW = 5;
+      let start = Math.max(1, dateOverlapPage - Math.floor(WINDOW / 2));
+      const end = Math.min(totalPages, start + WINDOW - 1);
+      start = Math.max(1, end - WINDOW + 1);
+
+      const buttons = [];
+      buttons.push(
+        `<button type="button" class="page-btn page-nav" data-overlap-page="${dateOverlapPage - 1}" ${dateOverlapPage === 1 ? 'disabled' : ''}>‹</button>`
+      );
+      for (let p = start; p <= end; p++) {
+        buttons.push(`<button type="button" class="page-btn ${p === dateOverlapPage ? 'is-active' : ''}" data-overlap-page="${p}">${p}</button>`);
+      }
+      buttons.push(
+        `<button type="button" class="page-btn page-nav" data-overlap-page="${dateOverlapPage + 1}" ${dateOverlapPage === totalPages ? 'disabled' : ''}>›</button>`
+      );
+      paginationHtml = `<div class="pagination overlap-pagination">${buttons.join('')}</div>`;
+    }
+
+    listHtml = `
+      <div class="overlap-list-wrap">
+        <ul style="margin:0; padding-left:18px;">${pageItems}</ul>
+        ${paginationHtml}
+      </div>`;
+  }
+
+  box.innerHTML = `
+    <p style="margin:0 0 6px;">이미 신청한 아래 마켓과 개최일이 겹칩니다. 신청은 계속 진행할 수 있지만, 실제로는 한 곳만 참가할 수 있으니 참고해주세요.</p>
+    <button type="button" class="overlap-toggle-btn" data-overlap-toggle>${toggleLabel}</button>
+    ${listHtml}
+  `;
+
+  box.querySelector('[data-overlap-toggle]')?.addEventListener('click', () => {
+    dateOverlapExpanded = !dateOverlapExpanded;
+    if (dateOverlapExpanded) dateOverlapPage = 1;
+    paintDateOverlapNotice(box);
+  });
+
+  box.querySelectorAll('[data-overlap-page]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      dateOverlapPage = Number(btn.dataset.overlapPage);
+      paintDateOverlapNotice(box);
+    });
+  });
 }
 
 /* ---------------- [추가] 부스 신청 화면: 같은 마켓 중복 신청 안내 ----------------
@@ -1888,8 +1865,7 @@ async function renderSameMarketDuplicateNotice(marketId) {
 
     const boothText = (booths || []).length > 0 ? ` (${booths.join(', ')}번 부스)` : '';
     box.innerHTML = `
-      <p style="margin:0 0 6px;"><strong>이 마켓에 이미 ${count}건 신청 중이에요.${boothText}</strong></p>
-      <p style="margin:0;">한 마켓에 부스를 여러 칸 신청하는 건 가능하지만, 신청하시면 <strong>중복 신청</strong>으로 표시되고 주최자에게도 알림이 갑니다. 실수라면 「내 부스 관리」에서 기존 신청을 확인해 주세요.</p>`;
+      <p style="margin:0;"><strong>이 마켓에 이미 ${count}건 신청 중이에요.${boothText}</strong></p>`;
     box.classList.add('show');
   } catch (err) {
     console.error('중복 신청 확인 오류:', err);
