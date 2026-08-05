@@ -143,3 +143,80 @@ body {
   margin-top: 18px;
 }
 .cancel-modal-actions .btn { min-width: 96px; }
+
+/* [마켓 상세] 주최자 관리 버튼 (수정 / 마감 / 취소) */
+.host-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.host-actions .btn[hidden] { display: none; }
+
+/* ============================================================
+   [공통] 버튼 툴팁 — data-tip 속성으로 설명을 붙입니다.
+     <button class="btn has-tip" data-tip="설명">…</button>
+   마우스를 올리거나(:hover) 키보드로 포커스했을 때(:focus-visible) 뜹니다.
+   버튼 아래에 설명을 늘 깔아두면 화면이 지저분해지는데,
+   정작 필요한 건 누르기 직전 한순간이라 그때만 보여줍니다.
+   ============================================================ */
+.has-tip {
+  position: relative;
+}
+.has-tip::after,
+.has-tip::before {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .15s ease, visibility .15s ease;
+  pointer-events: none;   /* 말풍선이 클릭을 가로채지 않게 */
+  z-index: 50;
+}
+/* 말풍선 본체 */
+.has-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 9px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 260px;          /* 긴 문장은 줄바꿈 */
+  white-space: normal;
+  text-align: left;
+  line-height: 1.5;
+  font-size: 12px;
+  font-weight: 500;
+  color: #f9fafb;
+  background: #1f2937;
+  border-radius: 8px;
+  padding: 8px 10px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .22);
+}
+/* 아래쪽 꼬리 */
+.has-tip::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 3px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #1f2937;
+}
+.has-tip:hover::after,
+.has-tip:hover::before,
+.has-tip:focus-visible::after,
+.has-tip:focus-visible::before {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* 줄의 양 끝 버튼은 말풍선이 화면 밖으로 잘릴 수 있어 안쪽으로 붙입니다. */
+.host-actions .has-tip:first-child::after { left: 0; transform: none; }
+.host-actions .has-tip:first-child::before { left: 24px; transform: none; }
+.host-actions .has-tip:last-child::after { left: auto; right: 0; transform: none; }
+.host-actions .has-tip:last-child::before { left: auto; right: 24px; transform: none; }
+
+/* 터치 기기에는 hover 가 없습니다. 탭했을 때 말풍선이 떴다 사라지는 것보다
+   아예 안 뜨는 편이 덜 헷갈려서 숨깁니다. (동작 자체는 확인 창이 다시 알려줍니다) */
+@media (hover: none) {
+  .has-tip::after,
+  .has-tip::before { display: none; }
+}

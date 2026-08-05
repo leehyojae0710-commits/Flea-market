@@ -482,6 +482,9 @@ function renderMarketDetail(market) {
     hostEl.innerHTML = '주최자 ' + ProfileLink.html(market.hostId, market.hostNickname);
     hostEl.style.display = '';
   }
+
+  // [추가] 마감·취소된 마켓에서는 수정/취소 버튼을 감춥니다.
+  applyHostActionState(market);
 }
 
 async function loadMarketDetail() {
@@ -1012,6 +1015,86 @@ async function loadApplicationList() {
   }
 }
 
+/* ---------------- [추가] 마켓 상세의 주최자 관리 버튼 ----------------
+ *
+ * 신청자 목록을 보다가 바로 마켓을 고치거나 마감·취소할 수 있어야 합니다.
+ * 예전에는 마감 버튼만 있어서, 수정하려면 「내 마켓 관리」로 되돌아가야 했습니다.
+ *
+ * 취소는 결제한 판매자에게 전액 환불이 나가는 동작이라, 환불 예상 금액을 보여주고
+ * 확인받는 절차가 앞에 붙습니다. 그 절차는 common/js/market-cancel.js 한 곳에 있고
+ * 「내 마켓 관리」 화면과 똑같은 것을 씁니다. (두 곳에 복사하면 금액 계산이 갈라집니다)
+ */
+function handleMarketEditClick() {
+  const btn = document.getElementById('edit-market-btn');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    const marketId = getMarketIdFromUrl();
+    if (!marketId) {
+      renderAlert('마켓 정보를 찾을 수 없어요.');
+      return;
+    }
+    window.location.href = `correctionMarket?marketId=${marketId}`;
+  });
+}
+
+function handleMarketCancelClick() {
+  const btn = document.getElementById('cancel-market-btn');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    const marketId = getMarketIdFromUrl();
+    if (!marketId) return;
+    hideAlert();
+
+    const result = await MarketCancel.run(marketId);
+
+    // 「아니오」를 눌렀으면 조용히 끝냅니다.
+    if (!result.cancelled && !result.message) return;
+
+    renderAlert(result.message, result.type);
+
+    if (result.cancelled) {
+      // 취소된 마켓이므로 관리 버튼을 감추고, 목록으로 돌아갈 시간을 줍니다.
+      applyHostActionState({ isExpired: 2 });
+      setTimeout(() => { window.location.href = 'mymarketpage'; }, 2500);
+    }
+  });
+}
+
+/**
+ * 마켓 상태에 따라 관리 버튼을 켜고 끕니다.
+ * @param market 마켓 상세 응답 (isExpired: 0 진행중 / 1 마감 / 2 취소)
+ */
+function applyHostActionState(market) {
+  const editBtn = document.getElementById('edit-market-btn');
+  const closeBtn = document.getElementById('close-market-btn');
+  const cancelBtn = document.getElementById('cancel-market-btn');
+  const hint = document.getElementById('host-actions-hint');
+  if (!editBtn) return;   // 상세 화면이 아니면 아무것도 하지 않습니다.
+
+  const state = Number(market?.isExpired) || 0;
+
+  if (state === 2 || state === 1) {
+    editBtn.hidden = true;
+    cancelBtn && (cancelBtn.hidden = true);
+    closeBtn && (closeBtn.hidden = true);
+    if (hint) {
+      hint.textContent = state === 2
+        ? '취소된 마켓이라 더 이상 수정할 수 없어요.'
+        : '마감된 마켓이라 더 이상 수정할 수 없어요.';
+    }
+    return;
+  }
+
+  editBtn.hidden = false;
+  cancelBtn && (cancelBtn.hidden = false);
+  closeBtn && (closeBtn.hidden = false);
+  // [수정] 평소에는 안내문을 띄우지 않습니다.
+  //   각 버튼의 설명은 data-tip 으로 옮겨서, 마우스를 올리거나 키보드로 포커스했을 때만
+  //   말풍선으로 뜹니다. (버튼 아래에 늘 깔려 있으면 화면이 지저분해집니다)
+  //   이 자리는 마감·취소돼서 버튼을 못 쓸 때 그 이유를 적는 용도로만 씁니다.
+  if (hint) hint.textContent = '';
+}
+
 function handleCloseMarketClick() {
   const btn = document.getElementById('close-market-btn');
   if (!btn) return;
@@ -1023,6 +1106,7 @@ function handleCloseMarketClick() {
       const res = await updateMarketStatus(marketId, { isExpired: true });
       if (res && res.success) {
         renderAlert('마켓을 마감 처리했어요.', 'success');
+        applyHostActionState({ isExpired: 1 });
       } else {
         renderAlert(res?.message || '마감 처리에 실패했어요.');
       }
@@ -1659,6 +1743,9 @@ document.addEventListener('DOMContentLoaded', () => {
   handleApplicationPaginationClick();
   handleDuplicateOnlyToggle();
   handleCloseMarketClick();
+  // [추가] 마켓 상세의 주최자 관리 버튼 (수정하기 / 취소하기)
+  handleMarketEditClick();
+  handleMarketCancelClick();
   loadCommentList();
   handleCommentSubmit();
   handleCommentReplyClick();
