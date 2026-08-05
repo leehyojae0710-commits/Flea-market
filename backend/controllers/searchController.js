@@ -48,7 +48,11 @@ export const searchItems = async (req, res) => {
           ) AS appliedBooths
         FROM markets m
         JOIN users u ON u.userId = m.hostId
-        WHERE (? = '' OR m.title LIKE ? OR m.description LIKE ? OR m.locationName LIKE ? OR m.region LIKE ?)
+        -- [수정] 취소된 마켓(isExpired=2)을 제외합니다.
+        --   목록 API(getMarketList)에는 이 조건이 있는데 검색만 빠져 있어서,
+        --   취소한 마켓이 검색 결과에는 그대로 나왔습니다.
+        WHERE m.isExpired <> 2
+          AND (? = '' OR m.title LIKE ? OR m.description LIKE ? OR m.locationName LIKE ? OR m.region LIKE ?)
         ${statusClause}
         ORDER BY ${orderClause}
       `;

@@ -17,7 +17,7 @@ import {
   processQueueTimeouts,
   getMyMarket,
 } from '../controllers/marketController.js';
-import { authenticateToken } from '../middleware/authMiddleware.js';
+import { authenticateToken, optionalAuth } from '../middleware/authMiddleware.js';
 import { requireHost } from '../middleware/hostOnlyMiddleware.js';
 import { validateMarketInput } from '../middleware/marketValidationMiddleware.js';
 import { deleteMarket } from '../controllers/dbdeleteController.js';
@@ -250,7 +250,9 @@ router.post(
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
-router.get('/:marketId', getMarketDetail);
+// [수정] optionalAuth 부착 — 취소된 마켓을 주최자 본인에게만 보여주기 위해서입니다.
+//   토큰이 없거나 틀려도 401 을 내지 않으므로 비로그인 조회는 그대로 동작합니다.
+router.get('/:marketId', optionalAuth, getMarketDetail);
 //router.get('/closed/:marketId', authenticateToken,marketClosed);
 router.patch('/:marketId', authenticateToken, updateMarketStatus);
 router.patch('/closed/:marketId', authenticateToken, deleteMarket);
