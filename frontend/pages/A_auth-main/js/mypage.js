@@ -353,35 +353,21 @@ async function loadActivity() {
 }
 
 async function loadReviewSummary() {
+  // [삭제] 판매자 화면의 "주최자 평가"는 기능이 취소되어 더 이상 호출하지 않습니다.
+  if (!isHost) return;
   try {
-    if (isHost) {
-      const res = await callApi('/reviews/me/summary');
-      if (res && res.success && res.data) {
-        renderReviewBlock({
-          sectionId: 'review-section',
-          scoreId: 'review-avg-score',
-          starsId: 'review-avg-stars',
-          countId: 'review-count-text',
-          listId: 'review-list',
-          paginationId: 'review-pagination',
-          data: res.data,
-          emptyText: '아직 등록된 평가가 없어요.',
-        });
-      }
-    } else {
-      const res = await callApi('/reviews/me/seller-summary');
-      if (res && res.success && res.data) {
-        renderReviewBlock({
-          sectionId: 'seller-review-section',
-          scoreId: 'seller-review-avg-score',
-          starsId: 'seller-review-avg-stars',
-          countId: 'seller-review-count-text',
-          listId: 'seller-review-list',
-          paginationId: 'seller-review-pagination',
-          data: res.data,
-          emptyText: '아직 등록된 평가가 없어요.',
-        });
-      }
+    const res = await callApi('/reviews/me/summary');
+    if (res && res.success && res.data) {
+      renderReviewBlock({
+        sectionId: 'review-section',
+        scoreId: 'review-avg-score',
+        starsId: 'review-avg-stars',
+        countId: 'review-count-text',
+        listId: 'review-list',
+        paginationId: 'review-pagination',
+        data: res.data,
+        emptyText: '아직 등록된 평가가 없어요.',
+      });
     }
   } catch (err) {
     console.error('평가 요약 조회 오류:', err);
