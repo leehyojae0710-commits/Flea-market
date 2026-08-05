@@ -20,6 +20,7 @@ import {
 import { authenticateToken } from '../middleware/authMiddleware.js';
 import { requireHost } from '../middleware/hostOnlyMiddleware.js';
 import { validateMarketInput } from '../middleware/marketValidationMiddleware.js';
+import { deleteMarket } from '../controllers/dbdeleteController.js';
 
 const router = express.Router();
 
@@ -252,6 +253,7 @@ router.post(
 router.get('/:marketId', getMarketDetail);
 //router.get('/closed/:marketId', authenticateToken,marketClosed);
 router.patch('/:marketId', authenticateToken, updateMarketStatus);
+router.patch('/closed/:marketId', authenticateToken, deleteMarket);
 /**
  * @swagger
  * /markets/{marketId}/cancel-preview:
