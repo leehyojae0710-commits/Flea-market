@@ -19,11 +19,11 @@
     <script type="module" src="js/marketdate.js?v=2"></script>
     <script type="module" src="js/marketcorrection.js?v=3"></script>
     <!-- <script src="../../common/js/api.js"></script> -->
-  <!-- [C-01] 역할별 첫 화면 분기 / 주최자 전용 화면 접근 차단 -->
-  <script src="../../common/js/role-routing.js?v=3"></script>
-  <!-- [공통] 상단 고정 네비게이션 바 (모든 화면 공통) -->
-  <link rel="stylesheet" href="../../common/css/global-nav.css?v=2" />
-  <script src="../../common/js/global-nav.js?v=2" defer></script>
+    <!-- [C-01] 역할별 첫 화면 분기 / 주최자 전용 화면 접근 차단 -->
+    <script src="../../common/js/role-routing.js?v=3"></script>
+    <!-- [공통] 상단 고정 네비게이션 바 (모든 화면 공통) -->
+    <link rel="stylesheet" href="../../common/css/global-nav.css?v=2" />
+    <script src="../../common/js/global-nav.js?v=2" defer></script>
 </head>
 
 <body>
@@ -47,19 +47,22 @@
                 </div>
 
                 <div class="form-field">
-                    <label for="event-date">개최 일자 * 정확한 개최 일자를 적어 주세요</label>
-                    <div class="date-row">
-                        <input type="date" id="start-event-date" class="form-input date-input" required />
-                        <span class="date-separator">~</span>
-                        <input type="date" id="end-event-date" class="form-input date-input" required />
-                    </div>
-                </div>
-                <div class="form-field">
-                    <label for="event-date">모집 기간</label>
+                    <label for="event-date">모집 기간 <p>* 정확한 모집 일자를 적어 주세요</p></label>
                     <div class="date-row">
                         <input type="date" id="recruitmentDate_min" class="form-input date-input" required />
                         <span class="date-separator">~</span>
                         <input type="date" id="recruitmentDate_max" class="form-input date-input" required />
+                    </div>
+                </div>
+
+                <div class="form-field">
+                    <label for="event-date">개최 일자 <p>* 정확한 개최 일자를 적어 주세요</p>
+                        <p>* 모집 기간과 개최 기간 사이에는 최소 일주일의 간격이 있어야 합니다.</p>
+                    </label>
+                    <div class="date-row">
+                        <input type="date" id="start-event-date" class="form-input date-input" required />
+                        <span class="date-separator">~</span>
+                        <input type="date" id="end-event-date" class="form-input date-input" required />
                     </div>
                 </div>
 
@@ -82,11 +85,13 @@
                     <p class="form-hint">켜두면 부스가 다 찼어도 행사 시작 전까지는 신청·결제를 계속 받을 수 있어요. 행사가 시작되면 자동으로 다시 막혀요.</p>
                 </div>
                 <div class="form-field">
-                    <label for="allow-duplicate-application" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                    <label for="allow-duplicate-application"
+                        style="display:flex; align-items:center; gap:8px; cursor:pointer;">
                         <input type="checkbox" id="allow-duplicate-application" style="width:auto;" />
                         같은 판매자의 중복 부스 신청 허용하기
                     </label>
-                    <p class="form-hint">꺼두면 한 판매자는 이 마켓에 부스를 하나만 신청할 수 있어요. 같은 상품이든 다른 상품이든 이미 신청(대기/승인/결제완료) 중이면 추가 신청이 막혀요.</p>
+                    <p class="form-hint">꺼두면 한 판매자는 이 마켓에 부스를 하나만 신청할 수 있어요. 같은 상품이든 다른 상품이든 이미 신청(대기/승인/결제완료) 중이면 추가
+                        신청이 막혀요.</p>
                 </div>
                 <div class="form-field">
                     <label for="market-image">마켓 이미지</label>
@@ -97,7 +102,8 @@
                 <div id="image-upload-status"></div>
                 <!-- [추가] 등록된 마켓 이미지를 다시 없앨 수 있는 삭제 버튼 -->
                 <div class="image-actions">
-                    <button type="button" id="remove-market-image-btn" class="btn btn-outline btn-sm" hidden>이미지 삭제</button>
+                    <button type="button" id="remove-market-image-btn" class="btn btn-outline btn-sm" hidden>이미지
+                        삭제</button>
                     <span id="market-image-removed-msg" class="image-removed-msg" hidden>수정하기를 누르면 이미지가 삭제돼요.</span>
                 </div>
                 <input type="hidden" id="uploadedImagePath" name="uploadedImagePath" />
