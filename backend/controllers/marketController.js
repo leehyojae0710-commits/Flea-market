@@ -109,10 +109,6 @@ export async function createMarket(req, res) {
   if (boothPrice !== undefined && (Number.isNaN(Number(boothPrice)) || Number(boothPrice) < 0)) {
     return res.status(400).json({ success: false, data: null, message: '부스료는 0 이상의 숫자여야 합니다.' });
   }
-  if (maxparticipants !== undefined && maxparticipants !== null &&
-    (!Number.isInteger(Number(maxparticipants)) || Number(maxparticipants) < 0)) {
-    return res.status(400).json({ success: false, data: null, message: '최대 부스 수는 0 이상의 정수여야 합니다.' });
-  }
 
   try {
     // [추가] 판매자 중복 신청 허용 여부. 값이 안 오면 기존 동작과 동일하게 허용(1)합니다.
@@ -121,7 +117,7 @@ export async function createMarket(req, res) {
     const [result] = await pool.query(
       `INSERT INTO markets (hostId, title, description, marketImage, locationName, region, latitude, longitude, eventDate_min, eventDate_max, boothPrice, isExpired, maxparticipants,recruitmentDate_min,recruitmentDate_max,allowDuplicateApplication)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?)`,
-      [userId, title, description || '', marketImage || null, locationName, region || null, latitude || 0, longitude || 0, eventDate_min, eventDate_max, boothPrice || 0, isExpired || 0, maxparticipants || 1, recruitmentDate_min, recruitmentDate_max, allowDuplicateApplicationVal]
+      [userId, title, description || '', marketImage || null, locationName, region || null, latitude || 0, longitude || 0, eventDate_min, eventDate_max, boothPrice || 0, isExpired || 0, maxparticipants || 9999, recruitmentDate_min, recruitmentDate_max, allowDuplicateApplicationVal]
     );
 
     //console.log('req.body 전체:', req.body);
