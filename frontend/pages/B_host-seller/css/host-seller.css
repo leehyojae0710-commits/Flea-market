@@ -464,6 +464,10 @@ body {
   background: rgb(158, 202, 197);
   color: var(--ink-soft);
 }
+.status-tag.canceled{
+  background: #f5a9a9;
+  color: var(--sage-text);
+}
 
 .item-card-actions {
   display: flex;
