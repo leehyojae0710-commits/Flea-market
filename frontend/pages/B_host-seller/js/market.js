@@ -1113,17 +1113,25 @@ function handleMarketCancelClick() {
     if (!marketId) return;
     hideAlert();
 
-    const result = await MarketCancel.run(marketId);
+    // [수정] 환불 미리보기 조회(cancel-preview) + 전용 확인 모달(MarketCancel.run) 제거.
+    //  「내 마켓 관리」(marketdelete.js handleDeleteClick)와 동일하게 window.confirm 후 바로 취소만 실행.
+    const confirmed = window.confirm(
+      '정말 이 마켓을 취소하시겠습니까? 취소 후에는 되돌릴 수 없어요.',
+    );
+    if (!confirmed) return;
 
-    // 「아니오」를 눌렀으면 조용히 끝냅니다.
-    if (!result.cancelled && !result.message) return;
-
-    renderAlert(result.message, result.type);
-
-    if (result.cancelled) {
-      // 취소된 마켓이므로 관리 버튼을 감추고, 목록으로 돌아갈 시간을 줍니다.
-      applyHostActionState({ isExpired: 2 });
-      setTimeout(() => { window.location.href = 'mymarketpage'; }, 2500);
+    try {
+      const res = await callApi(`/markets/closed/${marketId}`, { method: 'PATCH' });
+      if (res && res.success) {
+        renderAlert('마켓이 취소되었습니다.', 'success');
+        // 취소된 마켓이므로 관리 버튼을 감추고, 목록으로 돌아갈 시간을 줍니다.
+        applyHostActionState({ isExpired: 2 });
+        setTimeout(() => { window.location.href = 'mymarketpage'; }, 2500);
+      } else {
+        renderAlert(res?.message || '취소에 실패했어요.');
+      }
+    } catch (err) {
+      renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
     }
   });
 }
