@@ -9,11 +9,17 @@ const TAB_STATUS_CONDITIONS = {
   ended: 'eventDate_max < CURDATE()',
 };
 
-// main.js와 동일한 정렬 옵션. 고정된 SQL 조각만 매핑에서 골라 쓰므로 인젝션 위험 없음.
 const SORT_CLAUSES = {
   latest: 'm.marketId DESC',
-  eventDate: 'm.eventDate_min ASC',
   priceLow: 'm.boothPrice ASC',
+};
+
+// "마감임박순"의 기준 날짜는 탭(모집중/진행중/진행예정/종료)마다 다름
+const DEADLINE_SORT_COLUMN = {
+  recruiting: 'm.recruitmentDate_max',
+  ongoing: 'm.eventDate_max',
+  upcoming: 'm.eventDate_min',
+  ended: 'm.eventDate_max',
 };
 
 export const searchItems = async (req, res) => {
@@ -28,7 +34,9 @@ export const searchItems = async (req, res) => {
     if (type === 'all' || type === 'market') {
       // 프론트에서 현재 선택된 탭(진행 중/모집 중/진행 예정/종료)이 넘어오면 그 상태에 맞는 마켓만 검색
       const statusClause = TAB_STATUS_CONDITIONS[tab] ? `AND (${TAB_STATUS_CONDITIONS[tab]})` : '';
-      const orderClause = SORT_CLAUSES[sort] || 'm.updated_at DESC';
+      const orderClause = sort === 'eventDate'
+        ? `${DEADLINE_SORT_COLUMN[tab] || 'm.eventDate_min'} ASC`
+        : (SORT_CLAUSES[sort] || 'm.updated_at DESC');
 
       // [수정] 메인 목록(getMarketList)과 동일하게 주최자 닉네임(hostNickname)과
       //   실시간 부스 신청 수(appliedBooths)를 함께 계산해서 내려줘야 합니다.
