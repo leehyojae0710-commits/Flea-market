@@ -497,8 +497,28 @@ async function handleFilterChange() {
   applyTabAndRender({ resetPage: true });
 }
 
+// 탭별 "마감" 기준 필드 (ddayLabel()과 동일 기준)
+function deadlineFieldForTab(tab) {
+  if (tab === "recruiting") return "recruitmentDate_max"; // 모집 중 → 모집 마감일
+  if (tab === "ongoing") return "eventDate_max";           // 행사 중 → 행사 종료일
+  return "eventDate_min";                                   // 진행 예정 → 행사 시작일
+}
+
+function sortForCurrentView(markets, tab) {
+  const sort = document.getElementById("sort-filter")?.value || "deadline";
+  if (sort === "latest") {
+    return [...markets].sort((a, b) => b.marketId - a.marketId);
+  }
+  if (sort === "priceLow") {
+    return [...markets].sort((a, b) => Number(a.boothPrice || 0) - Number(b.boothPrice || 0));
+  }
+  const field = deadlineFieldForTab(tab);
+  return [...markets].sort((a, b) => daysUntil(a[field]) - daysUntil(b[field]));
+}
+
 function applyTabAndRender({ resetPage = true } = {}) {
-  currentTabList = filterByTab(lastFetchedMarkets, currentTab);
+  const tabFiltered = filterByTab(lastFetchedMarkets, currentTab);
+  currentTabList = sortForCurrentView(tabFiltered, currentTab);  // ← 여기서 탭 기준으로 재정렬
   if (resetPage) currentPage = 1;
   renderCurrentPage();
 }
