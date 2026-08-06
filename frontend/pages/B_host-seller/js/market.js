@@ -651,11 +651,7 @@ function renderApplicationList() {
          </div>
          <div id="inputContainer-${id}" style="display: none; margin-top: 10px;">
             <input type="text" id="userInput-${id}" placeholder="취소 내용을 입력하세요 (*주최자가 직접 취소 시 100% 환불이 적용됩니다.)">
-<<<<<<< HEAD
             <button type="button" class="btn btn-sage btn-sm" data-action="refunded" data-id="${id}">
-=======
-            <button type="button" class="btn btn-sage btn-sm" data-action="refunded" data-id="${a.applicationId}">
->>>>>>> origin/main
             입력 확인
             </button>
          </div>
