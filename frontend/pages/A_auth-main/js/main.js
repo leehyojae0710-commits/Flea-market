@@ -264,7 +264,7 @@ function renderBoothGauge(m) {
         <div class="booth-gauge-fill" style="width:${fillPct}%"></div>
       </div>
       <div class="booth-gauge-foot">
-        <span class="booth-gauge-count"><strong>${applied}</strong> / ${total} 부스 모집</span>
+        <span class="booth-gauge-count"><strong>${applied}</strong> / ${total === 9999 ? "제한 없음" : `${total} 부스 모집`}</span>
       </div>
     </div>`;
 }
