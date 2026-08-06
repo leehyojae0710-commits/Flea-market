@@ -69,12 +69,7 @@ export function validateMarketInput(req, res, next) {
     }
   }
 
-  // 6) 최대 참가 인원
-  if (maxparticipants !== undefined && maxparticipants !== null) {
-    if (Number.isNaN(Number(maxparticipants)) || Number(maxparticipants) < 1) {
-      errors.push('최대 참가 인원은 1명 이상이어야 합니다.');
-    }
-  }
+
 
   // 7) 설명 길이
   if (description !== undefined && description !== null && String(description).length > 2000) {
