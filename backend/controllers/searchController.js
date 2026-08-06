@@ -49,6 +49,7 @@ export const searchItems = async (req, res) => {
         FROM markets m
         JOIN users u ON u.userId = m.hostId
         WHERE (? = '' OR m.title LIKE ? OR m.description LIKE ? OR m.locationName LIKE ? OR m.region LIKE ?)
+          AND m.isExpired <> 2
         ${statusClause}
         ORDER BY ${orderClause}
       `;
