@@ -645,12 +645,12 @@ function renderApplicationList() {
         </div>` : ''}
         ${status === 'Paid' ? `
         <div class="item-card-actions">
-          <button type="button" class="btn btn-sage btn-sm" data-action="refunded_onBtn">
+          <button type="button" class="btn btn-sage btn-sm" data-action="refunded_onBtn" data-id="${id}">
            결제 취소
           </button>
          </div>
-         <div id="inputContainer" style="display: none; margin-top: 10px;">
-            <input type="text" id="userInput" placeholder="취소 내용을 입력하세요 (*주최자가 직접 취소 시 100% 환불이 적용됩니다.)">
+         <div id="inputContainer-${id}" style="display: none; margin-top: 10px;">
+            <input type="text" id="userInput-${id}" placeholder="취소 내용을 입력하세요 (*주최자가 직접 취소 시 100% 환불이 적용됩니다.)">
             <button type="button" class="btn btn-sage btn-sm" data-action="refunded" data-id="${a.applicationId}">
             입력 확인
             </button>
@@ -695,7 +695,7 @@ function renderApplicationList() {
     btn.addEventListener('click', () => handleSellerReviewCancel());
   });
   wrap.querySelectorAll('[data-action="refunded_onBtn"]').forEach((btn) => {
-    btn.addEventListener('click', () => refundMemoBtn());
+    btn.addEventListener('click', () => refundMemoBtn(btn.dataset.id));
   });
   wrap.querySelectorAll('[data-action="refunded"]').forEach((btn) => {
     btn.addEventListener('click', () => refundPayment_(btn.dataset.id));
@@ -1678,13 +1678,13 @@ function handleCommentSubmit() {
   });
 }
 /*환불 관련*/
-async function refundMemoBtn() {
-  const inputContainer = document.getElementById('inputContainer');
-  inputContainer.style.display = 'block'
+async function refundMemoBtn(applicationId) {
+  const inputContainer = document.getElementById(`inputContainer-${applicationId}`);
+  if (inputContainer) inputContainer.style.display = 'block';
 }
 async function refundPayment_(a) {
-  const inputContainer = document.getElementById('inputContainer');
-  const memotxt = document.getElementById('userInput').value;
+  const inputContainer = document.getElementById(`inputContainer-${a}`);
+  const memotxt = document.getElementById(`userInput-${a}`)?.value;
   if (!memotxt)
     return;
   if (memotxt.length <= 0) {
@@ -1701,7 +1701,7 @@ async function refundPayment_(a) {
   catch (error) {
     renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
   }
-  inputContainer.style.display = 'none'
+  if (inputContainer) inputContainer.style.display = 'none';
 }
 async function refundPayment_seller(a) {
   try {
