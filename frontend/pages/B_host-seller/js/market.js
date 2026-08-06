@@ -651,7 +651,11 @@ function renderApplicationList() {
          </div>
          <div id="inputContainer-${id}" style="display: none; margin-top: 10px;">
             <input type="text" id="userInput-${id}" placeholder="취소 내용을 입력하세요 (*주최자가 직접 취소 시 100% 환불이 적용됩니다.)">
+<<<<<<< HEAD
+            <button type="button" class="btn btn-sage btn-sm" data-action="refunded" data-id="${id}">
+=======
             <button type="button" class="btn btn-sage btn-sm" data-action="refunded" data-id="${a.applicationId}">
+>>>>>>> origin/main
             입력 확인
             </button>
          </div>
@@ -1677,6 +1681,7 @@ function handleCommentSubmit() {
     }
   });
 }
+
 /*환불 관련*/
 async function refundMemoBtn(applicationId) {
   const inputContainer = document.getElementById(`inputContainer-${applicationId}`);
@@ -1691,14 +1696,14 @@ async function refundPayment_(a) {
     renderAlert('메모를 입력해 주십시오');
     return;
   }
+
   try {
-    const res = await refundPayment(a, memotxt);
+    const res = await refundPayment(applicationId, memotxt);
     if (res.success) {
       renderAlert('환불 처리 완료');
       await loadApplicationList();
     }
-  }
-  catch (error) {
+  } catch (error) {
     renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
   }
   if (inputContainer) inputContainer.style.display = 'none';

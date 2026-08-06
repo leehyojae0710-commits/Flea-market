@@ -79,6 +79,8 @@ export async function cancelApplication(req, res) {
     return res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
+
+//댓글삭제 (본인 댓글만) - 삭제 자체는 dbdelete()를 그대로 쓰고, 그 앞에 작성자 인증만 추가
 export async function deleteComment(req, res) {
   const { commentId } = req.params;
   const { userId } = req.user; // authenticateToken 미들웨어가 넣어줌
