@@ -55,7 +55,11 @@ const STATUS_LABEL = {
   RefundRequested: '환불 요청',
   // [추가] 주최자가 마켓을 취소하면 결제 전 신청은 Cancelled 로 정리됩니다.
   //   라벨이 없으면 화면에 빈칸으로 보여서 함께 넣습니다.
-  Cancelled: '마켓 취소됨'
+  Cancelled: '마켓 취소됨',
+  // [추가] 화면 표시 전용 상태. DB 에는 없고 displayStatusOf() 가 만들어 냅니다.
+  //   마켓이 취소되면 신청은 Pending/Approved 로 남지만 더 진행되지 않으므로
+  //   목록·필터 모두 이 값으로 다룹니다.
+  MarketCancelled: '마켓 취소됨'
 };
 const STATUS_CLASS = {
   Pending: 'pending',
@@ -64,7 +68,8 @@ const STATUS_CLASS = {
   Paid: 'paid',
   Refunded: 'refunded',
   RefundRequested: 'RefundRequested',
-  Cancelled: 'rejected'
+  Cancelled: 'rejected',
+  MarketCancelled: 'rejected'
 };
 
 // 여러 곳(중복 요약/그룹 헤더 등)에서 공통으로 쓰는 HTML 이스케이프
@@ -458,9 +463,20 @@ function handleGroupToggle(key) {
 function renderBoothCard(a) {
   const id = a.applicationId;
   const status = a.status || 'Pending';
+  // [추가] 주최자가 마켓을 취소하면 그 마켓의 신청은 더 진행되지 않습니다.
+  //   그런데 신청 상태값 자체는 Pending/Approved 로 남아 있어서
+  //   판매자 화면에는 「대기중」으로 보였고, 아직 심사 중인 줄 알고 기다리게 됐습니다.
+  //   결제 완료(Paid)·환불(Refunded) 건은 원래 상태를 그대로 보여줘야 하므로 건드리지 않습니다.
+  const marketCancelled = Number(a.marketIsExpired) === 2;
+  const displayStatus = displayStatusOf(a);
+  const showAsCancelled = displayStatus === 'MarketCancelled';
   const refundAmount = a.refundAmount;
-  const isPending = status === 'Pending';
-  const isApproved = status === 'Approved' || status === 'Paid';
+  // 취소된 마켓의 신청은 수정·결제 대상이 아닙니다. (삭제는 남겨둬 정리할 수 있게 합니다)
+  const isPending = status === 'Pending' && !marketCancelled;
+  const isApproved = (status === 'Approved' || status === 'Paid') && !marketCancelled;
+  // 삭제(신청 취소)는 마켓이 취소돼도 눌려야 합니다.
+  //   막아두면 판매자가 목록에서 정리할 방법이 없어집니다.
+  const canDelete = status === 'Pending';
   const isExpanded = expandedId === String(id) || expandedId === id;
   return `
     <div class="item-card" data-application-id="${id}">
@@ -471,7 +487,7 @@ function renderBoothCard(a) {
           <!-- [추가] 이 부스를 신청한 마켓의 주최자 -->
           <div class="item-card-meta">주최자: ${ProfileLink.html(a.hostId, a.hostNickname)}</div>
         </div>
-        <span class="status-tag ${STATUS_CLASS[status] || 'pending'}">${STATUS_LABEL[status] || status}</span>
+        <span class="status-tag ${STATUS_CLASS[displayStatus] || 'pending'}">${STATUS_LABEL[displayStatus] || displayStatus}</span>
       </div>
 
       ${renderBoothRecruitGauge(a)}
@@ -479,7 +495,7 @@ function renderBoothCard(a) {
     <div class="item-card-actions">
       <div class="action-group">
         <a class="btn btn-outline btn-sm" href="${isPending ? `booth-edit?applicationId=${id}` : '#'}" ${isPending ? '' : 'aria-disabled="true" tabindex="-1" title="대기중인 신청만 수정할 수 있어요." onclick="return false;"'}>수정</a>
-        <button type="button" class="btn btn-danger btn-sm" data-action="delete" data-id="${id}" ${isPending ? '' : 'disabled title="대기중인 신청만 취소할 수 있어요."'}>삭제</button>
+        <button type="button" class="btn btn-danger btn-sm" data-action="delete" data-id="${id}" ${canDelete ? '' : 'disabled title="대기중인 신청만 취소할 수 있어요."'}>삭제</button>
         ${status === 'Approved'
       ? renderPaymentArea(a)
       : ''
@@ -834,13 +850,32 @@ const STATUS_FILTER_MAP = {
   Refund: ['Refunded', 'RefundRequested'],
 };
 
+/**
+ * [추가] 화면에 보여줄 상태를 한 곳에서 계산합니다.
+ *
+ * 예전에는 카드 라벨은 「마켓 취소됨」으로 바꿔 놓고 필터는 원본 status(Pending/Approved)로
+ * 걸러서, 「대기중」을 고르면 화면에 「마켓 취소됨」이라 적힌 카드가 나왔습니다.
+ * 보이는 것과 거르는 기준이 달라서 생긴 문제라, 두 곳이 이 함수 하나를 같이 씁니다.
+ *
+ * 결제(Paid)·환불(Refunded) 건은 돈이 오간 기록이라 원래 상태를 그대로 둡니다.
+ */
+function displayStatusOf(a) {
+  const status = a.status || 'Pending';
+  const marketCancelled = Number(a.marketIsExpired) === 2;
+  if (marketCancelled && (status === 'Pending' || status === 'Approved')) {
+    return 'MarketCancelled';
+  }
+  return status;
+}
+
 function applyStatusFilter() {
   // [수정] 중복 신청만 보기에서는 상태 필터(select)를 비활성화하고 무시합니다
   //        (여러 상태가 섞인 신청을 마켓 단위로 한눈에 봐야 하는 화면이라서).
   const groupedStatuses = STATUS_FILTER_MAP[statusFilter];
   const byStatus = !duplicateOnly && statusFilter
     ? allApplications.filter((a) => {
-        const status = a.status || 'Pending';
+        // 화면에 보이는 상태와 같은 기준으로 거릅니다.
+        const status = displayStatusOf(a);
         return groupedStatuses
           ? groupedStatuses.includes(status)
           : status === statusFilter;

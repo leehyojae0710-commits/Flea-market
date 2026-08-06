@@ -60,13 +60,31 @@ export async function getMarketDetail(req, res) {
       `SELECT m.*, u.nickname AS hostNickname
        FROM markets m
        JOIN users u ON u.userId = m.hostId
-       WHERE m.marketId = ? AND m.isExpired <> 2`,
+       WHERE m.marketId = ?`,
       [marketId]
     );
     if (rows.length === 0) {
       return res.status(404).json({ success: false, data: null, message: '해당 마켓을 찾을 수 없습니다.' });
     }
-    return res.status(200).json({ success: true, data: rows[0], message: '마켓 상세 정보를 조회했습니다.' });
+
+    // [수정] 취소된 마켓(isExpired=2)은 판매자·방문자에게 계속 감추되,
+    //   **주최자 본인에게는 보여줍니다.**
+    //   예전에는 본인에게도 404 라서, 「내 마켓 관리 → 보러가기」로 들어가도
+    //   "마켓 정보를 불러오지 못했어요" 만 뜨고 환불이 어떻게 됐는지 확인할 수 없었습니다.
+    //   라우트에 optionalAuth 가 걸려 있어 비로그인 조회는 그대로 동작합니다.
+    const market = rows[0];
+    const isOwner = req.user?.userId !== undefined
+      && Number(market.hostId) === Number(req.user.userId);
+
+    if (Number(market.isExpired) === 2 && !isOwner) {
+      return res.status(404).json({ success: false, data: null, message: '해당 마켓을 찾을 수 없습니다.' });
+    }
+
+    // 화면이 "취소된 마켓을 주최자 자격으로 보고 있다"를 알 수 있게 표시를 얹어 보냅니다.
+    market.isOwner = isOwner;
+    market.isCancelled = Number(market.isExpired) === 2;
+
+    return res.status(200).json({ success: true, data: market, message: '마켓 상세 정보를 조회했습니다.' });
   } catch (error) {
     console.error('마켓 상세 조회 오류:', error.message);
     return res.status(500).json({ success: false, data: null, message: '서버 오류로 마켓 상세 조회에 실패했습니다.' });

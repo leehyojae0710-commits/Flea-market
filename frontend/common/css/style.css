@@ -220,3 +220,53 @@ body {
   .has-tip::after,
   .has-tip::before { display: none; }
 }
+
+/* ============================================================
+   [취소된 마켓] 주최자 화면 표시
+   판매자·방문자에게는 목록·검색·상세 어디에도 안 보이지만,
+   주최자 본인은 환불 결과를 확인해야 하므로 조회는 열어둡니다.
+   ============================================================ */
+
+/* 내 마켓 관리 — 흐리게 보이되 「보러가기」는 눌러야 합니다.
+   예전에는 pointer-events:none 이 카드 전체에 걸려 있어 클릭 자체가 막혔습니다. */
+.my-market-item.is-cancelled { opacity: .6; }
+.my-market-item.is-cancelled:hover { opacity: 1; }
+.my-market-item.is-cancelled .btn[disabled] {
+  opacity: .5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* 마켓 상세 — 취소 안내 */
+.cancelled-notice {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 10px 0 4px;
+  padding: 12px 14px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.cancelled-notice strong { font-size: 14px; }
+.cancelled-notice span { color: #7f1d1d; }
+.cancelled-notice[hidden] { display: none; }
+
+/* 제목 옆 「취소됨」 배지 */
+.status-tag.cancel { background: #fee2e2; color: #b91c1c; }
+
+/* [취소된 마켓] 주최자 신청자 목록에서 승인·반려·일괄처리 감추기
+   market.js 가 목록을 비동기로 그리기 때문에, 그리는 코드를 고치는 대신
+   market-detail-extra.js 가 body 에 표시를 남기고 여기서 한 번에 가립니다.
+   (서버도 409 로 막으므로 화면만 가리는 것이 아닙니다) */
+body.market-is-cancelled [data-action="approve"],
+body.market-is-cancelled [data-action="reject"],
+body.market-is-cancelled .bulk-toolbar,
+body.market-is-cancelled .application-select-checkbox,
+body.market-is-cancelled #select-all-checkbox {
+  display: none !important;
+}
+body.market-is-cancelled #application-list .item-card-actions:empty { display: none; }

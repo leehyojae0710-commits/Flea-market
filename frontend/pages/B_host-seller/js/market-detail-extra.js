@@ -33,14 +33,25 @@
     const endDate = parseDate(market.eventDate_max);
     const naturallyEnded = endDate ? today > endDate : false;
     const isExpired = Number(market.isExpired) === 1 || naturallyEnded;
+    // [추가] 취소(2)는 마감(1)과 다른 상태입니다.
+    //   `=== 1` 만 보면 취소된 마켓이 「모집중」으로 표시되고 신청 버튼까지 열립니다.
+    const isCancelled = Number(market.isExpired) === 2;
+    const notice = document.getElementById('market-cancelled-notice');
+    if (notice) notice.hidden = !isCancelled;
+    // [추가] 취소된 마켓에서는 신청자 목록의 승인·반려 버튼을 감춥니다.
+    //   신청자 목록은 market.js 가 나중에 비동기로 그리므로, 그리는 코드를 건드리는 대신
+    //   최상위에 표시만 남겨 CSS 로 가립니다. (나중에 그려지는 항목까지 한 번에 적용됩니다)
+    //   서버(approveSellerApplication)도 409 MARKET_CANCELLED 로 막으므로 화면만 가리는 게 아닙니다.
+    document.body.classList.toggle('market-is-cancelled', isCancelled);
 
     renderEventDateRange(market.eventDate_min, market.eventDate_max, market.locationName, market.boothPrice);
     renderDDay(today, startDate, endDate, isExpired);
-    renderMarketStatusBadge(isExpired);
+    renderMarketStatusBadge(isExpired, isCancelled);
     renderMarketImage(market.marketImage);
     renderMarketDescription(market.description);
     renderMarketMapLink(market.title, market.latitude, market.longitude);
-    applyBoothSelectAvailability(isExpired);
+    // 취소된 마켓에는 새로 신청할 수 없습니다.
+    applyBoothSelectAvailability(isExpired || isCancelled);
   };
 
   function parseDate(dateStr) {
@@ -114,13 +125,13 @@
     ddayEl.style.display = '';
   }
 
-  function renderMarketStatusBadge(isExpired) {
+  function renderMarketStatusBadge(isExpired, isCancelled = false) {
     const statusEl = document.getElementById('market-status');
     if (!statusEl) return;
     statusEl.style.display = '';
-    statusEl.textContent = isExpired ? '마감' : '모집중';
-    statusEl.classList.remove('open', 'closed');
-    statusEl.classList.add(isExpired ? 'closed' : 'open');
+    statusEl.textContent = isCancelled ? '취소됨' : (isExpired ? '마감' : '모집중');
+    statusEl.classList.remove('open', 'closed', 'cancel');
+    statusEl.classList.add(isCancelled ? 'cancel' : (isExpired ? 'closed' : 'open'));
   }
 
   function renderMarketImage(marketImage) {

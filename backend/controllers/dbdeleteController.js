@@ -12,6 +12,7 @@ import { cencelPayment } from '../services/paymentService.js';
 export async function deleteMarket(req, res) {
   const { marketId } = req.params;
   const { userId } = req.user;
+  console.log(`deleteMarket called with marketId: ${marketId}, userId: ${userId}`);
 
   try {
     const [marketRows] = await pool.query('SELECT hostId FROM markets WHERE marketId = ?', [marketId]);
@@ -28,7 +29,11 @@ export async function deleteMarket(req, res) {
     const [applications] = await pool.query('SELECT * FROM applications WHERE marketId = ?', [marketId]);
 
     for (const application of applications) {
-      if (application.status !== 'Paid') continue;
+      if (application.status !== 'Paid')
+        {
+          application.status = 'Canceled';
+          continue;
+        }
 
       try {
         const [paymentRows] = await pool.query(
@@ -43,8 +48,8 @@ export async function deleteMarket(req, res) {
 
         await cencelPayment(paymentRows[0].paymentKey, '마켓 취소로 인한 결제 취소');
 
-        await pool.query(`UPDATE payments SET status = 'Refunded' WHERE applicationId = ?`, [application.applicationId]);
-        await pool.query(`UPDATE applications SET status = 'Refunded', refundReason = ? WHERE applicationId = ?`, ['마켓 취소로 인한 결제 취소', application.applicationId]);
+        await pool.query(`UPDATE payments SET status = 'Canceled', refundReason = '마켓 취소로 인한 결제 취소' WHERE applicationId = ?`, [application.applicationId]);
+        await pool.query(`UPDATE applications SET status = 'Canceled' WHERE applicationId = ?`, [application.applicationId]);
       } catch (error) {
         console.error(`applicationId ${application.applicationId} 환불 처리 실패:`, error.message);
       }
@@ -74,7 +79,6 @@ export async function cancelApplication(req, res) {
     return res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
-
 
 //댓글삭제 (본인 댓글만) - 삭제 자체는 dbdelete()를 그대로 쓰고, 그 앞에 작성자 인증만 추가
 export async function deleteComment(req, res) {

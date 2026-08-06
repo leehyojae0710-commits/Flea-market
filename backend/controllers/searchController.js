@@ -48,8 +48,13 @@ export const searchItems = async (req, res) => {
           ) AS appliedBooths
         FROM markets m
         JOIN users u ON u.userId = m.hostId
+<<<<<<< HEAD
         WHERE (? = '' OR m.title LIKE ? OR m.description LIKE ? OR m.locationName LIKE ? OR m.region LIKE ?)
           AND m.isExpired <> 2
+=======
+        WHERE m.isExpired <> 2
+          AND (? = '' OR m.title LIKE ? OR m.description LIKE ? OR m.locationName LIKE ? OR m.region LIKE ?)
+>>>>>>> origin/main
         ${statusClause}
         ORDER BY ${orderClause}
       `;

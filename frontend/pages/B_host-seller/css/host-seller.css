@@ -1308,6 +1308,31 @@ a.btn {
   font-weight: 700;
 }
 
+/* ---------- 개최일 겹침 안내: 펼침 토글 / 축소 페이지네이션 ---------- */
+.overlap-toggle-btn {
+  display: inline-block;
+  margin: 2px 0 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--mustard);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.overlap-toggle-btn:hover { opacity: 0.8; }
+.overlap-list-wrap { margin-top: 8px; }
+.overlap-pagination.pagination {
+  margin: 10px 0 0;
+  justify-content: flex-start;
+}
+.overlap-pagination .page-btn {
+  min-width: 28px;
+  height: 28px;
+  font-size: 12px;
+}
+
 /* ---------- pagination (내 부스 관리 / 내 마켓 관리) ---------- */
 .pagination {
   display: flex;
