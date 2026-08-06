@@ -112,56 +112,18 @@ function formatPrice(price) {
   return n === 0 ? "무료 참가" : `참가비 ${n.toLocaleString()}원`;
 }
 
-/* ============================================================
-   [참가비 변경 표시] - 프론트(localStorage)로 "기존 금액" 보존
-   - 각 마켓의 boothPrice를 처음 볼 때 원가(originalPrice)로 기억.
-   - 이후 boothPrice가 바뀌면 원가와 비교해 기존금액 → 변경금액,
-     변동률(%), 방향(↓ 인하 / ↑ 인상)을 시안처럼 표시.
-   - 원가는 지워지지 않고 계속 유지됨.
-   ============================================================ */
-const FLEA_PRICE_KEY = "flea_original_prices";
-
-function loadOriginalPrices() {
-  try { return JSON.parse(localStorage.getItem(FLEA_PRICE_KEY)) || {}; }
-  catch { return {}; }
-}
-function saveOriginalPrices(map) {
-  try { localStorage.setItem(FLEA_PRICE_KEY, JSON.stringify(map)); } catch { /* 저장 실패 무시 */ }
-}
-
-// 마켓의 "기존 금액"을 반환. 없으면 현재 금액을 원가로 기억한 뒤 반환(원가는 이후 유지).
-function getOriginalPrice(m) {
-  const id = String(m.marketId);
-  const current = Number(m.boothPrice) || 0;
-  const map = loadOriginalPrices();
-  if (map[id] === undefined || map[id] === null) {
-    map[id] = current;          // 최초 관측 시 원가로 확정
-    saveOriginalPrices(map);
-    return current;
-  }
-  return Number(map[id]) || 0;
-}
-
-// (선택) 원가를 강제로 다시 기준값으로 설정하고 싶을 때 사용.
-window.fleaResetOriginalPrice = function (marketId, price) {
-  const map = loadOriginalPrices();
-  map[String(marketId)] = Number(price) || 0;
-  saveOriginalPrices(map);
-};
-
-// 원가 대비 현재가의 변동 정보 계산
+// 원가(최초 등록 시의 가격) 대비 현재가의 변동 정보 계산 (서버가 내려주는 boothPrice_origin 사용)
 function getPriceChange(m) {
-  const original = getOriginalPrice(m);
   const current = Number(m.boothPrice) || 0;
+  // 서버에 원가 기록이 없으면(null/undefined, 백필 전 구버전 마켓 등) 변동 없음으로 취급
+  const hasOriginal = m.boothPrice_origin !== null && m.boothPrice_origin !== undefined;
+  const original = hasOriginal ? Number(m.boothPrice_origin) || 0 : current;
+
   const diff = current - original;
   let direction = "same";
   if (diff < 0) direction = "down";
   else if (diff > 0) direction = "up";
 
-  // [수정] 원가(기존 금액)가 무료(0원)였다가 유료로 바뀐 경우, "0원 대비 몇 %"는
-  // 수학적으로 정의가 안 돼서(0으로 나누기) 항상 0%로만 찍혔습니다.
-  // (예: 무료 -> 5,000원이 되어도 "0% 상승"이라고 잘못 표시됨)
-  // 이 경우엔 퍼센트 대신 "무료 -> 유료 전환"이라는 걸 알 수 있게 따로 표시합니다.
   const fromFree = original === 0 && diff > 0;
   const pct = fromFree ? null : (original > 0 ? Math.round(Math.abs(diff) / original * 100) : 0);
   return { original, current, diff, direction, pct, fromFree };
