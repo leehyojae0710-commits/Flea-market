@@ -112,6 +112,14 @@ function formatPrice(price) {
 }
 
 const STATUS_LABEL = { Pending: '대기중', Approved: '승인됨', Rejected: '반려됨', Paid: '결제 완료', Refunded: '결제 취소', RefundRequested: '환불 신청' };
+// [추가] DB 에는 없고 화면에서만 쓰는 상태입니다.
+//   MarketCancelled  : 마켓이 취소돼 더 진행되지 않는 신청
+//   PaymentOverdue   : 승인했는데 판매자가 결제 기한을 넘긴 신청
+//                      판매자 화면에는 「타임아웃」으로 이미 보이는데
+//                      주최자 화면에는 계속 「승인됨」으로만 보여서,
+//                      부스를 비워야 할지 판단할 수가 없었습니다.
+STATUS_LABEL.MarketCancelled = '마켓 취소됨';
+STATUS_LABEL.PaymentOverdue = '결제기한 지남';
 const STATUS_CLASS = { Pending: 'pending', Approved: 'approved', Rejected: 'rejected', Paid: 'paid', Refunded: 'refunded', RefundRequested: 'refundRequested' };
 
 let currentApplications = []; // 서버에서 받은 원본 전체 신청 목록 (필터/정렬 전)
@@ -131,11 +139,29 @@ const APPLICATION_STATUS_FILTER_MAP = {
   Refund: ['Refunded', 'RefundRequested'],
 };
 
+/**
+ * [추가] 화면에 보여줄 상태를 한 곳에서 계산합니다.
+ *
+ * 카드 라벨과 상태 필터가 서로 다른 기준을 쓰면,
+ * 「결제대기」를 골랐는데 「결제기한 지남」이라 적힌 카드가 나오는 식으로 어긋납니다.
+ * 두 곳이 이 함수 하나를 같이 씁니다. (판매자 화면 mybooth.js 와 같은 방식)
+ */
+function applicationDisplayStatus(a) {
+  const status = a.status || 'Pending';
+  if (document.body.classList.contains('market-is-cancelled')
+    && (status === 'Pending' || status === 'Approved')) {
+    return 'MarketCancelled';
+  }
+  if (isPaymentOverdue(a)) return 'PaymentOverdue';
+  return status;
+}
+
 // [추가] 신청자 목록은 항상 "승인대기 → 결제대기 → 결제완료 → 환불 → 반려" 순으로 정렬합니다.
 //        (승인대기=Pending, 결제대기=Approved, 결제완료=Paid, 환불=Refunded/RefundRequested, 반려=Rejected)
 const APPLICATION_STATUS_ORDER = {
   Pending: 0,
   Approved: 1,
+  PaymentOverdue: 1.5, // 결제대기(1) 바로 뒤 — 주최자가 먼저 확인해야 하는 건이라서
   Paid: 2,
   RefundRequested: 3,
   Refunded: 3,
@@ -143,6 +169,7 @@ const APPLICATION_STATUS_ORDER = {
 };
 
 function getApplicationSortRank(status) {
+  if (status === 'MarketCancelled') return 5;
   const rank = APPLICATION_STATUS_ORDER[status];
   return rank === undefined ? 99 : rank;
 }
@@ -156,7 +183,8 @@ function applyApplicationStatusFilter() {
   const groupedStatuses = APPLICATION_STATUS_FILTER_MAP[applicationStatusFilter];
   const byStatus = applicationStatusFilter
     ? currentApplications.filter((a) => {
-      const status = a.status || 'Pending';
+      // 화면에 보이는 상태와 같은 기준으로 거릅니다.
+      const status = applicationDisplayStatus(a);
       return groupedStatuses
         ? groupedStatuses.includes(status)
         : status === applicationStatusFilter;
@@ -169,7 +197,9 @@ function applyApplicationStatusFilter() {
     : byStatus;
 
   filteredApplications = [...byDuplicate].sort(
-    (a, b) => getApplicationSortRank(a.status || 'Pending') - getApplicationSortRank(b.status || 'Pending'),
+    // 정렬도 화면에 보이는 상태 기준으로 맞춥니다.
+    //   그래야 「결제기한 지남」 건이 결제대기 바로 뒤로 모여 눈에 띕니다.
+    (a, b) => getApplicationSortRank(applicationDisplayStatus(a)) - getApplicationSortRank(applicationDisplayStatus(b)),
   );
 
   applicationCurrentPage = 1;
@@ -200,6 +230,32 @@ function handleDuplicateOnlyToggle() {
 }
 
 // 카드 제목 옆에 붙는 「중복 N」 배지. 1건뿐이면 아무것도 그리지 않습니다.
+/* ---------------- [추가] 결제 기한 확인 ----------------
+ *
+ * 승인하면 paymentDueAt 이 정해지고, 그때까지 결제하지 않으면 판매자 화면에는
+ * 「타임아웃」으로 표시됩니다. 그런데 주최자 화면에는 계속 「승인됨」으로만 보여서,
+ * 그 부스를 비우고 다음 신청자를 받아야 할지 판단할 수가 없었습니다.
+ * 판매자 화면(mybooth.js)과 같은 규칙으로 맞춥니다.
+ *
+ * 결제가 끝난 건(isPaid)은 기한과 무관하므로 대상이 아닙니다.
+ */
+function isPaymentOverdue(a) {
+  if ((a.status || '') !== 'Approved') return false;
+  if (a.isPaid) return false;
+  if (!a.paymentDueAt) return true; // 기한 정보가 없으면 지난 것으로 봅니다 (판매자 화면과 동일)
+  const due = new Date(String(a.paymentDueAt).replace(' ', 'T'));
+  if (Number.isNaN(due.getTime())) return true;
+  return due.getTime() - Date.now() <= 0;
+}
+
+/** 마우스를 올렸을 때 보여줄 기한 문구 */
+function formatPaymentDue(paymentDueAt) {
+  if (!paymentDueAt) return '정보 없음';
+  const due = new Date(String(paymentDueAt).replace(' ', 'T'));
+  if (Number.isNaN(due.getTime())) return '정보 없음';
+  return due.toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
 function renderDuplicateBadge(a) {
   const count = Number(a.sellerDuplicateCount) || 0;
   if (count < 2) return '';
@@ -553,8 +609,19 @@ function renderApplicationList() {
     .map((a) => {
       const status = a.status || 'Pending';
       const id = a.applicationId;
+      // [추가] 마켓이 취소되면 이 신청들은 더 진행되지 않습니다.
+      //   그런데 상태값 자체는 Pending/Approved 로 남아 있어서
+      //   주최자 화면에 「대기중」·「승인됨」으로 보였고, 아직 처리할 게 남은 것처럼 읽혔습니다.
+      //   결제(Paid)·환불(Refunded) 건은 돈이 오간 기록이라 원래 상태를 그대로 둡니다.
+      const marketCancelled = document.body.classList.contains('market-is-cancelled');
+      const showAsCancelled = marketCancelled && (status === 'Pending' || status === 'Approved');
+      // 취소된 마켓이 아니면서, 승인 후 결제 기한을 넘긴 건
+      const displayStatus = applicationDisplayStatus(a);
+      const paymentOverdue = displayStatus === 'PaymentOverdue';
       const canShowReview = status === 'Paid'; // 결제 완료된 건만 평가 대상
-      const canSelect = status === 'Pending' || status === 'Approved' || status === 'Paid'; // 승인/반려/환불 대상만 선택 가능 (반려는 승인됨 상태에서도 가능)
+      // 취소된 마켓에서는 승인·반려를 할 수 없으므로 선택 자체를 막습니다.
+      const canSelect = !marketCancelled
+        && (status === 'Pending' || status === 'Approved' || status === 'Paid'); // 승인/반려/환불 대상만 선택 가능 (반려는 승인됨 상태에서도 가능)
       return `
       <div class="item-card" data-application-id="${id}">
     <div class="item-card-top">
@@ -568,7 +635,8 @@ function renderApplicationList() {
           <div class="item-card-meta">신청자: ${ProfileLink.html(a.sellerId, a.sellerNickname)}</div>
         </div>
       </div>
-      <span class="status-tag ${STATUS_CLASS[status] || 'pending'}">${STATUS_LABEL[status] || status}</span>
+      <span class="status-tag ${STATUS_CLASS[displayStatus] || (displayStatus === 'PaymentOverdue' || displayStatus === 'MarketCancelled' ? 'rejected' : 'pending')}"
+            ${paymentOverdue ? `title="결제 기한: ${formatPaymentDue(a.paymentDueAt)} (지남)"` : ''}>${STATUS_LABEL[displayStatus] || displayStatus}</span>
     </div>
         ${status === 'Pending' ? `
         <div class="item-card-actions">
@@ -577,13 +645,13 @@ function renderApplicationList() {
         </div>` : ''}
         ${status === 'Paid' ? `
         <div class="item-card-actions">
-          <button type="button" class="btn btn-sage btn-sm" data-action="refunded_onBtn" data-id="${id}">
+          <button type="button" class="btn btn-sage btn-sm" data-action="refunded_onBtn">
            결제 취소
           </button>
          </div>
-         <div id="inputContainer-${id}" style="display: none; margin-top: 10px;">
-            <input type="text" id="userInput-${id}" placeholder="취소 내용을 입력하세요 (*주최자가 직접 취소 시 100% 환불이 적용됩니다.)">
-            <button type="button" class="btn btn-sage btn-sm" data-action="refunded" data-id="${id}">
+         <div id="inputContainer" style="display: none; margin-top: 10px;">
+            <input type="text" id="userInput" placeholder="취소 내용을 입력하세요 (*주최자가 직접 취소 시 100% 환불이 적용됩니다.)">
+            <button type="button" class="btn btn-sage btn-sm" data-action="refunded" data-id="${a.applicationId}">
             입력 확인
             </button>
          </div>
@@ -627,7 +695,7 @@ function renderApplicationList() {
     btn.addEventListener('click', () => handleSellerReviewCancel());
   });
   wrap.querySelectorAll('[data-action="refunded_onBtn"]').forEach((btn) => {
-    btn.addEventListener('click', () => refundMemoBtn(btn.dataset.id));
+    btn.addEventListener('click', () => refundMemoBtn());
   });
   wrap.querySelectorAll('[data-action="refunded"]').forEach((btn) => {
     btn.addEventListener('click', () => refundPayment_(btn.dataset.id));
@@ -956,17 +1024,25 @@ function handleMarketCancelClick() {
     if (!marketId) return;
     hideAlert();
 
-    const result = await MarketCancel.run(marketId);
+    // [수정] 환불 미리보기 조회(cancel-preview) + 전용 확인 모달(MarketCancel.run) 제거.
+    //  「내 마켓 관리」(marketdelete.js handleDeleteClick)와 동일하게 window.confirm 후 바로 취소만 실행.
+    const confirmed = window.confirm(
+      '정말 이 마켓을 취소하시겠습니까? 취소 후에는 되돌릴 수 없어요.',
+    );
+    if (!confirmed) return;
 
-    // 「아니오」를 눌렀으면 조용히 끝냅니다.
-    if (!result.cancelled && !result.message) return;
-
-    renderAlert(result.message, result.type);
-
-    if (result.cancelled) {
-      // 취소된 마켓이므로 관리 버튼을 감추고, 목록으로 돌아갈 시간을 줍니다.
-      applyHostActionState({ isExpired: 2 });
-      setTimeout(() => { window.location.href = 'mymarketpage'; }, 2500);
+    try {
+      const res = await callApi(`/markets/closed/${marketId}`, { method: 'PATCH' });
+      if (res && res.success) {
+        renderAlert('마켓이 취소되었습니다.', 'success');
+        // 취소된 마켓이므로 관리 버튼을 감추고, 목록으로 돌아갈 시간을 줍니다.
+        applyHostActionState({ isExpired: 2 });
+        setTimeout(() => { window.location.href = 'mymarketpage'; }, 2500);
+      } else {
+        renderAlert(res?.message || '취소에 실패했어요.');
+      }
+    } catch (err) {
+      renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
     }
   });
 }
@@ -1601,35 +1677,31 @@ function handleCommentSubmit() {
     }
   });
 }
-
 /*환불 관련*/
-async function refundMemoBtn(applicationId) {
-  const inputContainer = document.getElementById(`inputContainer-${applicationId}`);
-  if (inputContainer) {
-
-    inputContainer.style.display = 'block';
-  }
+async function refundMemoBtn() {
+  const inputContainer = document.getElementById('inputContainer');
+  inputContainer.style.display = 'block'
 }
-async function refundPayment_(applicationId) {
-  const inputContainer = document.getElementById(`inputContainer-${applicationId}`);
-  const memotxt = document.getElementById(`userInput-${applicationId}`)?.value;
-
-  if (!memotxt || memotxt.length <= 0) {
+async function refundPayment_(a) {
+  const inputContainer = document.getElementById('inputContainer');
+  const memotxt = document.getElementById('userInput').value;
+  if (!memotxt)
+    return;
+  if (memotxt.length <= 0) {
     renderAlert('메모를 입력해 주십시오');
     return;
   }
-
   try {
-    const res = await refundPayment(applicationId, memotxt);
+    const res = await refundPayment(a, memotxt);
     if (res.success) {
       renderAlert('환불 처리 완료');
       await loadApplicationList();
     }
-  } catch (error) {
+  }
+  catch (error) {
     renderAlert('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
   }
-
-  if (inputContainer) inputContainer.style.display = 'none';
+  inputContainer.style.display = 'none'
 }
 async function refundPayment_seller(a) {
   try {

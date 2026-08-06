@@ -148,6 +148,10 @@ export async function getMyApplications(req, res) {
          a.applicationId, a.marketId, a.boothNumber, a.title, a.itemName,
          a.productDesc, a.itemImage, a.status,a.paymentDueAt,
          m.title AS marketTitle, m.eventDate_min, m.eventDate_max, m.locationName,m.boothPrice,
+         -- [추가] 판매자 「내 부스 관리」가 취소된 마켓의 신청을 구분할 수 있게 함께 내려줍니다.
+         --   예전에는 마켓이 취소돼도 신청이 「대기중」으로 그대로 보여서,
+         --   판매자는 아직 심사 중인 줄 알고 기다리게 됐습니다.
+         m.isExpired AS marketIsExpired,
          m.hostId, hu.nickname AS hostNickname,
          m.maxparticipants,
          (SELECT COUNT(*) FROM applications a2
@@ -395,7 +399,8 @@ export async function approveSellerApplication(req, res) {
   try {
     const [rows] = await pool.query(
       `SELECT a.applicationId, a.marketId, a.boothNumber, a.sellerId, a.itemName,
-              m.hostId, m.title AS marketTitle, m.allowOvercapacity, m.eventDate_min
+              m.hostId, m.title AS marketTitle, m.allowOvercapacity, m.eventDate_min,
+              m.isExpired
        FROM applications a
        JOIN markets m ON m.marketId = a.marketId
        WHERE a.applicationId = ?`,
@@ -408,6 +413,19 @@ export async function approveSellerApplication(req, res) {
     const application = rows[0];
     if (Number(application.hostId) !== Number(userId)) {
       return res.status(403).json({ success: false, data: null, message: '본인 마켓의 신청 건만 처리할 수 있습니다.' });
+    }
+
+    // [추가] 취소된 마켓(isExpired=2)에서는 승인할 수 없습니다.
+    //   승인하면 판매자 화면에 「승인됨」으로 뜨고 결제 안내까지 나가는데,
+    //   정작 열리지 않는 마켓이라 판매자가 헛되이 결제하게 됩니다.
+    //   화면에서도 버튼을 감추지만, API 직접 호출을 막으려면 서버에서 걸러야 합니다.
+    if (Number(application.isExpired) === 2) {
+      return res.status(409).json({
+        success: false,
+        data: null,
+        code: 'MARKET_CANCELLED',
+        message: '취소된 마켓의 신청은 승인할 수 없습니다.',
+      });
     }
 
     const [conflicts] = await pool.query(

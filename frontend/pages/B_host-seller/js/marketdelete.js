@@ -502,9 +502,8 @@ function renderMarketItem(market) {
   }
 
   return `
-<li class="my-market-item"
-    data-market-id="${id}"
-    style="${statusKey === 'cancel' ? 'pointer-events:none; opacity:0.5;' : ''}">
+<li class="my-market-item${statusKey === 'cancel' ? ' is-cancelled' : ''}"
+    data-market-id="${id}">
 
   <div class="my-market-item-top"
        data-action="toggle"
@@ -519,7 +518,12 @@ function renderMarketItem(market) {
 
   <div class="item-card-actions">
     <a class="btn btn-outline btn-sm" href="${marketUrl}" ${marketAttrs}>수정하기</a>
-    <button type="button" class="btn btn-danger btn-sm" data-action="delete" data-id="${id}">취소하기</button>
+    <button type="button" class="btn btn-danger btn-sm" data-action="delete" data-id="${id}"
+            ${statusKey === 'cancel' ? 'disabled title="이미 취소된 마켓이에요."' : ''}>취소하기</button>
+    <!-- [수정] 취소된 마켓도 「보러가기」는 눌러야 합니다.
+         예전에는 카드 전체에 pointer-events:none 이 걸려 있어서,
+         환불이 제대로 나갔는지 확인하러 들어갈 수조차 없었습니다.
+         수정·취소만 잠그고 조회는 열어둡니다. -->
     <a class="btn btn-sage btn-sm" href="market-detail?marketId=${id}">보러가기</a>
   </div>
 
