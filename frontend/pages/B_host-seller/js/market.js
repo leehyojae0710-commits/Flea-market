@@ -1682,10 +1682,11 @@ function handleCommentSubmit() {
 async function refundMemoBtn(applicationId) {
   const inputContainer = document.getElementById(`inputContainer-${applicationId}`);
   if (inputContainer) inputContainer.style.display = 'block';
+  refundPayment_(applicationId);
 }
-async function refundPayment_(a) {
-  const inputContainer = document.getElementById(`inputContainer-${a}`);
-  const memotxt = document.getElementById(`userInput-${a}`)?.value;
+async function refundPayment_(applicationId) {
+  const inputContainer = document.getElementById(`inputContainer-${applicationId}`);
+  const memotxt = document.getElementById(`userInput-${applicationId}`)?.value;
   if (!memotxt)
     return;
   if (memotxt.length <= 0) {
