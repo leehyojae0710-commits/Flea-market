@@ -9,8 +9,6 @@ import marketRoutes from './routes/marketRoutes.js';
 import applicationRoutes from './routes/applicationRoutes.js';
 import payRoutes from './routes/payRoutes.js';
 import commentRoutes from './routes/commentRoutes.js';
-import scheduleRoutes from './routes/scheduleRoutes.js';
-import checkinRoutes from './routes/checkinRoutes.js';
 import pool from './config/db.js'; // DB 데이터를 가져오기 위해 연결 풀을 불러옵니다.
 import swaggerSpec from './config/swagger.js';
 import upload, { uploadItemImage, uploadProfileImage } from './middleware/multer.js';
@@ -62,8 +60,6 @@ app.use('/api/markets', marketRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/payments', payRoutes);
 app.use('/api/comments', commentRoutes);
-app.use('/api/schedules', scheduleRoutes);
-app.use('/api/checkins', checkinRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec)); // http://localhost:5000/api-docs
 // [수정] 업로드 경로를 config/uploadPaths.js 한 곳에서 관리합니다.
