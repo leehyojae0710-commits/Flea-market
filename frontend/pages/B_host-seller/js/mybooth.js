@@ -69,7 +69,6 @@ const STATUS_CLASS = {
   Refunded: 'refunded',
   RefundRequested: 'RefundRequested',
   Cancelled: 'rejected'
-
 };
 
 // 여러 곳(중복 요약/그룹 헤더 등)에서 공통으로 쓰는 HTML 이스케이프
