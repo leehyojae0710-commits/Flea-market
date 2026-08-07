@@ -504,19 +504,7 @@ function initDateInputs() {
     });
   })
 }
-// async function createMarketWithImage(formData) {
-//   const token = sessionStorage.getItem('token');
 
-//   const res = await fetch(apiUrl('/markets'), {
-//     method: 'POST',
-//     headers: {
-//       'Authorization': `Bearer ${token}`
-//     },
-//     body: formData, // JSON.stringify 하지 않고 그대로 전달
-//   });
-
-//   return res.json();
-// }
 
 // ---------- 마켓 상세 ----------
 

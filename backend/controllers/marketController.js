@@ -94,7 +94,7 @@ export async function getMarketDetail(req, res) {
 // POST /api/markets (로그인 필요, 주최자)
 export async function createMarket(req, res) {
   const { userId } = req.user;
-  let { title, description, marketImage, locationName, region, latitude, longitude, eventDate_min, eventDate_max, boothPrice, isExpired, maxparticipants, recruitmentDate_min, recruitmentDate_max, allowDuplicateApplication , boothPrice_origin } = req.body;
+  let { title, description, marketImage, locationName, region, latitude, longitude, eventDate_min, eventDate_max, boothPrice, isExpired, maxparticipants, recruitmentDate_min, recruitmentDate_max, allowDuplicateApplication, boothPrice_origin } = req.body;
   //console.log(req.body);
 
   if (!title || !eventDate_min || !eventDate_max || !locationName) {
@@ -117,7 +117,7 @@ export async function createMarket(req, res) {
     const [result] = await pool.query(
       `INSERT INTO markets (hostId, title, description, marketImage, locationName, region, latitude, longitude, eventDate_min, eventDate_max, boothPrice, isExpired, maxparticipants,recruitmentDate_min,recruitmentDate_max,allowDuplicateApplication , boothPrice_origin)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?)`,
-      [userId, title, description || '', marketImage || null, locationName, region || null, latitude || 0, longitude || 0, eventDate_min, eventDate_max, boothPrice || 0, isExpired || 0, maxparticipants || 9999, recruitmentDate_min, recruitmentDate_max, allowDuplicateApplicationVal, boothPrice_origin ]
+      [userId, title, description || '', marketImage || null, locationName, region || null, latitude || 0, longitude || 0, eventDate_min, eventDate_max, boothPrice || 0, isExpired || 0, maxparticipants || 9999, recruitmentDate_min, recruitmentDate_max, allowDuplicateApplicationVal, boothPrice_origin]
     );
 
     //console.log('req.body 전체:', req.body);
@@ -170,8 +170,11 @@ export async function updateMarketStatus(req, res) {
     if (region) { fields.push('region = ?'); values.push(region); }
     if (latitude !== undefined) { fields.push('latitude = ?'); values.push(latitude); }
     if (longitude !== undefined) { fields.push('longitude = ?'); values.push(longitude); }
-    if (maxParticipants !== undefined) { fields.push('maxParticipants = ?'); values.push(maxParticipants); }
-    // [추가] 정원이 차도 행사 시작 전까지는 초과 신청/결제를 받을지 여부 (주최자가 직접 관리)
+    if (maxParticipants !== undefined) {
+      const maxParticipantsVal = Number(maxParticipants) === 0 ? 9999 : maxParticipants;
+      fields.push('maxParticipants = ?');
+      values.push(maxParticipantsVal);
+    }
     if (allowOvercapacity !== undefined) { fields.push('allowOvercapacity = ?'); values.push(allowOvercapacity ? 1 : 0); }
     // [추가] 같은 판매자가 이 마켓에 부스를 중복(같은 상품이든 다른 상품이든) 신청하는 것을 허용할지 여부
     if (allowDuplicateApplication !== undefined) { fields.push('allowDuplicateApplication = ?'); values.push(allowDuplicateApplication ? 1 : 0); }
