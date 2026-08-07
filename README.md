@@ -19,7 +19,7 @@
 | B | 주최측/판매자 화면 (프론트) | `frontend/pages/B_host-seller/` |
 | C | DB 설계 + 회원 인증 + 메인 필터 API (백엔드) | `backend/src/routes/auth.routes.js`, `market.routes.js`(조회), `models/` |
 | D | 부스신청/결제/댓글/일정 API (백엔드) | `backend/src/routes/application.routes.js`, `payment.routes.js`, `comment.routes.js` |
-| E | 지도/QR 연동 + 프론트-백 통합 | `integration/`, 매주 코드 병합 담당 |
+| E | 지도 연동 + 프론트-백 통합 | `integration/`, 매주 코드 병합 담당 |
 
 ## 충돌 방지 규칙 (필독)
 

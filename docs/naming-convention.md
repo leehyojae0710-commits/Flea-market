@@ -33,12 +33,11 @@
 - `processFakePayment()`
 - `createComment()`
 - `getCommentList()`
-- `generateEntranceQRCode()` (담당 E)
 
 ## 파일 분리 규칙 (충돌 방지)
 - 같은 파일을 여러 명이 동시에 수정하지 않습니다. 기능 = 파일 단위로 쪼갭니다.
   - `auth.*` : 담당 A(프론트) / C(백엔드)
   - `market.*` : 담당 B(프론트) / C·D(백엔드)
   - `payment.*`, `comment.*` : 담당 B(프론트) / D(백엔드)
-  - `map.js`, `qrcode.js` : 담당 E
+  - `map.js` : 담당 E
 - 공통 로직이 필요하면 `frontend/common/js/api.js` 또는 `backend/src/config/`에 추가하고 팀에 공지 후 커밋합니다.
