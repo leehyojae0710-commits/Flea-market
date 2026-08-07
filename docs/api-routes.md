@@ -20,9 +20,7 @@
 | 모의 결제 처리 | `/api/payments/fake` | POST | D |
 | 댓글 등록 | `/api/comments` | POST | D |
 | 댓글 목록 조회 | `/api/comments?targetId=` | GET | D |
-| 내 일정 조회 | `/api/schedules/me` | GET | D |
 | 지도 좌표 저장 | `/api/markets/:marketId/location` | PATCH | E |
-| QR 코드 발급 | `/api/checkins/:userId/qrcode` | GET | E |
 
 공통 규칙:
 - 목록 조회는 항상 GET + 복수형 명사 (`/markets`, `/comments`)

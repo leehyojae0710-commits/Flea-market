@@ -201,14 +201,6 @@ const options = {
             selling: { type: 'array', items: { $ref: '#/components/schemas/ScheduleItemSelling' } },
           },
         },
-        QrCodeData: {
-          type: 'object',
-          properties: {
-            userId: { type: 'integer' },
-            payload: { type: 'string', example: 'checkin:1' },
-            qrImage: { type: 'string', description: 'base64 PNG data URL' },
-          },
-        },
         UserUpdateData: {
           type: 'object',
           properties: {
