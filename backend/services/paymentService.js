@@ -23,7 +23,7 @@ export async function verifyPayment(paymentId) {
   }
 }
 
-export async function cencelPayment(paymentId, reason, amount = null) {
+export async function cancelPayment(paymentId, reason, amount = null) {
   try {
     const body = { reason };
     if (amount != null)

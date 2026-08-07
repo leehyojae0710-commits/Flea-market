@@ -1,5 +1,5 @@
 import pool from '../config/db.js';
-import { verifyPayment, cencelPayment } from '../services/paymentService.js';
+import { verifyPayment, cancelPayment } from '../services/paymentService.js';
 import { calculateRefundRate } from '../utills/refundPolicy.js'
 import { createNotification } from '../services/notificationService.js';
 
@@ -186,7 +186,7 @@ export async function refundPayment(req, res) {
 
     if (payment.status == 'Paid') {
       console.log('여기 실행됨: Paid 분기, reason =', reason);
-      const cancelResult = await cencelPayment(
+      const cancelResult = await cancelPayment(
         payment.paymentKey,
         reason || '주최자 요청에 의한 환불'
       )
@@ -195,7 +195,7 @@ export async function refundPayment(req, res) {
     if (payment.status == 'RefundRequested') {
       console.log('여기 실행됨: RefundRequested 분기, refundAmount =', payment.refundAmount);
       // 📌 미리 계산해둔 refundAmount로 부분 환불 실행
-      await cencelPayment(payment.paymentKey, '환불 승인 처리', payment.refundAmount);
+      await cancelPayment(payment.paymentKey, '환불 승인 처리', payment.refundAmount);
     }
 
     await pool.query(

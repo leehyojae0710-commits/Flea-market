@@ -53,13 +53,7 @@ const STATUS_LABEL = {
   Paid: '결제됨',
   Refunded: '결제 취소',
   RefundRequested: '환불 요청',
-  // [추가] 주최자가 마켓을 취소하면 결제 전 신청은 Cancelled 로 정리됩니다.
-  //   라벨이 없으면 화면에 빈칸으로 보여서 함께 넣습니다.
-  Cancelled: '마켓 취소됨',
-  // [추가] 화면 표시 전용 상태. DB 에는 없고 displayStatusOf() 가 만들어 냅니다.
-  //   마켓이 취소되면 신청은 Pending/Approved 로 남지만 더 진행되지 않으므로
-  //   목록·필터 모두 이 값으로 다룹니다.
-  MarketCancelled: '마켓 취소됨'
+  Canceled: '주최자에 의한 마켓 취소',
 };
 const STATUS_CLASS = {
   Pending: 'pending',
@@ -68,7 +62,7 @@ const STATUS_CLASS = {
   Paid: 'paid',
   Refunded: 'refunded',
   RefundRequested: 'RefundRequested',
-  Cancelled: 'rejected'
+  Canceled: 'canceled',
 };
 
 // 여러 곳(중복 요약/그룹 헤더 등)에서 공통으로 쓰는 HTML 이스케이프
@@ -466,13 +460,12 @@ function renderBoothCard(a) {
   //   그런데 신청 상태값 자체는 Pending/Approved 로 남아 있어서
   //   판매자 화면에는 「대기중」으로 보였고, 아직 심사 중인 줄 알고 기다리게 됐습니다.
   //   결제 완료(Paid)·환불(Refunded) 건은 원래 상태를 그대로 보여줘야 하므로 건드리지 않습니다.
-  const marketCancelled = Number(a.marketIsExpired) === 2;
+  const Canceled = Number(a.marketIsExpired) === 2;
   const displayStatus = displayStatusOf(a);
-  const showAsCancelled = displayStatus === 'MarketCancelled';
   const refundAmount = a.refundAmount;
   // 취소된 마켓의 신청은 수정·결제 대상이 아닙니다. (삭제는 남겨둬 정리할 수 있게 합니다)
-  const isPending = status === 'Pending' && !marketCancelled;
-  const isApproved = (status === 'Approved' || status === 'Paid') && !marketCancelled;
+  const isPending = status === 'Pending' && !Canceled;
+  const isApproved = (status === 'Approved' || status === 'Paid') && !Canceled;
   // 삭제(신청 취소)는 마켓이 취소돼도 눌려야 합니다.
   //   막아두면 판매자가 목록에서 정리할 방법이 없어집니다.
   const canDelete = status === 'Pending';
@@ -599,13 +592,16 @@ function renderPaymentArea(a) {
       </span>`;
   }
 
-  return `
+  if (a.status === 'Approved') {
+    return `
     <span class="payment-area">
       <a class="btn btn-danger btn-sm" href="payment?applicationId=${id}&amount=${a.boothPrice}&orderName=${a.marketTitle + '부스료'}">
       결제하기
       </a>
       <span class="payment-timer" data-due="${a.paymentDueAt}"></span>
     </span>`;
+  }
+  return '';
 }
 
 function updateTimers() {
@@ -794,11 +790,11 @@ function requestRefund_btn(a_id, a_status, p_refundAmount) {
   const inputContainer = document.getElementById('inputContainer');
   const btnText = document.getElementById('refunded_btn');
   if (inputContainer.style.display === 'none') {
-    btnText.textContent  = '환불 요청 취소';
+    btnText.textContent = '환불 요청 취소';
     inputContainer.style.display = 'block'
   }
   else {
-    btnText.textContent  = '환불 요청';
+    btnText.textContent = '환불 요청';
     inputContainer.style.display = 'none'
   }
 }
@@ -860,9 +856,9 @@ const STATUS_FILTER_MAP = {
  */
 function displayStatusOf(a) {
   const status = a.status || 'Pending';
-  const marketCancelled = Number(a.marketIsExpired) === 2;
-  if (marketCancelled && (status === 'Pending' || status === 'Approved')) {
-    return 'MarketCancelled';
+  const Canceled = Number(a.marketIsExpired) === 2;
+  if (Canceled && (status === 'Pending' || status === 'Approved')) {
+    return '주최자에 의한 마켓 취소';
   }
   return status;
 }
@@ -873,12 +869,12 @@ function applyStatusFilter() {
   const groupedStatuses = STATUS_FILTER_MAP[statusFilter];
   const byStatus = !duplicateOnly && statusFilter
     ? allApplications.filter((a) => {
-        // 화면에 보이는 상태와 같은 기준으로 거릅니다.
-        const status = displayStatusOf(a);
-        return groupedStatuses
-          ? groupedStatuses.includes(status)
-          : status === statusFilter;
-      })
+      // 화면에 보이는 상태와 같은 기준으로 거릅니다.
+      const status = displayStatusOf(a);
+      return groupedStatuses
+        ? groupedStatuses.includes(status)
+        : status === statusFilter;
+    })
     : allApplications;
   const byDuplicate = duplicateOnly
     ? byStatus.filter((a) => Number(a.marketDuplicateCount) >= 2)
