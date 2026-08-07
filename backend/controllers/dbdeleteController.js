@@ -1,6 +1,6 @@
 import { dbdelete } from '../utills/DBdelete.js';
 import pool from '../config/db.js';
-import { cencelPayment } from '../services/paymentService.js';
+import { cancelPayment } from '../services/paymentService.js';
 
 //마켓
 // [변경] 실제로 행을 DELETE 하지 않고 isExpired 을 2(삭제됨)로 바꾸는 소프트 삭제 방식으로 변경했습니다.
@@ -40,7 +40,7 @@ export async function deleteMarket(req, res) {
           continue;
         }
         if (application.status == 'Paid') {
-          await cencelPayment(paymentRows[0].paymentKey, '마켓 취소로 인한 결제 취소');
+          await cancelPayment(paymentRows[0].paymentKey, '마켓 취소로 인한 결제 취소');
           await pool.query(`UPDATE payments SET status = 'Canceled', refundReason = '마켓 취소로 인한 결제 취소' WHERE applicationId = ?`, [application.applicationId]);
         }
 
